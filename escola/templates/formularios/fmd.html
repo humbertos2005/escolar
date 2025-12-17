@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="formulario-impressao">
+    <div class="cabecalho">
+        <div class="logo-escola">
+            <i class="fas fa-gavel"></i>
+        </div>
+        <div class="titulo-documento">
+            <h1>FICHA DE MEDIDA DISCIPLINAR</h1>
+            <h2>FMD Nº {{ fmd.fmd_id }}</h2>
+        </div>
+    </div>
+
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Identificação do Aluno</h3>
+        <div class="grid-info">
+            <div class="info-item">
+                <span class="label">Matrícula:</span>
+                <span class="valor">{{ fmd.matricula }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Nome Completo:</span>
+                <span class="valor">{{ fmd.nome_aluno }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Série:</span>
+                <span class="valor">{{ fmd.serie }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Turma:</span>
+                <span class="valor">{{ fmd.turma }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Dados da Medida Disciplinar</h3>
+        <div class="grid-info">
+            <div class="info-item">
+                <span class="label">Data da FMD:</span>
+                <span class="valor">{{ fmd.data_fmd | data_br }}</span>
+            </div>
+            {% if fmd.rfo_id %}
+            <div class="info-item">
+                <span class="label">RFO Vinculado:</span>
+                <span class="valor">{{ fmd.rfo_id }}</span>
+            </div>
+            {% endif %}
+            <div class="info-item">
+                <span class="label">Tipo de Falta:</span>
+                <span class="valor badge-falta {{ fmd.tipo_falta|lower }}">{{ fmd.tipo_falta }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Status:</span>
+                <span class="valor badge-status {{ fmd.status|lower }}">{{ fmd.status }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Medida Aplicada</h3>
+        <div class="medida-aplicada">
+            {{ fmd.medida_aplicada }}
+        </div>
+    </div>
+
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Descrição da Falta</h3>
+        <div class="texto-relato">
+            {{ fmd.descricao_falta }}
+        </div>
+    </div>
+
+    {% if fmd.observacoes %}
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Observações</h3>
+        <div class="texto-relato">
+            {{ fmd.observacoes }}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="secao-compromisso">
+        <h3 class="titulo-secao">Termo de Compromisso</h3>
+        <p>Declaro estar ciente da medida disciplinar aplicada e comprometo-me a cumprir integralmente 
+        as determinações estabelecidas neste documento, bem como a não reincidir nas faltas que 
+        motivaram esta medida.</p>
+    </div>
+
+    <div class="assinaturas">
+        <div class="assinatura-campo">
+            <div class="linha-assinatura"></div>
+            <p>Aluno(a)</p>
+            <small>{{ fmd.nome_aluno }}</small>
+        </div>
+        <div class="assinatura-campo">
+            <div class="linha-assinatura"></div>
+            <p>Responsável pelo Aluno</p>
+        </div>
+        <div class="assinatura-campo">
+            <div class="linha-assinatura"></div>
+            <p>Gestor Escolar</p>
+            <small>{{ fmd.responsavel_username }}</small>
+        </div>
+    </div>
+
+    <div class="rodape">
+        <p>Documento gerado em {{ moment().format('DD/MM/YYYY [às] HH:mm') }}</p>
+        <p><small>Este documento tem validade legal e deve ser arquivado no prontuário do aluno.</small></p>
+    </div>
+
+    <div class="acoes-impressao no-print">
+        <button onclick="window.print()" class="button btn-primary">
+            <i class="fas fa-print"></i> Imprimir
+        </button>
+        <button onclick="window.close()" class="button btn-secondary">
+            <i class="fas fa-times"></i> Fechar
+        </button>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, .sidebar, nav, .toolbar {
+        display: none !important;
+    }
+    
+    body {
+        margin: 0;
+        padding: 0;
+        background: white;
+    }
+    
+    .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .formulario-impressao {
+        box-shadow: none !important;
+    }
+}
+
+.formulario-impressao {
+    max-width: 900px;
+    margin: 20px auto;
+    background: white;
+    padding: 40px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.cabecalho {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 3px solid #2c3e50;
+}
+
+.logo-escola i {
+    font-size: 4em;
+    color: #e74c3c;
+    margin-bottom: 10px;
+}
+
+.titulo-documento h1 {
+    color: #2c3e50;
+    font-size: 1.8em;
+    margin: 10px 0;
+    font-weight: 700;
+}
+
+.titulo-documento h2 {
+    color: #e74c3c;
+    font-size: 1.4em;
+    margin: 5px 0;
+    font-weight: 700;
+}
+
+.secao-documento {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.titulo-secao {
+    color: #2c3e50;
+    font-size: 1.3em;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e74c3c;
+    font-weight: 600;
+}
+
+.grid-info {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.label {
+    font-weight: 600;
+    color: #555;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.valor {
+    color: #2c3e50;
+    font-size: 1em;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.badge-falta {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.badge-falta.leve {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-falta.média {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.badge-falta.grave {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.badge-status {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.badge-status.ativa {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-status.cumprida {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.badge-status.cancelada {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.medida-aplicada {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 5px;
+    color: #856404;
+    font-weight: 600;
+    font-size: 1.1em;
+    border-left: 4px solid #ffc107;
+}
+
+.texto-relato {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    color: #2c3e50;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    border-left: 4px solid #e74c3c;
+}
+
+.secao-compromisso {
+    margin: 40px 0;
+    padding: 20px;
+    background: #fffbea;
+    border: 2px solid #ffc107;
+    border-radius: 8px;
+}
+
+.secao-compromisso p {
+    color: #856404;
+    line-height: 1.8;
+    text-align: justify;
+}
+
+.assinaturas {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    margin-top: 50px;
+    margin-bottom: 30px;
+}
+
+.assinatura-campo {
+    text-align: center;
+}
+
+.linha-assinatura {
+    border-top: 2px solid #2c3e50;
+    margin-bottom: 10px;
+}
+
+.assinatura-campo p {
+    font-size: 0.9em;
+    color: #555;
+    font-weight: 600;
+    margin: 5px 0;
+}
+
+.assinatura-campo small {
+    font-size: 0.8em;
+    color: #7f8c8d;
+}
+
+.rodape {
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+.rodape small {
+    font-size: 0.85em;
+}
+
+.acoes-impressao {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+@media (max-width: 768px) {
+    .grid-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .assinaturas {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+}
+</style>
+
+{% endblock %}

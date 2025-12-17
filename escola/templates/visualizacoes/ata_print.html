@@ -1,0 +1,73 @@
+﻿{% set resp = (ata.responsavel or '') | trim %}
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ATA {{ ata.numero }}/{{ ata.ano }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111; margin: 36px; }
+    .cabecalho { text-align: center; margin-bottom: 6px; }
+    .logo { max-height: 90px; display:block; margin: 0 auto 6px; }
+    /* Cabeçalho: mesma tamanho de fonte nas linhas (inclui nome da escola) */
+    .cabecalho .linha { font-size: 16px; margin: 2px 0; font-weight: 600; letter-spacing: 0.2px; }
+    .cabecalho .escola { font-weight: 600; font-size: 16px; margin: 2px 0; }
+    h3.title { text-align:center; margin-top: 12px; margin-bottom: 6px; }
+    /* Espaçador extra entre título e parágrafo principal (aumentado em "2 linhas" visuais) */
+    .espacador-apos-titulo { height: 44px; } /* aumentei para duas linhas visuais */
+    /* Conteúdo principal justificado */
+    .conteudo { text-align: justify; text-justify: inter-word; margin-top: 8px; line-height: 1.45; }
+    .assinaturas { display:flex; justify-content:space-around; margin-top:40px; flex-wrap:wrap; gap:20px; }
+    .assinatura-campo { width:30%; min-width:220px; text-align:center; }
+    .linha-assinatura { border-top:1px solid #111; height: 1px; margin-bottom:8px; }
+    .assinatura-campo p { font-weight:bold; margin:0; }
+    .assinatura-cargo { font-weight:normal; font-size:0.9em; color:#666; }
+  </style>
+</head>
+<body>
+  <div class="cabecalho">
+    <img class="logo"
+         src="{% if (cabecalho and cabecalho.get('logo_file')) %}{{ cabecalho.get('logo_file') }}{% elif (LOGO_DATA_URI is defined and LOGO_DATA_URI) %}{{ LOGO_DATA_URI }}{% elif (cabecalho and cabecalho.get('logo_url')) %}{{ cabecalho.get('logo_url') }}{% else %}{{ url_for('static', filename='uploads/cabecalho/logo_top.png', _external=True) }}{% endif %}"
+         alt="Logotipo">
+    <div class="linha">{{ cabecalho.get('estado') if cabecalho else 'ESTADO DO MATO GROSSO' }}</div>
+    <div class="linha">{{ cabecalho.get('secretaria') if cabecalho else 'SECRETARIA DE ESTADO DO MATO GROSSO' }}</div>
+    <div class="linha">{{ cabecalho.get('coordenacao') if cabecalho else 'COORDENADORIA DE ESCOLAS MILITARES' }}</div>
+    <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
+  </div>
+
+  <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
+
+  <div class="espacador-apos-titulo"></div>
+
+  <p class="conteudo">
+    {% set data_text = ata.data_extenso if ata.get('data_extenso') else (ata.created_at if ata.get('created_at') else '') %}
+    Aos {{ data_text }}, compareceu na {{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}
+    o(a) Sr.(a) <strong>{{ resp if resp else (ata.aluno.nome if ata.get('aluno') else (ata.aluno_nome or '')) }}</strong>,
+    responsável pelo(a) aluno(a) <strong>{{ ata.aluno_nome }}</strong>,
+    matriculado(a) na(s) {{ ata.serie_turma if ata.get('serie_turma') else '' }},
+    para tratar do(s) seguinte(s) assunto(s): {{ ata.conteudo or '' }}.
+  </p>
+
+  {% set parts = [] %}
+  {% if ata.participants_json %}
+    {% if ata.participants_json is iterable and ata.participants_json is not string %}
+      {% set parts = ata.participants_json %}
+    {% else %}
+      {% set parts = (ata.participants_json | from_json) %}
+    {% endif %}
+  {% endif %}
+
+  <div class="assinaturas">
+    {% for p in parts %}
+      {% set pname = (p.get('name') or p.get('nome') or '') | trim %}
+      {% if pname %}
+        <div class="assinatura-campo">
+          <div class="linha-assinatura"></div>
+          <p>{{ pname | upper }}</p>
+          <div class="assinatura-cargo">{{ (p.get('cargo') or p.get('role') or '') }}</div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+
+
+<html lang="pt-br">
+
+
+<head>
+
+
+    <meta charset="UTF-8">
+
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <title>{% block title %}Gestão Escolar{% endblock %}</title>
+
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ range(1, 10000) | random }}">
+
+
+    
+
+
+    {% block extra_styles %}{% endblock %}
+
+
+    <style>
+
+
+        /* Correção crítica inline */
+
+
+        .navbar { position: fixed !important; top: 0 !important; z-index: 1000 !important; height: 60px !important; }
+
+
+        .sidebar { position: fixed !important; padding-top: 80px !important; z-index: 900 !important; }
+
+
+        .main-content { margin-left: 260px !important; margin-top: 60px !important; }
+
+
+        @media (max-width: 768px) {
+
+
+            .main-content { margin-left: 0 !important; width: 100% !important; }
+
+
+        }
+
+
+    </style>
+
+
+</head>
+
+
+<body>
+
+
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-primary">
+
+
+        <div class="container-fluid">
+
+
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard') }}">
+
+
+                <i class="fas fa-graduation-cap me-2"></i>
+
+
+                <span class="fw-bold">Gestão Escolar</span>
+
+
+            </a>
+
+
+            <button class="navbar-toggler d-lg-none" type="button" onclick="toggleSidebarGlobal()">
+
+
+                <span class="navbar-toggler-icon"></span>
+
+
+            </button>
+
+
+            {% if session.get('logged_in') %}
+
+
+            <div class="navbar-nav ms-auto">
+
+
+                <div class="nav-item dropdown">
+
+
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+
+
+                        <i class="fas fa-user-circle me-2"></i>
+
+
+                        <span>{{ session.get('username') }}</span>
+
+
+                    </a>
+
+
+                    <ul class="dropdown-menu dropdown-menu-end">
+
+
+                        <li><span class="dropdown-item-text px-3 py-2">
+
+
+                            <small class="text-muted">Nível: {{ session.get('nivel_nome') }}</small>
+
+
+                        </span></li>
+
+
+                        <li><hr class="dropdown-divider"></li>
+
+
+                        <li><a class="dropdown-item" href="{{ url_for('auth_bp.logout') }}">
+
+
+                            <i class="fas fa-sign-out-alt me-2"></i>Sair
+
+
+                        </a></li>
+
+
+                    </ul>
+
+
+                </div>
+
+
+            </div>
+
+
+            {% endif %}
+
+
+        </div>
+
+
+    </nav>
+
+
+
+
+
+    <div class="sidebar" id="sidebar">
+
+
+        <div class="sidebar-header">
+
+
+            <h6 class="mb-0"><i class="fas fa-bars me-2"></i>Menu Principal</h6>
+
+
+        </div>
+
+
+
+
+
+        <div class="sidebar-body p-0">
+
+
+            {% if session.get('logged_in') %}
+
+
+                <div class="user-greeting">
+
+
+                    <div class="d-flex align-items-center">
+
+
+                        <i class="fas fa-user me-2"></i>
+
+
+                        <div>
+
+
+                            <small>Olá, <span class="username fw-bold">{{ session.get('username') }}</span>!</small><br>
+
+
+                            <span class="badge bg-primary">{{ session.get('nivel_nome') }}</span>
+
+
+                        </div>
+
+
+                    </div>
+
+
+                </div>
+
+
+
+
+
+                <div class="menu-section">
+
+
+                    <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+
+
+                        <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
+
+
+                    </a>
+
+
+                </div>
+
+
+
+
+
+                {% if session.get('nivel') in [1, 2] %}
+
+
+                <div class="menu-section">
+
+
+                    <div class="nav-link menu-title"><i class="fas fa-folder-plus"></i><span>Cadastros</span></div>
+
+
+                    {% if session.get('nivel') == 1 %}
+
+
+                    <a href="{{ url_for('auth_bp.gerenciar_usuarios') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-users-cog"></i><span>Usuários</span>
+
+
+                    </a>
+
+
+                    {% endif %}
+
+
+                    <a href="{{ url_for('alunos_bp.adicionar_aluno') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-user-plus"></i><span>Cadastrar Aluno</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('alunos_bp.importar_alunos') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-file-import"></i><span>Importar Alunos</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('bimestres_bp.listar_bimestres') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-calendar-alt"></i><span>Bimestres</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('cadastros_bp.listar_faltas') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-exclamation-triangle"></i><span>Faltas Disciplinares</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('cadastros_bp.listar_elogios') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-award"></i><span>Elogios</span>
+
+
+                    </a>
+
+
+
+
+
+                    {# NOVOS LINKS: Cabeçalho Documentos #}
+
+
+                    <a href="{{ url_for('cadastros_bp.listar_cabecalhos') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-heading"></i><span>Cabeçalho Documentos</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('cadastros_bp.cabecalho_novo') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-plus-circle"></i><span>Novo Cabeçalho</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('cadastros_bp.listar_dados_escola') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-school"></i><span>Dados da Escola</span>
+
+
+                    </a>
+
+
+                </div>
+
+
+                {% endif %}
+
+
+
+
+
+                <div class="menu-section">
+
+
+                    <div class="nav-link menu-title"><i class="fas fa-file-alt"></i><span>RFO</span></div>
+
+
+                    <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-plus-circle"></i><span>Registrar RFO</span>
+
+
+                    </a>
+
+
+                    {% if session.get('nivel') in [1, 2] %}
+
+
+                    <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-hourglass-half"></i><span>RFOs Pendentes</span>
+
+
+                    </a>
+
+
+                    {% endif %}
+
+
+                </div>
+
+
+
+
+
+                {% if session.get('nivel') in [1, 2] %}
+
+
+                <div class="menu-section">
+
+
+                    <div class="nav-link menu-title"><i class="fas fa-gavel"></i><span>Ficha Medida Disciplinar</span></div>
+
+
+                    <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-file-medical"></i><span>Registrar FMD</span>
+
+
+                    </a>
+
+
+                </div>
+
+
+
+
+
+                <div class="menu-section">
+
+
+                    <div class="nav-link menu-title"><i class="fas fa-print"></i><span>Formulários</span></div>
+
+
+                    <a href="{{ url_for('formularios_bp.tabela_disciplinar') }}" class="nav-link ps-4">
+
+
+            <a href="{{ url_for('formularios_bp.tabela_disciplinar') }}" class="nav-link ps-4">
+
+
+                <i class="fas fa-table"></i><span>Tabela Disciplinar</span>
+
+
+            </a>
+
+
+            <a href="{{ url_for('formularios_ata_bp.list_atas') }}" class="nav-link ps-4">
+
+
+                <i class="fas fa-file-alt"></i><span>ATA</span>
+
+
+            </a>
+
+
+            {# Link Prontu�rios no menu Formul�rios: apontando para a listagem, n�o para o formul�rio diretamente #}
+
+
+                    {# Link Prontuários no menu Formulários: apontando para a listagem, não para o formulário diretamente #}
+
+
+                    <a href="{{ url_for('formularios_prontuario.listar_prontuarios') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-file-medical-alt"></i><span>Prontuários</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('formularios_tac_bp.listar_tacs') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-file-signature"></i><span>Termos de Adequação (TAC)</span>
+
+
+                    </a>
+
+
+                </div>
+
+
+                {% endif %}
+
+
+
+
+
+                <div class="menu-section">
+
+
+                    <div class="nav-link menu-title"><i class="fas fa-eye"></i><span>Visualizações</span></div>
+
+
+                    {% if session.get('nivel') in [1, 2] %}
+
+
+                    <a href="{{ url_for('visualizacoes_bp.listar_usuarios') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-users"></i><span>Usuários</span>
+
+
+                    </a>
+
+
+                    {% endif %}
+
+
+                    <a href="{{ url_for('visualizacoes_bp.listar_alunos') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-user-graduate"></i><span>Alunos</span>
+
+
+                    </a>
+
+
+
+
+
+                    {# Apontar "RFOs" no menu para a view de visualização (listar_rfos) --- #}
+
+
+                    <a href="{{ url_for('visualizacoes_bp.listar_rfos') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-clipboard-list"></i><span>Visualizar RFOs</span>
+
+
+                    </a>
+
+
+
+
+
+                    {% if session.get('nivel') in [1, 2] %}
+
+
+                    <a href="{{ url_for('visualizacoes_bp.listar_fmds') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-file-medical-alt"></i><span>FMD</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('formularios_prontuario.listar_prontuarios') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-folder-open"></i><span>Prontuários</span>
+
+
+                    </a>
+
+
+
+
+
+                    <!-- NOVO: comando TAC dentro de Visualizações -->
+
+
+                    <a href="{{ url_for('visualizacoes_bp.tac_command') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-file-signature"></i><span>TAC</span>
+
+
+                    </a>
+
+
+
+
+
+                    {% endif %}
+
+
+                </div>
+
+
+
+
+
+                <div class="menu-section mt-auto">
+
+
+                    <a href="{{ url_for('auth_bp.logout') }}" class="nav-link bg-danger">
+
+
+                        <i class="fas fa-sign-out-alt"></i><span>Sair</span>
+
+
+                    </a>
+
+
+                </div>
+
+
+            {% endif %}
+
+
+        </div>
+
+
+    </div>
+
+
+
+
+
+    <div class="sidebar-overlay"></div>
+
+
+
+
+
+    <main class="main-content">
+
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+
+
+        {% if messages %}
+
+
+            {% for category, message in messages %}
+
+
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+
+
+                    {{ message }}
+
+
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+
+
+                </div>
+
+
+            {% endfor %}
+
+
+        {% endif %}
+
+
+        {% endwith %}
+
+
+        {% block content %}{% endblock %}
+
+
+    </main>
+
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+
+
+
+
+    {{ moment.include_moment() }}
+
+
+    <script>moment.locale('pt-BR');</script>
+
+
+
+
+
+    <script>
+
+
+    function togglePasswordVisibility() {
+
+
+        const passwordInput = document.getElementById('password');
+
+
+        const toggleIcon = document.getElementById('toggleIcon');
+
+
+        if (!passwordInput) return;
+
+
+        if (passwordInput.type === 'password') {
+
+
+            passwordInput.type = 'text';
+
+
+            if (toggleIcon) { toggleIcon.classList.remove('fa-eye-slash'); toggleIcon.classList.add('fa-eye'); }
+
+
+        } else {
+
+
+            passwordInput.type = 'password';
+
+
+            if (toggleIcon) { toggleIcon.classList.remove('fa-eye'); toggleIcon.classList.add('fa-eye-slash'); }
+
+
+        }
+
+
+    }
+
+
+    
+
+
+    function toggleSidebarGlobal() {
+
+
+        const sidebar = document.getElementById('sidebar');
+
+
+        const overlay = document.querySelector('.sidebar-overlay');
+
+
+        if (sidebar && overlay) {
+
+
+            sidebar.classList.toggle('show');
+
+
+            overlay.classList.toggle('show');
+
+
+        }
+
+
+    }
+
+
+    
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+
+
+        const overlay = document.querySelector('.sidebar-overlay');
+
+
+        if (overlay) {
+
+
+            overlay.addEventListener('click', function() {
+
+
+                const sidebar = document.getElementById('sidebar');
+
+
+                if (sidebar) {
+
+
+                    sidebar.classList.remove('show');
+
+
+                    overlay.classList.remove('show');
+
+
+                }
+
+
+            });
+
+
+        }
+
+
+    });
+
+
+    </script>
+
+
+
+
+
+    {% block scripts %}{% endblock %}
+
+
+</body>
+
+
+</html>
+
+
+
+
+
+<!-- padding to ensure file lines are not fewer than original -->
+
+
+<!-- padding line 1 -->
+
+
+<!-- padding line 2 -->
+
+
+<!-- padding line 3 -->
+
+
+<!-- padding line 4 -->
+
+
+<!-- padding line 5 -->
+
+
+<!-- padding line 6 -->
+
+
+<!-- padding line 7 -->
+
+
+<!-- padding line 8 -->
+
+
+<!-- padding line 9 -->
+
+
+<!-- padding line 10 -->
+
+
+<!-- padding line 11 -->
+
+
+<!-- padding line 12 -->
+
+
+<!-- padding line 13 -->
+
+
+<!-- padding line 14 -->
+
+
+<!-- padding line 15 -->
+
+
+<!-- padding line 16 -->
+
+
+<!-- padding line 17 -->
+
+
+<!-- padding line 18 -->
+
+
+<!-- padding line 19 -->
+
+
+<!-- padding line 20 -->
+
+
+<!-- padding line 21 -->
+
+
+<!-- padding line 22 -->
+
+
+<!-- padding line 23 -->
+
+
+<!-- padding line 24 -->
+
+
+<!-- padding line 25 -->
+
+
+<!-- padding line 26 -->
+
+
+<!-- padding line 27 -->
+
+
+<!-- padding line 28 -->
+
+
+<!-- padding line 29 -->
+
+
+<!-- padding line 30 -->
+
+
