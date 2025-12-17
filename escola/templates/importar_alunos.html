@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Importar Alunos via Arquivo</h2>
+
+<div class="info-box">
+    <div class="info-header">
+        <i class="fas fa-info-circle"></i>
+        <h3>Instruções de Importação</h3>
+    </div>
+    <div class="info-content">
+        <p>Esta funcionalidade permite o cadastro em lote de alunos através de arquivo <strong>CSV</strong> ou <strong>Excel (XLSX/XLS)</strong>.</p>
+        
+        <h4>Formato do Arquivo:</h4>
+        <ul>
+            <li>O arquivo deve conter as seguintes colunas (a ordem não importa):</li>
+            <li><strong>Obrigatórias:</strong> MATRICULA, NOME</li>
+            <li><strong>Opcionais:</strong> SERIE, TURMA, TURNO, PAI, MAE, RESPONSAVEL, TELEFONE 1, TELEFONE 2, TELEFONE 3, EMAIL, RUA, NUMERO, COMPLEMENTO, BAIRRO, CIDADE, ESTADO</li>
+        </ul>
+        
+        <h4>Dicas Importantes:</h4>
+        <ul>
+            <li>Para arquivos CSV, use ponto e vírgula (;) como separador</li>
+            <li>Certifique-se de que não há matrículas duplicadas</li>
+            <li>O sistema ignorará linhas com matrícula ou nome vazios</li>
+            <li>Erros serão exibidos em um relatório após a importação</li>
+        </ul>
+    </div>
+</div>
+
+<form method="POST" enctype="multipart/form-data" class="form-import">
+    <div class="form-group">
+        <label for="arquivo_csv">
+            <i class="fas fa-file-upload"></i> Selecione o arquivo
+        </label>
+        <input type="file" id="arquivo_csv" name="arquivo_csv" 
+               accept=".csv, .xlsx, .xls" required class="file-input">
+        <small class="help-text">Formatos aceitos: CSV, XLSX, XLS</small>
+    </div>
+    
+    <div class="form-group">
+        <label for="tipo_separador">
+            <i class="fas fa-columns"></i> Separador do CSV (ignorado para Excel)
+        </label>
+        <select id="tipo_separador" name="tipo_separador" class="form-control">
+            <option value=";" selected>Ponto e Vírgula (;)</option>
+            <option value=",">Vírgula (,)</option>
+        </select>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="button btn-primary">
+            <i class="fas fa-upload"></i> Iniciar Importação
+        </button>
+        <a href="{{ url_for('alunos_bp.erros_importacao') }}" class="button btn-info">
+            <i class="fas fa-exclamation-triangle"></i> Ver Relatório de Erros
+        </a>
+        <a href="{{ url_for('alunos_bp.listar_alunos') }}" class="button btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar
+        </a>
+    </div>
+</form>
+
+<style>
+.info-box {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.info-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.info-header i {
+    font-size: 2em;
+}
+
+.info-header h3 {
+    margin: 0;
+}
+
+.info-content {
+    padding: 25px;
+}
+
+.info-content h4 {
+    color: #2c3e50;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.info-content ul {
+    margin-left: 20px;
+}
+
+.info-content li {
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.form-import {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.form-group label i {
+    color: #3498db;
+    margin-right: 8px;
+}
+
+.file-input {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border: 2px dashed #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.file-input:hover {
+    border-color: #3498db;
+    background: #f8f9fa;
+}
+
+.help-text {
+    display: block;
+    margin-top: 5px;
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 30px;
+    flex-wrap: wrap;
+}
+
+.btn-info {
+    background: #f39c12;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #e67e22;
+}
+</style>
+
+{% endblock %}

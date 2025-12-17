@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Prontuário{% endblock %}
+{% block content %}
+
+<div class="page-header d-flex align-items-center justify-content-between">
+  <h2><i class="fas fa-file-medical"></i> Prontuário</h2>
+  <!-- NOTE: removi os links no canto superior direito para não exibir "Novo" ou "Listar" aqui.
+       O formulário deve aparecer somente quando o usuário clicar em "Novo Prontuário" na listagem. -->
+</div>
+
+<form id="form-prontuario" method="POST" action="{{ url_for('formularios_prontuario.salvar_prontuario') }}">
+  {# Hidden aluno/prontuário se view fornecer (padrão vazio para novo) #}
+  <input type="hidden" id="aluno_id" name="aluno_id" value="{{ prontuario.aluno_id if prontuario and prontuario.aluno_id else (aluno.id if aluno is defined and aluno and aluno.id else '') }}">
+  <input type="hidden" id="prontuario_id" name="prontuario_id" value="{{ prontuario.id if prontuario and prontuario.id else '' }}">
+
+  <div style="display:flex; gap:24px;">
+    <div style="flex:1;">
+
+      <div class="form-group">
+        <label for="aluno_search">Aluno</label>
+        <input id="aluno_search" class="form-control" placeholder="Digite nome ou matrícula..." autocomplete="off"
+               value="{{ aluno.nome if aluno is defined and aluno and aluno.nome else (prontuario.aluno_nome if prontuario and prontuario.aluno_nome else '') }}">
+      </div>
+
+      <div class="form-row" style="display:flex; gap:12px;">
+        <div style="flex:1;">
+          <label>Responsável</label>
+          <input id="responsavel" name="responsavel" class="form-control" placeholder="Responsável (autocomplete)"
+                 value="{{ prontuario.responsavel if prontuario and prontuario.responsavel else (aluno.responsavel if aluno is defined and aluno and aluno.responsavel else '') }}">
+        </div>
+        <div style="width:140px;">
+          <label>Série</label>
+          <input id="serie" name="serie" class="form-control" value="{{ prontuario.serie if prontuario and prontuario.serie else (aluno.serie if aluno is defined and aluno and aluno.serie else '') }}">
+        </div>
+        <div style="width:140px;">
+          <label>Turma</label>
+          <input id="turma" name="turma" class="form-control" value="{{ prontuario.turma if prontuario and prontuario.turma else (aluno.turma if aluno is defined and aluno and aluno.turma else '') }}">
+        </div>
+      </div>
+
+      <div class="form-row" style="display:flex; gap:12px; margin-top:8px;">
+        <div style="flex:1;">
+          <label>E-mail</label>
+          <input id="email" name="email" class="form-control" value="{{ prontuario.email if prontuario and prontuario.email else (aluno.email if aluno is defined and aluno and aluno.email else '') }}">
+        </div>
+        <div style="width:200px;">
+          <label>Telefone 1</label>
+          <input id="telefone1" name="telefone1" class="form-control" value="{{ prontuario.telefone1 if prontuario and prontuario.telefone1 else (aluno.telefone1 if aluno is defined and aluno and aluno.telefone1 else '') }}">
+        </div>
+        <div style="width:200px;">
+          <label>Telefone 2</label>
+          <input id="telefone2" name="telefone2" class="form-control" value="{{ prontuario.telefone2 if prontuario and prontuario.telefone2 else (aluno.telefone2 if aluno is defined and aluno and aluno.telefone2 else '') }}">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:12px;">
+        <label>Turno</label>
+        <input id="turno" name="turno" class="form-control" value="{{ prontuario.turno if prontuario and prontuario.turno else (aluno.turno if aluno is defined and aluno and aluno.turno else '') }}">
+      </div>
+
+      <hr>
+
+      <h4>Registros de Fatos Observados</h4>
+      <small>Os RFOs do aluno selecionado são listados abaixo (ordem: RFO; Data; Relato; Tipo; Item; Reincidência; Medida; Despacho; Data do Despacho)</small>
+      <textarea id="registros_fatos" name="registros_fatos" class="form-control" rows="8" readonly>{{ prontuario.registros_fatos if prontuario and prontuario.registros_fatos else '' }}</textarea>
+
+      <hr>
+
+      <div class="form-group">
+        <label>Circunstâncias atenuantes</label>
+        <textarea id="circ_atenuantes" name="circ_atenuantes" class="form-control" rows="3" placeholder='Se não tiver lançamento deixe "Não há"'>{{ prontuario.circunstancias_atenuantes if prontuario and prontuario.circunstancias_atenuantes else '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Circunstâncias agravantes</label>
+        <textarea id="circ_agravantes" name="circ_agravantes" class="form-control" rows="3" placeholder='Se não tiver lançamento deixe "Não há"'>{{ prontuario.circunstancias_agravantes if prontuario and prontuario.circunstancias_agravantes else '' }}</textarea>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button type="button" id="btn-back" class="btn btn-outline-secondary" onclick="window.history.back()">Voltar</button>
+        <button type="submit" id="btn-save" class="btn btn-success">Salvar Prontuário</button>
+      </div>
+
+    </div>
+
+    <div style="width:300px;">
+      <div style="border:1px solid #e6e6e6; padding:12px; border-radius:6px; text-align:center;">
+        <div id="aluno_foto" style="height:180px; display:flex; align-items:center; justify-content:center; background:#fafafa; border-radius:4px;">
+          {% if aluno is defined and aluno and (aluno.foto_url or aluno.id) %}
+            <img src="{{ aluno.foto_url if aluno.foto_url else url_for('formularios_prontuario.api_aluno_foto', aluno_id=aluno.id) }}" alt="foto" style="max-width:100%; max-height:100%;">
+          {% elif prontuario is defined and prontuario and prontuario.aluno_id %}
+            <img src="{{ url_for('formularios_prontuario.api_aluno_foto', aluno_id=prontuario.aluno_id) }}" alt="foto" style="max-width:100%; max-height:100%;">
+          {% else %}
+            <span class="text-muted">Foto do aluno</span>
+          {% endif %}
+        </div>
+        <div style="margin-top:12px; text-align:left;">
+          <strong id="aluno_nome">{{ aluno.nome if aluno is defined and aluno and aluno.nome else (prontuario.aluno_nome if prontuario and prontuario.aluno_nome else '—') }}</strong><br>
+          Matrícula: <span id="aluno_matricula">{{ aluno.matricula if aluno is defined and aluno and aluno.matricula else (prontuario.matricula if prontuario and prontuario.matricula else '—') }}</span><br>
+          Turma: <span id="aluno_turma">{{ (prontuario.serie ~ ' ' ~ prontuario.turma) if prontuario and (prontuario.serie or prontuario.turma) else (aluno.serie ~ ' ' ~ aluno.turma if aluno is defined and aluno and (aluno.serie or aluno.turma) else '—') }}</span><br>
+          E-mail: <span id="aluno_email">{{ prontuario.email if prontuario and prontuario.email else (aluno.email if aluno is defined and aluno and aluno.email else '—') }}</span><br>
+          Telefone: <span id="aluno_tel">{{ prontuario.telefone1 if prontuario and prontuario.telefone1 else (aluno.telefone1 if aluno is defined and aluno and aluno.telefone1 else '—') }}</span>
+        </div>
+      </div>
+
+      <!-- Cabeçalho / Documentos removido conforme solicitado -->
+    </div>
+  </div>
+</form>
+
+<!-- padding start (mantém tamanho igual/maior que o arquivo original) -->
+<!-- padding line 1 -->
+<!-- padding line 2 -->
+<!-- padding line 3 -->
+<!-- padding line 4 -->
+<!-- padding line 5 -->
+<!-- padding line 6 -->
+<!-- padding line 7 -->
+<!-- padding line 8 -->
+<!-- padding line 9 -->
+<!-- padding line 10 -->
+<!-- padding line 11 -->
+<!-- padding line 12 -->
+<!-- padding line 13 -->
+<!-- padding line 14 -->
+<!-- padding line 15 -->
+<!-- padding end -->
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/prontuario.js') }}?v={{ range(1,100000) | random }}"></script>
+{% endblock %}
+
+{% endblock %}

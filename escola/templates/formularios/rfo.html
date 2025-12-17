@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="formulario-impressao">
+    <div class="cabecalho">
+        <div class="logo-escola">
+            <i class="fas fa-graduation-cap"></i>
+        </div>
+        <div class="titulo-documento">
+            <h1>RELATÓRIO DE FATO OBSERVADO</h1>
+            <h2>RFO Nº {{ rfo.rfo_id }}</h2>
+        </div>
+    </div>
+
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Dados do Aluno</h3>
+        <div class="grid-info">
+            <div class="info-item">
+                <span class="label">Matrícula:</span>
+                <span class="valor">{{ rfo.matricula }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Nome Completo:</span>
+                <span class="valor">{{ rfo.nome_aluno }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Série:</span>
+                <span class="valor">{{ rfo.serie }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Turma:</span>
+                <span class="valor">{{ rfo.turma }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Dados da Ocorrência</h3>
+        <div class="grid-info">
+            <div class="info-item">
+                <span class="label">Data da Ocorrência:</span>
+                <span class="valor">{{ rfo.data_ocorrencia | data_br }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Tipo de Ocorrência:</span>
+                <span class="valor">{{ rfo.tipo_ocorrencia_nome }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Observador/Registrador:</span>
+                <span class="valor">{{ rfo.responsavel_registro_username }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Advertência Oral:</span>
+                <span class="valor">{{ 'Sim' if rfo.advertencia_oral == 'sim' else 'Não' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Relato do Observador</h3>
+        <div class="texto-relato">
+            {{ rfo.relato_observador }}
+        </div>
+    </div>
+
+    {% if rfo.material_recolhido %}
+    <div class="secao-documento">
+        <h3 class="titulo-secao">Material Recolhido</h3>
+        <div class="texto-relato">
+            {{ rfo.material_recolhido }}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rfo.status == 'TRATADO' %}
+    <div class="secao-documento secao-tratamento">
+        <h3 class="titulo-secao">Tratamento Aplicado</h3>
+        <div class="grid-info">
+            <div class="info-item">
+                <span class="label">Data do Tratamento:</span>
+                <span class="valor">{{ rfo.data_tratamento | data_br }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Tipo de Falta:</span>
+                <span class="valor">{{ rfo.tipo_falta }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Medida Aplicada:</span>
+                <span class="valor">{{ rfo.medida_aplicada }}</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Reincidência:</span>
+                <span class="valor">{{ 'Sim' if rfo.reincidencia == 1 else 'Não' }}</span>
+            </div>
+        </div>
+        
+        {% if rfo.observacao_tratamento %}
+        <div class="info-item full-width">
+            <span class="label">Observação do Tratamento:</span>
+            <div class="texto-relato">{{ rfo.observacao_tratamento }}</div>
+        </div>
+        {% endif %}
+
+        {% if rfo.relato_estudante %}
+        <div class="info-item full-width">
+            <span class="label">Relato do Estudante:</span>
+            <div class="texto-relato">{{ rfo.relato_estudante }}</div>
+        </div>
+        {% endif %}
+
+        {% if rfo.despacho_gestor %}
+        <div class="info-item full-width">
+            <span class="label">Despacho do Gestor:</span>
+            <div class="texto-relato">{{ rfo.despacho_gestor }}</div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="assinaturas">
+        <div class="assinatura-campo">
+            <div class="linha-assinatura"></div>
+            <p>Observador/Registrador</p>
+        </div>
+        <div class="assinatura-campo">
+            <div class="linha-assinatura"></div>
+            <p>Gestor Escolar</p>
+        </div>
+        <div class="assinatura-campo">
+            <div class="linha-assinatura"></div>
+            <p>Responsável pelo Aluno</p>
+        </div>
+    </div>
+
+    <div class="rodape">
+        <p>Documento gerado em {{ moment().format('DD/MM/YYYY [às] HH:mm') }}</p>
+    </div>
+
+    <div class="acoes-impressao no-print">
+        <button onclick="window.print()" class="button btn-primary">
+            <i class="fas fa-print"></i> Imprimir
+        </button>
+        <button onclick="window.close()" class="button btn-secondary">
+            <i class="fas fa-times"></i> Fechar
+        </button>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, .sidebar, nav, .toolbar {
+        display: none !important;
+    }
+    
+    body {
+        margin: 0;
+        padding: 0;
+        background: white;
+    }
+    
+    .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .formulario-impressao {
+        box-shadow: none !important;
+    }
+}
+
+.formulario-impressao {
+    max-width: 900px;
+    margin: 20px auto;
+    background: white;
+    padding: 40px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.cabecalho {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 3px solid #2c3e50;
+}
+
+.logo-escola i {
+    font-size: 4em;
+    color: #3498db;
+    margin-bottom: 10px;
+}
+
+.titulo-documento h1 {
+    color: #2c3e50;
+    font-size: 1.8em;
+    margin: 10px 0;
+    font-weight: 700;
+}
+
+.titulo-documento h2 {
+    color: #e74c3c;
+    font-size: 1.4em;
+    margin: 5px 0;
+    font-weight: 700;
+}
+
+.secao-documento {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.secao-tratamento {
+    background: #f8f9fa;
+}
+
+.titulo-secao {
+    color: #2c3e50;
+    font-size: 1.3em;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #3498db;
+    font-weight: 600;
+}
+
+.grid-info {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-item.full-width {
+    grid-column: 1 / -1;
+    margin-top: 15px;
+}
+
+.label {
+    font-weight: 600;
+    color: #555;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.valor {
+    color: #2c3e50;
+    font-size: 1em;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.texto-relato {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    color: #2c3e50;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    border-left: 4px solid #3498db;
+}
+
+.assinaturas {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    margin-top: 50px;
+    margin-bottom: 30px;
+}
+
+.assinatura-campo {
+    text-align: center;
+}
+
+.linha-assinatura {
+    border-top: 2px solid #2c3e50;
+    margin-bottom: 10px;
+}
+
+.assinatura-campo p {
+    font-size: 0.9em;
+    color: #555;
+    font-weight: 600;
+}
+
+.rodape {
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+.acoes-impressao {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+@media (max-width: 768px) {
+    .grid-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .assinaturas {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+}
+</style>
+
+{% endblock %}

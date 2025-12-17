@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Tabela Disciplinar</h2>
+<p class="subtitle">Gestão de Pontuação e Medidas</p>
+
+<div class="toolbar">
+    <button onclick="window.print()" class="button btn-primary">
+        <i class="fas fa-print"></i> Imprimir Tabela
+    </button>
+</div>
+
+<div class="tabela-disciplinar-container">
+    <div class="form-card">
+        <h3>Consultar / Atualizar Pontuação</h3>
+
+        <form id="form-tabela-disciplinar" onsubmit="return false;">
+            <div class="row">
+                <div class="col-6 form-group">
+                    <label for="aluno_search">Aluno (digite 3+ caracteres)</label>
+                    <input type="text" id="aluno_search" class="form-control" placeholder="Matricula - Nome" autocomplete="off">
+                    <input type="hidden" id="aluno_id" name="aluno_id">
+                    <div id="aluno_suggestions" class="autocomplete-items" role="listbox" aria-label="Sugestões de alunos"></div>
+                    <small class="help-text">Ao selecionar, será carregada a série/turma e pontuação.</small>
+                </div>
+
+                <div class="col-3 form-group">
+                    <label>Série</label>
+                    <input type="text" id="aluno_serie" class="form-control" readonly>
+                </div>
+
+                <div class="col-3 form-group">
+                    <label>Turma</label>
+                    <input type="text" id="aluno_turma" class="form-control" readonly>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-4 form-group">
+                    <label for="bimestre_select">Bimestre</label>
+                    <select id="bimestre_select" class="form-control"></select>
+                </div>
+
+                <div class="col-4 form-group">
+                    <label>Pontuação do Bimestre Anterior</label>
+                    <input type="text" id="pontuacao_anterior" class="form-control" readonly>
+                </div>
+
+                <div class="col-4 form-group">
+                    <label>Pontuação Atual (projetada)</label>
+                    <input type="text" id="pontuacao_atual" class="form-control" readonly>
+                </div>
+            </div>
+
+            <hr>
+
+            <h4>Valores / Pesos das Medidas</h4>
+            <div id="valores_medidas" class="mb-3">
+                <div class="row">
+                    <div class="col-6 form-group">
+                        <label>Advertência Oral (por ocorrência)</label>
+                        <input type="number" step="0.01" id="val_advertencia_oral" class="form-control valor-medida" readonly>
+                    </div>
+                    <div class="col-6 form-group">
+                        <label>Advertência Escrita (por ocorrência)</label>
+                        <input type="number" step="0.01" id="val_advertencia_escrita" class="form-control valor-medida" readonly>
+                    </div>
+                </div>
+
+                <div class="row mt-2">
+                    <div class="col-6 form-group">
+                        <label>Suspensão de Sala (por dia)</label>
+                        <input type="number" step="0.01" id="val_suspensao_dia" class="form-control valor-medida" readonly>
+                    </div>
+                    <div class="col-6 form-group">
+                        <label>Ação Educativa (por dia)</label>
+                        <input type="number" step="0.01" id="val_acao_educativa_dia" class="form-control valor-medida" readonly>
+                    </div>
+                </div>
+
+                <div class="row mt-2">
+                    <div class="col-6 form-group">
+                        <label>Elogio Individual (por ocorrência)</label>
+                        <input type="number" step="0.01" id="val_el_individual" class="form-control valor-medida" readonly>
+                    </div>
+                    <div class="col-6 form-group">
+                        <label>Elogio Coletivo (por ocorrência)</label>
+                        <input type="number" step="0.01" id="val_el_coletivo" class="form-control valor-medida" readonly>
+                    </div>
+                </div>
+
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <small class="text-muted">Os valores acima podem ser alterados clicando em "Editar Valores".</small>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button id="btn_edit_valores" class="button btn-secondary">Editar Valores</button>
+                    <button id="btn_salvar_valores" class="button btn-success" style="display:none;">Salvar Valores</button>
+                    <button id="btn_cancelar_edicao" class="button btn-secondary" style="display:none;">Cancelar</button>
+                </div>
+            </div>
+
+            <hr>
+
+            <h4>Simulador Rápido</h4>
+            <div class="row">
+                <div class="col-6 form-group">
+                    <label>Medida Aplicada</label>
+                    <select id="sim_medida" class="form-control">
+                        <option value="">-- selecione --</option>
+                    </select>
+                </div>
+                <div class="col-3 form-group">
+                    <label>Quantidade / Dias</label>
+                    <input type="number" id="sim_qtd" class="form-control" min="0" value="1">
+                </div>
+                <div class="col-3 form-group">
+                    <label>Ajuste</label>
+                    <button id="sim_aplicar" class="button btn-primary mt-1">Aplicar Simulação</button>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <small class="help-text">A simulação aplica o impacto ao valor atual do bimestre (não grava automaticamente).</small>
+            </div>
+
+        </form>
+    </div>
+
+    <div id="classificacao-card" class="form-card mt-4">
+        <h3>Comportamento por Pontos</h3>
+        <div class="classificacao-display">
+            <p>Pontuação atual: <strong id="display_pontuacao">-</strong></p>
+            <p>Comportamento: <strong id="display_classificacao">-</strong></p>
+            <p id="info_acrescimo" class="text-muted"></p>
+        </div>
+    </div>
+
+</div>
+
+<style>
+/* Reaproveita estilos do template antigo e ajusta pequenos controles */
+.form-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+
+/* Garantir posicionamento correto do autocomplete dropdown */
+.form-group { position: relative; }
+.autocomplete-items {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 9999;
+  max-height: 240px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  display: none;
+}
+.autocomplete-items .item { padding:8px 10px; cursor:pointer; border-bottom:1px solid #eee; }
+.autocomplete-items .item:hover { background:#f6f6f6; }
+
+.valor-medida[readonly] { background:#f8f9fa; }
+.classificacao-display p { font-size:1.05em; }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/tabela_disciplinar.js') }}"></script>
+{% endblock %}
