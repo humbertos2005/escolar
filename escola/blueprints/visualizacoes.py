@@ -2,6 +2,7 @@
 from database import get_db
 from .utils import login_required, admin_secundario_required, NIVEL_MAP
 import os
+import base64
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import typing
@@ -14,6 +15,136 @@ import asyncio as _asyncio
 visualizacoes_bp = Blueprint('visualizacoes_bp', __name__)
 
 ALLOWED_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'gif'}
+
+def _get_logo_data_and_file(cabecalho):
+    """
+    Retorna (logo_data, logo_file):
+    - logo_data: data URI (string) ou None
+    - logo_file: caminho file://... ou None
+    Prioriza static/uploads/cabecalhos (plural) e nomes comuns.
+    """
+    import os, base64, urllib.parse
+    logo_data = None
+    logo_file = cabecalho.get("logo_file") if cabecalho else None
+
+    try:
+        # extrair caminho físico se já vier em file://
+        file_path = None
+        if isinstance(logo_file, str) and logo_file.startswith("file://"):
+            file_path = logo_file[7:]
+        else:
+            # tentar extrair filename de cabecalho.logo_url (se houver)
+            logo_url = (cabecalho.get("logo_url") if cabecalho else "") or ""
+            if logo_url:
+                try:
+                    parsed = urllib.parse.urlparse(logo_url)
+                    fname = os.path.basename(parsed.path) if parsed.path else ""
+                    if fname:
+                        candidate = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos", fname)
+                        if os.path.exists(candidate):
+                            file_path = candidate
+                except Exception:
+                    file_path = None
+
+        # caminho preferencial (plural)
+        preferred = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos", "logo_topo.png")
+        if (not file_path or not os.path.exists(file_path)) and os.path.exists(preferred):
+            file_path = preferred
+
+        # último fallback: procurar qualquer arquivo que comece por 'logo' na pasta plural
+        if (not file_path or not os.path.exists(file_path)):
+            updir = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos")
+            try:
+                if os.path.isdir(updir):
+                    for f in os.listdir(updir):
+                        if f.lower().startswith("logo") and f.lower().endswith((".png", ".jpg", ".jpeg", ".gif")):
+                            cand = os.path.join(updir, f)
+                            if os.path.exists(cand):
+                                file_path = cand
+                                break
+            except Exception:
+                pass
+
+        # se encontrou, converte para data URI e atualiza logo_file
+        if file_path and os.path.exists(file_path):
+            with open(file_path, "rb") as _f:
+                b = _f.read()
+            ext = os.path.splitext(file_path)[1].lower().lstrip('.')
+            mime = "image/png"
+            if ext in ("jpg", "jpeg"):
+                mime = "image/jpeg"
+            elif ext == "gif":
+                mime = "image/gif"
+            logo_data = "data:" + mime + ";base64," + base64.b64encode(b).decode("ascii")
+            logo_file = "file://" + file_path.replace("\\", "/")
+    except Exception:
+        logo_data = None
+    return logo_data, logo_file
+
+def _get_logo_data_and_file(cabecalho):
+    """
+    Retorna (logo_data, logo_file) onde:
+    - logo_data é a data URI (ou None)
+    - logo_file é o caminho file://... atualizado (ou o valor existente)
+    A função prioriza static/uploads/cabecalhos (plural) e nomes comuns.
+    """
+    import os, base64, urllib.parse
+    logo_data = None
+    logo_file = cabecalho.get("logo_file") if cabecalho else None
+
+    try:
+        # Se logo_file já for file:// -> extrair caminho físico
+        file_path = None
+        if isinstance(logo_file, str) and logo_file.startswith("file://"):
+            file_path = logo_file[7:]
+        else:
+            # tentar extrair filename de cabecalho.logo_url (se houver)
+            logo_url = (cabecalho.get("logo_url") if cabecalho else "") or ""
+            if logo_url:
+                try:
+                    parsed = urllib.parse.urlparse(logo_url)
+                    fname = os.path.basename(parsed.path) if parsed.path else ""
+                    if fname:
+                        candidate = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos", fname)
+                        if os.path.exists(candidate):
+                            file_path = candidate
+                except Exception:
+                    file_path = None
+
+        # caminho preferencial (plural)
+        preferred = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos", "logo_topo.png")
+        if (not file_path or not os.path.exists(file_path)) and os.path.exists(preferred):
+            file_path = preferred
+
+        # último fallback: procurar qualquer arquivo que comece por 'logo' na pasta plural
+        if (not file_path or not os.path.exists(file_path)):
+            updir = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos")
+            try:
+                if os.path.isdir(updir):
+                    for f in os.listdir(updir):
+                        if f.lower().startswith("logo") and f.lower().endswith((".png", ".jpg", ".jpeg", ".gif")):
+                            cand = os.path.join(updir, f)
+                            if os.path.exists(cand):
+                                file_path = cand
+                                break
+            except Exception:
+                pass
+
+        # se encontrou, converte para data URI
+        if file_path and os.path.exists(file_path):
+            with open(file_path, "rb") as _f:
+                b = _f.read()
+            ext = os.path.splitext(file_path)[1].lower().lstrip('.')
+            mime = "image/png"
+            if ext in ("jpg", "jpeg"):
+                mime = "image/jpeg"
+            elif ext == "gif":
+                mime = "image/gif"
+            logo_data = "data:" + mime + ";base64," + base64.b64encode(b).decode("ascii")
+            logo_file = "file://" + file_path.replace("\\", "/")
+    except Exception:
+        logo_data = None
+    return logo_data, logo_file
 
 # Lista global para rastrear navegadores que iniciamos
 _launched_browsers = []
@@ -695,6 +826,9 @@ async def _make_pdf(content_html,
     import urllib.parse as _urllib
     from pyppeteer import connect as _connect, launch as _launch
 
+    # garantir o executável do Chrome (use o caminho que você confirmou)
+    chrome_executable = globals().get('chrome_executable') or r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+    
     browser = None
     launched_here = False
     try:
@@ -1301,7 +1435,201 @@ def ata_pdf(ata_id):
         except Exception:
             cabecalho["logo_file"] = None
 
-        html = render_template("visualizacoes/ata_print.html", ata=ata, ata_id=ata_id, cabecalho=cabecalho, logo_file=cabecalho.get("logo_file"))
+        # garantir logo_data antes de renderizar (para todo lugar que gerar este template)
+        logo_data, logo_file = _get_logo_data_and_file(cabecalho)
+        cabecalho["logo_file"] = cabecalho.get("logo_file") or logo_file
+        
+        # --- garantir logo_data + assinaturas antes de renderizar o template (primeira ocorrência) ---
+        logo_data, logo_file = _get_logo_data_and_file(cabecalho)
+        # atualizar cabecalho.logo_file se necessário (mantém compatibilidade)
+        if not cabecalho.get("logo_file") and logo_file:
+            cabecalho["logo_file"] = logo_file
+
+        # Normalizar participants_json -> assinaturas (inclui Diretor e Responsável)
+        def _normalize_participant(p):
+            if isinstance(p, dict):
+                name = p.get('nome') or p.get('name') or p.get('nome_completo') or ""
+                role = p.get('cargo') or p.get('role') or ""
+                return {'nome': (name or "").strip(), 'cargo': (role or "").strip()}
+            else:
+                return {'nome': str(p).strip(), 'cargo': ''}
+
+        parts = ata.get("participants_json") or []
+        if isinstance(parts, str):
+            try:
+                import json as _json
+                parts = _json.loads(parts)
+            except Exception:
+                parts = []
+
+        assinaturas = []
+        try:
+            for p in parts:
+                np = _normalize_participant(p)
+                if np['nome']:
+                    assinaturas.append(np)
+        except Exception:
+            assinaturas = []
+
+        # buscar nome do diretor em dados_escola
+        diretor_nome = None
+        try:
+            ds = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
+            if ds:
+                for k in ("diretor", "nome_diretor", "nome_do_diretor", "diretor_nome", "nome_diretor_escola"):
+                    try:
+                        if k in ds.keys() and ds[k]:
+                            diretor_nome = (ds[k] or "").strip()
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            diretor_nome = None
+
+        if diretor_nome and not any(a['nome'].strip().lower() == diretor_nome.strip().lower() for a in assinaturas):
+            assinaturas.append({'nome': diretor_nome, 'cargo': 'Diretor'})
+
+        # garantir que o Responsável pelo aluno esteja presente
+        resp = ata.get("responsavel") or ata.get("responsavel_nome") or ata.get("responsavel_nome_completo")
+        if resp:
+            resp = (resp or "").strip()
+            if resp and not any(a['nome'].strip().lower() == resp.lower() for a in assinaturas):
+                assinaturas.append({'nome': resp, 'cargo': 'Responsável'})
+
+        try:
+            diretor_nome = None
+            row = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
+            if row:
+                for k in ("diretor", "nome_diretor", "diretor_nome", "nome_do_diretor"):
+                    try:
+                        v = row.get(k) if hasattr(row, "get") else (row[k] if k in row.keys() else None)
+                        if v:
+                            diretor_nome = (v or "").strip()
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            diretor_nome = None
+        try:
+            if diretor_nome and cabecalho is not None:
+                if not cabecalho.get("diretor"):
+                    cabecalho["diretor"] = diretor_nome
+        except Exception:
+            pass        
+        
+        # --- garantir diretor_nome vindo da tabela dados_escola (se existir) ---
+        try:
+            diretor_nome = None
+            row = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
+            if row:
+                for k in ("diretor", "nome_diretor", "diretor_nome", "nome_do_diretor"):
+                    try:
+                        v = row.get(k) if hasattr(row, "get") else (row[k] if k in row.keys() else None)
+                        if v:
+                            diretor_nome = (v or "").strip()
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            diretor_nome = None
+        try:
+            if diretor_nome and cabecalho is not None:
+                if not cabecalho.get("diretor"):
+                    cabecalho["diretor"] = diretor_nome
+        except Exception:
+            pass
+        
+        # --- DEBUG: tentar obter diretor e imprimir informações úteis no terminal ---
+        try:
+            diretor_nome = None
+            row = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
+            print("DEBUG: dados_escola row ->", row)
+            keys = None
+            try:
+                keys = row.keys() if row is not None and hasattr(row, "keys") else None
+                print("DEBUG: dados_escola keys ->", keys)
+            except Exception as _:
+                pass
+            if row:
+                for k in ("diretor", "nome_diretor", "diretor_nome", "nome_do_diretor"):
+                    try:
+                        v = row.get(k) if hasattr(row, "get") else (row[k] if keys and k in keys else None)
+                    except Exception:
+                        try:
+                            v = getattr(row, k, None)
+                        except Exception:
+                            v = None
+                    if v:
+                        diretor_nome = (v or "").strip()
+                        break
+            print("DEBUG: diretor_nome after query ->", diretor_nome)
+        except Exception as e:
+            print("DEBUG: excecao ao ler dados_escola ->", repr(e))
+            diretor_nome = None
+
+        # garantir que cabecalho receba o valor se encontrado (sem sobrescrever existente)
+        try:
+            if diretor_nome and cabecalho is not None:
+                if not cabecalho.get("diretor"):
+                    cabecalho["diretor"] = diretor_nome
+        except Exception as _:
+            pass
+        # --- fim debug ---
+
+        # --- DEBUG: tentar obter diretor e imprimir informações úteis no terminal ---
+        try:
+            diretor_nome = None
+            row = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
+            print("DEBUG: dados_escola row ->", row)
+            keys = None
+            try:
+                keys = row.keys() if row is not None and hasattr(row, "keys") else None
+                print("DEBUG: dados_escola keys ->", keys)
+            except Exception as _:
+                pass
+            if row:
+                for k in ("diretor", "nome_diretor", "diretor_nome", "nome_do_diretor"):
+                    try:
+                        v = row.get(k) if hasattr(row, "get") else (row[k] if keys and k in keys else None)
+                    except Exception:
+                        try:
+                            v = getattr(row, k, None)
+                        except Exception:
+                            v = None
+                    if v:
+                        diretor_nome = (v or "").strip()
+                        break
+            print("DEBUG: diretor_nome after query ->", diretor_nome)
+        except Exception as e:
+            print("DEBUG: excecao ao ler dados_escola ->", repr(e))
+            diretor_nome = None
+
+        # garantir que cabecalho receba o valor se encontrado (sem sobrescrever existente)
+        try:
+            if diretor_nome and cabecalho is not None:
+                if not cabecalho.get("diretor"):
+                    cabecalho["diretor"] = diretor_nome
+        except Exception as _:
+            pass
+        # --- fim debug ---
+
+        # DEBUG TEMPORÁRIO: logar valores antes do render (cole ANTES de render_template(...))
+        try:
+            current_app.logger.info(
+                "DEBUG-VAL: rota=ata_id=%r diretor_nome=%r cabecalho.diretor=%r assinaturas_len=%d",
+                ata_id if 'ata_id' in locals() else None,
+                diretor_nome if 'diretor_nome' in locals() else None,
+                (cabecalho.get("diretor") if cabecalho else None),
+                len(assinaturas) if 'assinaturas' in locals() else -1
+            )
+        except Exception:
+            current_app.logger.exception("DEBUG-VAL: falha ao logar valores")
+
+        # passar logo_data e assinaturas ao template na chamada render_template abaixo
+        html = render_template("visualizacoes/ata_print.html",
+                       ata=ata, ata_id=ata_id, cabecalho=cabecalho,
+                       diretor_nome=diretor_nome,
+                       logo_file=cabecalho.get("logo_file"), logo_data=logo_data)
 
         # garantir base href para recursos relativos
         base = request.url_root.rstrip('/')
@@ -1551,7 +1879,173 @@ def ata_pdf(ata_id):
         except Exception:
             cabecalho["logo_file"] = None
 
-        html = render_template("visualizacoes/ata_print.html", ata=ata, ata_id=ata_id, cabecalho=cabecalho, logo_file=cabecalho.get("logo_file"))
+        # tentar embutir o logotipo como data URI (base64) para garantir que apareça no PDF
+        logo_data = None
+        try:
+            file_path = None
+            lf = cabecalho.get("logo_file") if cabecalho else None
+            # se cabecalho.logo_file for um file://..., converte para caminho do sistema
+            if lf and isinstance(lf, str) and lf.startswith("file://"):
+                file_path = lf[7:]
+            else:
+                # tentar extrair filename de cabecalho.logo_url e montar caminho em static/uploads/cabecalhos
+                try:
+                    import urllib.parse as _urllib
+                    logo_url = cabecalho.get("logo_url") if cabecalho else None
+                    fname = ""
+                    if logo_url:
+                        parsed = _urllib.urlparse(logo_url)
+                        fname = os.path.basename(parsed.path) if parsed.path else ""
+                    if fname:
+                        file_path = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos", fname)
+                except Exception:
+                    file_path = None
+
+            # fallbacks: arquivo padrão em uploads/cabecalhos ou uploads/cabecalho (singular) ou static/logo_topo.png
+            if not file_path or not os.path.exists(file_path):
+                candidates = [
+                    os.path.join(current_app.root_path, "static", "uploads", "cabecalhos", "logo_topo.png"),
+                    os.path.join(current_app.root_path, "static", "uploads", "cabecalho", "logo_top.png"),
+                    os.path.join(current_app.root_path, "static", "logo_topo.png"),
+                    os.path.join(current_app.root_path, "static", "logo_topo.jpg"),
+                ]
+                for c in candidates:
+                    if c and os.path.exists(c):
+                        file_path = c
+                        break
+
+            if file_path and os.path.exists(file_path):
+                with open(file_path, "rb") as _f:
+                    import base64 as _base64
+                    logo_b64 = _base64.b64encode(_f.read()).decode("ascii")
+                    # tenta inferir tipo a partir da extensão
+                    ext = os.path.splitext(file_path)[1].lower().lstrip('.')
+                    mime = "image/png"
+                    if ext in ("jpg", "jpeg"):
+                        mime = "image/jpeg"
+                    elif ext == "gif":
+                        mime = "image/gif"
+                    logo_data = f"data:{mime};base64,{logo_b64}"
+        except Exception:
+            logo_data = None
+
+        logo_data, logo_file = _get_logo_data_and_file(cabecalho)
+        cabecalho["logo_file"] = cabecalho.get("logo_file") or logo_file
+
+        # --- garantir logo_data + assinaturas antes de renderizar o template (segunda ocorrência) ---
+        logo_data, logo_file = _get_logo_data_and_file(cabecalho)
+        if not cabecalho.get("logo_file") and logo_file:
+            cabecalho["logo_file"] = logo_file
+
+        # Normalizar/recuperar assinaturas (repetir a lógica para segurança nesta rota)
+        parts = ata.get("participants_json") or []
+        if isinstance(parts, str):
+            try:
+                import json as _json
+                parts = _json.loads(parts)
+            except Exception:
+                parts = []
+
+        assinaturas = []
+        try:
+            for p in parts:
+                if isinstance(p, dict):
+                    name = p.get('nome') or p.get('name') or p.get('nome_completo') or ""
+                    role = p.get('cargo') or p.get('role') or ""
+                    if name.strip():
+                        assinaturas.append({'nome': name.strip(), 'cargo': role.strip()})
+                else:
+                    n = str(p).strip()
+                    if n:
+                        assinaturas.append({'nome': n, 'cargo': ''})
+        except Exception:
+            assinaturas = []
+
+        # Diretor
+        diretor_nome = None
+        try:
+            ds = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
+            if ds:
+                for k in ("diretor", "nome_diretor", "nome_do_diretor", "diretor_nome", "nome_diretor_escola"):
+                    try:
+                        if k in ds.keys() and ds[k]:
+                            diretor_nome = (ds[k] or "").strip()
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            diretor_nome = None
+
+        if diretor_nome and not any(a['nome'].strip().lower() == diretor_nome.strip().lower() for a in assinaturas):
+            assinaturas.append({'nome': diretor_nome, 'cargo': 'Diretor'})
+
+        # Responsável pelo aluno
+        resp = ata.get("responsavel") or ata.get("responsavel_nome") or ata.get("responsavel_nome_completo")
+        if resp:
+            resp = (resp or "").strip()
+            if resp and not any(a['nome'].strip().lower() == resp.lower() for a in assinaturas):
+                assinaturas.append({'nome': resp, 'cargo': 'Responsável'})
+
+        try:
+            diretor_nome = None
+            row = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
+            if row:
+                for k in ("diretor", "nome_diretor", "diretor_nome", "nome_do_diretor"):
+                    try:
+                        v = row.get(k) if hasattr(row, "get") else (row[k] if k in row.keys() else None)
+                        if v:
+                            diretor_nome = (v or "").strip()
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            diretor_nome = None
+        try:
+            if diretor_nome and cabecalho is not None:
+                if not cabecalho.get("diretor"):
+                    cabecalho["diretor"] = diretor_nome
+        except Exception:
+            pass        
+        
+        # --- garantir diretor_nome vindo da tabela dados_escola (se existir) ---
+        try:
+            diretor_nome = None
+            row = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
+            if row:
+                for k in ("diretor", "nome_diretor", "diretor_nome", "nome_do_diretor"):
+                    try:
+                        v = row.get(k) if hasattr(row, "get") else (row[k] if k in row.keys() else None)
+                        if v:
+                            diretor_nome = (v or "").strip()
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            diretor_nome = None
+        try:
+            if diretor_nome and cabecalho is not None:
+                if not cabecalho.get("diretor"):
+                    cabecalho["diretor"] = diretor_nome
+        except Exception:
+            pass
+        
+        # DEBUG TEMPORÁRIO: logar valores antes do render (cole ANTES de render_template(...))
+        try:
+            current_app.logger.info(
+                "DEBUG-VAL: rota=ata_id=%r diretor_nome=%r cabecalho.diretor=%r assinaturas_len=%d",
+                ata_id if 'ata_id' in locals() else None,
+                diretor_nome if 'diretor_nome' in locals() else None,
+                (cabecalho.get("diretor") if cabecalho else None),
+                len(assinaturas) if 'assinaturas' in locals() else -1
+            )
+        except Exception:
+            current_app.logger.exception("DEBUG-VAL: falha ao logar valores")
+
+        # renderizar template passando logo_data (data URI) e mantendo logo_file para compatibilidade
+        html = render_template("visualizacoes/ata_print.html",
+                       ata=ata, ata_id=ata_id, cabecalho=cabecalho,
+                       diretor_nome=diretor_nome,
+                       logo_file=cabecalho.get("logo_file"), logo_data=logo_data)
 
         # garantir base href para recursos estáticos
         base = request.url_root.rstrip('/')
@@ -1560,6 +2054,44 @@ def ata_pdf(ata_id):
         else:
             html = '<base href="' + base + '">' + html
 
+        # garantir base href para recursos estáticos
+        base = request.url_root.rstrip('/')
+        if re.search(r'(?i)<head\b', html):
+            html = re.sub(r'(?i)(<head\b[^>]*>)', r'\1<base href="' + base + '">', html, count=1)
+        else:
+            html = '<base href="' + base + '">' + html
+
+        # DEBUG: checar se o logo foi embutido no HTML
+        try:
+            current_app.logger.info("DEBUG: cabecalho.logo_file = %r", cabecalho.get("logo_file"))
+            current_app.logger.info("DEBUG: cabecalho.logo_url  = %r", cabecalho.get("logo_url"))
+            # logo_data pode ser None ou data-uri (muito grande) -> logar só presença e prefixo
+            current_app.logger.info("DEBUG: logo_data present? %s", bool(logo_data))
+            if logo_data and isinstance(logo_data, str):
+                current_app.logger.info("DEBUG: logo_data startswith: %r", logo_data[:60])
+            current_app.logger.info("DEBUG: html contains 'data:image'? %s", ("data:image" in (html or "")))
+            # extrair a tag <img ... class="logo" ...> do HTML e logar (se existir)
+            try:
+                m = re.search(r'(<img[^>]+class=["\\\']?logo["\\\']?[^>]*>)', html or "", re.I)
+                if m:
+                    current_app.logger.info("DEBUG: found img tag: %s", m.group(1))
+                else:
+                    # tentar encontrar qualquer src de imagem próximo do cabeçalho
+                    m2 = re.search(r'(<img[^>]+src=["\\\']([^"\\\']+)["\\\'][^>]*>)', html or "", re.I)
+                    if m2:
+                        current_app.logger.info("DEBUG: found some img tag with src: %s", m2.group(2))
+                    else:
+                        current_app.logger.info("DEBUG: no <img> tag found in generated HTML")
+            except Exception:
+                current_app.logger.exception("DEBUG: erro ao procurar <img> no HTML")
+        except Exception:
+            current_app.logger.exception("DEBUG: erro geral no bloco de diagnóstico")
+
+        # debug: se a querystring debug_html=1 for usada, retorna o HTML gerado no navegador
+        if request.args.get('debug_html') == '1':
+            return html, 200, {'Content-Type': 'text/html'}
+
+        # gerar PDF
         pdfbytes = generate_pdf_bytes(html)
 
     except Exception as e:
