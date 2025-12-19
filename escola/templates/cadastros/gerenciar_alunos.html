@@ -15,62 +15,14 @@
   </ul>
 
   <div class="tab-content p-3 border border-top-0" id="alunosTabContent">
-    <!-- Aba: Cadastrar -->
+    <!-- Aba: Cadastrar (carrega a rota existente) -->
     <div class="tab-pane fade show active" id="cadastrar" role="tabpanel">
-      <form method="post" action="{{ url_for('alunos_bp.adicionar_aluno') }}">
-        <div class="row">
-          <div class="mb-3 col-md-3">
-            <label class="form-label">Matrícula</label>
-            <input type="text" name="matricula" class="form-control" required>
-          </div>
-          <div class="mb-3 col-md-6">
-            <label class="form-label">Nome</label>
-            <input type="text" name="nome" class="form-control" required>
-          </div>
-          <div class="mb-3 col-md-3">
-            <label class="form-label">Série</label>
-            <input type="text" name="serie" class="form-control">
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="mb-3 col-md-3">
-            <label class="form-label">Turma</label>
-            <input type="text" name="turma" class="form-control">
-          </div>
-          <div class="mb-3 col-md-3">
-            <label class="form-label">Turno</label>
-            <input type="text" name="turno" class="form-control">
-          </div>
-          <div class="mb-3 col-md-3">
-            <label class="form-label">Telefone</label>
-            <input type="text" name="telefone" class="form-control">
-          </div>
-          <div class="mb-3 col-md-3">
-            <label class="form-label">E-mail</label>
-            <input type="email" name="email" class="form-control">
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label">Responsável</label>
-          <input type="text" name="responsavel" class="form-control">
-        </div>
-
-        <button type="submit" class="btn btn-primary">Salvar Aluno</button>
-      </form>
+      <iframe src="{{ url_for('alunos_bp.adicionar_aluno') }}" style="width:100%; min-height:720px; border:0;" title="Cadastrar Aluno"></iframe>
     </div>
 
-    <!-- Aba: Importar -->
+    <!-- Aba: Importar (carrega a rota existente) -->
     <div class="tab-pane fade" id="importar" role="tabpanel">
-      <form method="post" action="{{ url_for('alunos_bp.importar_alunos') }}" enctype="multipart/form-data">
-        <div class="mb-3">
-          <label class="form-label">Arquivo CSV ou XLSX</label>
-          <input type="file" name="arquivo_csv" accept=".csv,.xls,.xlsx" class="form-control" required>
-        </div>
-        <button type="submit" class="btn btn-primary">Importar</button>
-      </form>
-      <p class="mt-2"><small>Obs: CSV com separador ponto-e-vírgula ( ; ) ou planilha Excel (.xls/.xlsx).</small></p>
+      <iframe src="{{ url_for('alunos_bp.importar_alunos') }}" style="width:100%; min-height:720px; border:0;" title="Importar Alunos"></iframe>
     </div>
   </div>
 </div>

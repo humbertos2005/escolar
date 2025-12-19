@@ -1,5 +1,5 @@
-{% extends "base.html" %}
-{% block title %}Dashboard - Gestão Escolar{% endblock %}
+﻿{% extends "base.html" %}
+{% block title %}Dashboard - GestÃ£o Escolar{% endblock %}
 
 {% block extra_styles %}
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -42,7 +42,7 @@ body {
     padding: 0 30px;
 }
 
-/* Cards de Estatísticas */
+/* Cards de EstatÃ­sticas */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -191,7 +191,7 @@ body {
     border: 1px solid #bee5eb;
 }
 
-/* Seção de Conteúdo Principal */
+/* SeÃ§Ã£o de ConteÃºdo Principal */
 .main-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -221,7 +221,7 @@ body {
     color: #3498db;
 }
 
-/* Gráfico */
+/* GrÃ¡fico */
 .chart-container {
     position: relative;
     height: 350px;
@@ -244,7 +244,7 @@ body {
     text-align: center;
 }
 
-/* Acesso Rápido */
+/* Acesso RÃ¡pido */
 .quick-actions {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -341,7 +341,7 @@ body {
     color: white;
 }
 
-/* Status de Conexão */
+/* Status de ConexÃ£o */
 .connection-status {
     position: fixed;
     bottom: 20px;
@@ -413,7 +413,7 @@ body {
     }
 }
 
-/* Animação de Entrada */
+/* AnimaÃ§Ã£o de Entrada */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -438,12 +438,12 @@ body {
 
 {% block content %}
 <div class="dashboard-header">
-    <h1>Bem-vindo ao Dashboard de Gestão Escolar</h1>
-    <p class="subtitle">Visão geral e acesso rápido às principais funcionalidades</p>
+    <h1>Bem-vindo ao Dashboard de GestÃ£o Escolar</h1>
+    <p class="subtitle">VisÃ£o geral e acesso rÃ¡pido Ã s principais funcionalidades</p>
 </div>
 
 <div class="dashboard-container">
-    <!-- Cards de Estatísticas -->
+    <!-- Cards de EstatÃ­sticas -->
     <div class="stats-grid">
         <div class="stat-card stat-card-primary">
             <div class="stat-header">
@@ -451,78 +451,8 @@ body {
                 <span class="stat-title">Total de Alunos</span>
             </div>
             <div class="stat-value" id="totalAlunos">{{ total_alunos }}</div>
-            <a href="{{ url_for('visualizacoes_bp.listar_alunos') }}" class="stat-link">
-                Ver Alunos <i class="fas fa-arrow-right"></i>
-            </a>
-        </div>
-
-        <div class="stat-card stat-card-warning">
-            <div class="stat-header">
-                <i class="fas fa-hourglass-half stat-icon"></i>
-                <span class="stat-title">RFOs Pendentes</span>
-            </div>
-            <div class="stat-value" id="rfosPendentes">{{ rfos_pendentes }}</div>
-            <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="stat-link">
-                Ver RFOs <i class="fas fa-arrow-right"></i>
-            </a>
-        </div>
-
-        <div class="stat-card stat-card-success">
-            <div class="stat-header">
-                <i class="fas fa-check-circle stat-icon"></i>
-                <span class="stat-title">Ocorrências Tratadas</span>
-            </div>
-            <div class="stat-value" id="totalOcorrencias">{{ total_ocorrencias }}</div>
-            <a href="{{ url_for('disciplinar_bp.listar_ocorrencias') }}" class="stat-link">
-                Ver Ocorrências <i class="fas fa-arrow-right"></i>
-            </a>
-        </div>
-
-        <div class="stat-card stat-card-info">
-            <div class="stat-header">
-                <i class="fas fa-file-medical stat-icon"></i>
-                <span class="stat-title">FMDs Registradas</span>
-            </div>
-            <div class="stat-value" id="totalFmd">{{ total_fmd }}</div>
-            <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="stat-link">
-                Ver FMDs <i class="fas fa-arrow-right"></i>
-            </a>
-        </div>
-    </div>
-
-    <!-- Grid Principal -->
-    <div class="main-grid">
-        <!-- Gráfico de Estatísticas -->
-        <div class="content-card">
-            <h3><i class="fas fa-chart-pie"></i> Estatísticas do Sistema</h3>
-            <div class="chart-container">
-                <div class="chart-wrapper">
-                    <canvas id="dashboardChart"></canvas>
-                </div>
-                <p class="update-time">Última atualização: <span id="updateTime">{{ moment().format('HH:mm:ss') }}</span></p>
-            </div>
-        </div>
-
-        <!-- Acesso Rápido -->
-        <div class="content-card">
-            <h3><i class="fas fa-bolt"></i> Acesso Rápido</h3>
-            <div class="quick-actions">
-                <a href="{{ url_for('alunos_bp.adicionar_aluno') }}" class="action-btn btn-outline-primary">
-                    <i class="fas fa-user-plus"></i> Adicionar Aluno
-                </a>
-                <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="action-btn btn-outline-warning">
-                    <i class="fas fa-file-alt"></i> Registrar RFO
-                </a>
-                {% if session.get('nivel') in [1, 2] %}
-                <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="action-btn btn-outline-danger">
-                    <i class="fas fa-file-medical"></i> Registrar FMD
-                </a>
-                <a href="{{ url_for('cadastros_bp.listar_faltas') }}" class="action-btn btn-outline-info">
-                    <i class="fas fa-exclamation-triangle"></i> Faltas Disciplinares
-                </a>
-                <a href="{{ url_for('alunos_bp.importar_alunos') }}" class="action-btn btn-outline-dark">
-                    <i class="fas fa-file-import"></i> Importar Alunos
-                </a>
+            
+                
                 <a href="{{ url_for('formularios_bp.tabela_disciplinar') }}" class="action-btn btn-outline-success">
                     <i class="fas fa-table"></i> Tabela Disciplinar
                 </a>
@@ -555,12 +485,12 @@ document.addEventListener('DOMContentLoaded', function() {
         total_fmd: parseInt(totalFmdEl.textContent)
     };
 
-    // Inicializar Gráfico
+    // Inicializar GrÃ¡fico
     const ctx = document.getElementById('dashboardChart').getContext('2d');
     const chart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Alunos', 'RFOs Pendentes', 'Ocorrências Tratadas', 'FMDs'],
+            labels: ['Alunos', 'RFOs Pendentes', 'OcorrÃªncias Tratadas', 'FMDs'],
             datasets: [{
                 data: [currentData.total_alunos, currentData.rfos_pendentes, currentData.total_ocorrencias, currentData.total_fmd],
                 backgroundColor: [
@@ -652,3 +582,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
