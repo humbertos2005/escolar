@@ -1,16 +1,18 @@
 ﻿{% extends 'base.html' %}
 {% block content %}
-{% if request.args.get('embed') %}
-<!-- EMBED TEMPLATE CSS: estende largura para modo embed -->
+{% if request.args.get(''embed'') %}
+<!-- EMBED_TEMPLATE_CSS: estende largura e remove limites quando carregado via iframe ?embed=1 -->
 <style>
-/* EMBED TEMPLATE CSS */
+/* EMBED_TEMPLATE_CSS */
 .container { max-width: 100% !important; width: 100% !important; padding-left: 20px !important; padding-right: 20px !important; }
 .form-aluno, .info-section, .form-section, .content-card, .stat-card { max-width: none !important; width: 100% !important; margin-left: 0 !important; }
 .form-row { gap: 18px; }
 .input-group { min-width: 0; }
 .form-actions { justify-content: center; }
+.tab-content { width: 100% !important; }
 </style>
 {% endif %}
+
 
 <h2>Importar Alunos via Arquivo</h2>
 
@@ -196,3 +198,5 @@
 </style>
 
 {% endblock %}
+
+

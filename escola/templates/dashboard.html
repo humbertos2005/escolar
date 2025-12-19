@@ -451,8 +451,81 @@ body {
                 <span class="stat-title">Total de Alunos</span>
             </div>
             <div class="stat-value" id="totalAlunos">{{ total_alunos }}</div>
-            
-                
+            <a href="{{ url_for('visualizacoes_bp.listar_alunos') }}" class="stat-link">
+                Ver Alunos <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+
+        <div class="stat-card stat-card-warning">
+            <div class="stat-header">
+                <i class="fas fa-hourglass-half stat-icon"></i>
+                <span class="stat-title">RFOs Pendentes</span>
+            </div>
+            <div class="stat-value" id="rfosPendentes">{{ rfos_pendentes }}</div>
+            <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="stat-link">
+                Ver RFOs <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+
+        <div class="stat-card stat-card-success">
+            <div class="stat-header">
+                <i class="fas fa-check-circle stat-icon"></i>
+                <span class="stat-title">OcorrÃªncias Tratadas</span>
+            </div>
+            <div class="stat-value" id="totalOcorrencias">{{ total_ocorrencias }}</div>
+            <a href="{{ url_for('disciplinar_bp.listar_ocorrencias') }}" class="stat-link">
+                Ver OcorrÃªncias <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+
+        <div class="stat-card stat-card-info">
+            <div class="stat-header">
+                <i class="fas fa-file-medical stat-icon"></i>
+                <span class="stat-title">FMDs Registradas</span>
+            </div>
+            <div class="stat-value" id="totalFmd">{{ total_fmd }}</div>
+            <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="stat-link">
+                Ver FMDs <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Grid Principal -->
+    <div class="main-grid">
+        <!-- GrÃ¡fico de EstatÃ­sticas -->
+        <div class="content-card">
+            <h3><i class="fas fa-chart-pie"></i> EstatÃ­sticas do Sistema</h3>
+            <div class="chart-container">
+                <div class="chart-wrapper">
+                    <canvas id="dashboardChart"></canvas>
+                </div>
+                <p class="update-time">Ãšltima atualizaÃ§Ã£o: <span id="updateTime">{{ moment().format('HH:mm:ss') }}</span></p>
+            </div>
+        </div>
+
+        <!-- Acesso RÃ¡pido -->
+        <div class="content-card">
+            <h3><i class="fas fa-bolt"></i> Acesso RÃ¡pido</h3>
+            <div class="quick-actions">
+    <a href="{{ url_for('alunos_bp.gerenciar_alunos') }}" class="action-btn btn-outline-primary">
+        <i class="fas fa-users"></i> Gerenciar Alunos
+    </a>
+                <a href="{{ url_for('alunos_bp.adicionar_aluno') }}" class="action-btn btn-outline-primary">
+                    <i class="fas fa-user-plus"></i> Adicionar Aluno
+                </a>
+                <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="action-btn btn-outline-warning">
+                    <i class="fas fa-file-alt"></i> Registrar RFO
+                </a>
+                {% if session.get('nivel') in [1, 2] %}
+                <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="action-btn btn-outline-danger">
+                    <i class="fas fa-file-medical"></i> Registrar FMD
+                </a>
+                <a href="{{ url_for('cadastros_bp.listar_faltas') }}" class="action-btn btn-outline-info">
+                    <i class="fas fa-exclamation-triangle"></i> Faltas Disciplinares
+                </a>
+                <a href="{{ url_for('alunos_bp.importar_alunos') }}" class="action-btn btn-outline-dark">
+                    <i class="fas fa-file-import"></i> Importar Alunos
+                </a>
                 <a href="{{ url_for('formularios_bp.tabela_disciplinar') }}" class="action-btn btn-outline-success">
                     <i class="fas fa-table"></i> Tabela Disciplinar
                 </a>
@@ -582,4 +655,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
 
