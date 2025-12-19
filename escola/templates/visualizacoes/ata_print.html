@@ -1,5 +1,4 @@
-{% load static %}
-{% set resp = (ata.responsavel or '') | trim %}
+﻿{% set resp = (ata.responsavel or '') | trim %}
 <!doctype html>
 <html>
 <head>
@@ -26,13 +25,9 @@
 </head>
 <body>
   <div class="cabecalho">
-    <div style="text-align:center; margin-bottom:8px;">
-      {% if cabecalho and cabecalho.get('logo_file') %}
-        <img class="logo" src="{{ cabecalho.get('logo_file') }}" alt="Logotipo" style="max-width:220px; height:auto; display:block; margin:0 auto;">
-      {% else %}
-        <img class="logo" src="{% static 'uploads/cabecalho/logo_topo.png' %}" alt="Logotipo" style="max-width:220px; height:auto; display:block; margin:0 auto;">
-      {% endif %}
-    </div>
+    <img class="logo"
+         src="{% if (cabecalho and cabecalho.get('logo_file')) %}{{ cabecalho.get('logo_file') }}{% elif (LOGO_DATA_URI is defined and LOGO_DATA_URI) %}{{ LOGO_DATA_URI }}{% elif (cabecalho and cabecalho.get('logo_url')) %}{{ cabecalho.get('logo_url') }}{% else %}{{ url_for('static', filename='uploads/cabecalho/logo_top.png', _external=True) }}{% endif %}"
+         alt="Logotipo">
     <div class="linha">{{ cabecalho.get('estado') if cabecalho else 'ESTADO DO MATO GROSSO' }}</div>
     <div class="linha">{{ cabecalho.get('secretaria') if cabecalho else 'SECRETARIA DE ESTADO DO MATO GROSSO' }}</div>
     <div class="linha">{{ cabecalho.get('coordenacao') if cabecalho else 'COORDENADORIA DE ESCOLAS MILITARES' }}</div>
