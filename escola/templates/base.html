@@ -763,6 +763,28 @@
     {% block scripts %}{% endblock %}
 
 
+
+<script>
+(function(){
+  try {
+    var params = new URLSearchParams(window.location.search || "");
+    if (params.has("embed")) {
+      var nav = document.querySelector(".navbar");
+      if (nav) nav.style.display = "none";
+      var sidebar = document.getElementById("sidebar") || document.querySelector(".sidebar");
+      if (sidebar) sidebar.style.display = "none";
+      var overlay = document.querySelector(".sidebar-overlay");
+      if (overlay) overlay.style.display = "none";
+      var main = document.querySelector(".main-content");
+      if (main) {
+        main.style.marginLeft = "0";
+        main.style.marginTop = "0";
+      }
+      document.body.style.paddingTop = "8px";
+    }
+  } catch (e) {}
+})();
+</script>
 </body>
 
 
@@ -863,6 +885,7 @@
 
 
 <!-- padding line 30 -->
+
 
 
 

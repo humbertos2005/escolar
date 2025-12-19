@@ -15,14 +15,14 @@
   </ul>
 
   <div class="tab-content p-3 border border-top-0" id="alunosTabContent">
-    <!-- Aba: Cadastrar (carrega a rota existente) -->
+    <!-- Aba: Cadastrar (carrega a rota existente em modo embed) -->
     <div class="tab-pane fade show active" id="cadastrar" role="tabpanel">
-      <iframe src="{{ url_for('alunos_bp.adicionar_aluno') }}" style="width:100%; min-height:720px; border:0;" title="Cadastrar Aluno"></iframe>
+      <iframe src="{{ url_for('alunos_bp.adicionar_aluno') }}?embed=1" style="width:100%; min-height:760px; border:0;" title="Cadastrar Aluno"></iframe>
     </div>
 
-    <!-- Aba: Importar (carrega a rota existente) -->
+    <!-- Aba: Importar (carrega a rota existente em modo embed) -->
     <div class="tab-pane fade" id="importar" role="tabpanel">
-      <iframe src="{{ url_for('alunos_bp.importar_alunos') }}" style="width:100%; min-height:720px; border:0;" title="Importar Alunos"></iframe>
+      <iframe src="{{ url_for('alunos_bp.importar_alunos') }}?embed=1" style="width:100%; min-height:760px; border:0;" title="Importar Alunos"></iframe>
     </div>
   </div>
 </div>
