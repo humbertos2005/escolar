@@ -1,0 +1,77 @@
+﻿{% extends "base.html" %}
+{% block title %}Gerenciar Alunos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Gerenciar Alunos</h2>
+
+  <ul class="nav nav-tabs" id="alunosTab" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="cadastrar-tab" data-bs-toggle="tab" data-bs-target="#cadastrar" type="button" role="tab">Cadastrar Aluno</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="importar-tab" data-bs-toggle="tab" data-bs-target="#importar" type="button" role="tab">Importar Alunos</button>
+    </li>
+  </ul>
+
+  <div class="tab-content p-3 border border-top-0" id="alunosTabContent">
+    <!-- Aba: Cadastrar -->
+    <div class="tab-pane fade show active" id="cadastrar" role="tabpanel">
+      <form method="post" action="{{ url_for('alunos_bp.adicionar_aluno') }}">
+        <div class="row">
+          <div class="mb-3 col-md-3">
+            <label class="form-label">Matrícula</label>
+            <input type="text" name="matricula" class="form-control" required>
+          </div>
+          <div class="mb-3 col-md-6">
+            <label class="form-label">Nome</label>
+            <input type="text" name="nome" class="form-control" required>
+          </div>
+          <div class="mb-3 col-md-3">
+            <label class="form-label">Série</label>
+            <input type="text" name="serie" class="form-control">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="mb-3 col-md-3">
+            <label class="form-label">Turma</label>
+            <input type="text" name="turma" class="form-control">
+          </div>
+          <div class="mb-3 col-md-3">
+            <label class="form-label">Turno</label>
+            <input type="text" name="turno" class="form-control">
+          </div>
+          <div class="mb-3 col-md-3">
+            <label class="form-label">Telefone</label>
+            <input type="text" name="telefone" class="form-control">
+          </div>
+          <div class="mb-3 col-md-3">
+            <label class="form-label">E-mail</label>
+            <input type="email" name="email" class="form-control">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Responsável</label>
+          <input type="text" name="responsavel" class="form-control">
+        </div>
+
+        <button type="submit" class="btn btn-primary">Salvar Aluno</button>
+      </form>
+    </div>
+
+    <!-- Aba: Importar -->
+    <div class="tab-pane fade" id="importar" role="tabpanel">
+      <form method="post" action="{{ url_for('alunos_bp.importar_alunos') }}" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label class="form-label">Arquivo CSV ou XLSX</label>
+          <input type="file" name="arquivo_csv" accept=".csv,.xls,.xlsx" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Importar</button>
+      </form>
+      <p class="mt-2"><small>Obs: CSV com separador ponto-e-vírgula ( ; ) ou planilha Excel (.xls/.xlsx).</small></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

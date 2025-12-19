@@ -527,3 +527,10 @@ def buscar_aluno_json():
         
     return jsonify(resultados)
 
+
+# Rota unificada: gerenciar (cadastrar + importar) alunos
+@alunos_bp.route("/gerenciar_alunos")
+@admin_secundario_required
+def gerenciar_alunos():
+    return render_template("cadastros/gerenciar_alunos.html")
+
