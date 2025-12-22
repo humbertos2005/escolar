@@ -1,5 +1,5 @@
-﻿{% extends "base.html" %}
-{% block title %}Dashboard - GestÃ£o Escolar{% endblock %}
+{% extends "base.html" %}
+{% block title %}Dashboard - Gestão Escolar{% endblock %}
 
 {% block extra_styles %}
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -42,7 +42,7 @@ body {
     padding: 0 30px;
 }
 
-/* Cards de EstatÃ­sticas */
+/* Cards de Estatísticas */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -191,7 +191,7 @@ body {
     border: 1px solid #bee5eb;
 }
 
-/* SeÃ§Ã£o de ConteÃºdo Principal */
+/* Seção de Conteúdo Principal */
 .main-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -221,7 +221,7 @@ body {
     color: #3498db;
 }
 
-/* GrÃ¡fico */
+/* Gráfico */
 .chart-container {
     position: relative;
     height: 350px;
@@ -244,7 +244,7 @@ body {
     text-align: center;
 }
 
-/* Acesso RÃ¡pido */
+/* Acesso Rápido */
 .quick-actions {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -341,7 +341,7 @@ body {
     color: white;
 }
 
-/* Status de ConexÃ£o */
+/* Status de Conexão */
 .connection-status {
     position: fixed;
     bottom: 20px;
@@ -413,7 +413,7 @@ body {
     }
 }
 
-/* AnimaÃ§Ã£o de Entrada */
+/* Animação de Entrada */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -438,12 +438,12 @@ body {
 
 {% block content %}
 <div class="dashboard-header">
-    <h1>Bem-vindo ao Dashboard de GestÃ£o Escolar</h1>
-    <p class="subtitle">VisÃ£o geral e acesso rÃ¡pido Ã s principais funcionalidades</p>
+    <h1>Bem-vindo ao Dashboard de Gestão Escolar</h1>
+    <p class="subtitle">Visão geral e acesso rápido às principais funcionalidades</p>
 </div>
 
 <div class="dashboard-container">
-    <!-- Cards de EstatÃ­sticas -->
+    <!-- Cards de Estatísticas -->
     <div class="stats-grid">
         <div class="stat-card stat-card-primary">
             <div class="stat-header">
@@ -470,11 +470,11 @@ body {
         <div class="stat-card stat-card-success">
             <div class="stat-header">
                 <i class="fas fa-check-circle stat-icon"></i>
-                <span class="stat-title">OcorrÃªncias Tratadas</span>
+                <span class="stat-title">Ocorrências Tratadas</span>
             </div>
             <div class="stat-value" id="totalOcorrencias">{{ total_ocorrencias }}</div>
             <a href="{{ url_for('disciplinar_bp.listar_ocorrencias') }}" class="stat-link">
-                Ver OcorrÃªncias <i class="fas fa-arrow-right"></i>
+                Ver Ocorrências <i class="fas fa-arrow-right"></i>
             </a>
         </div>
 
@@ -492,24 +492,21 @@ body {
 
     <!-- Grid Principal -->
     <div class="main-grid">
-        <!-- GrÃ¡fico de EstatÃ­sticas -->
+        <!-- Gráfico de Estatísticas -->
         <div class="content-card">
-            <h3><i class="fas fa-chart-pie"></i> EstatÃ­sticas do Sistema</h3>
+            <h3><i class="fas fa-chart-pie"></i> Estatísticas do Sistema</h3>
             <div class="chart-container">
                 <div class="chart-wrapper">
                     <canvas id="dashboardChart"></canvas>
                 </div>
-                <p class="update-time">Ãšltima atualizaÃ§Ã£o: <span id="updateTime">{{ moment().format('HH:mm:ss') }}</span></p>
+                <p class="update-time">Última atualização: <span id="updateTime">{{ moment().format('HH:mm:ss') }}</span></p>
             </div>
         </div>
 
-        <!-- Acesso RÃ¡pido -->
+        <!-- Acesso Rápido -->
         <div class="content-card">
-            <h3><i class="fas fa-bolt"></i> Acesso RÃ¡pido</h3>
+            <h3><i class="fas fa-bolt"></i> Acesso Rápido</h3>
             <div class="quick-actions">
-    <a href="{{ url_for('alunos_bp.gerenciar_alunos') }}" class="action-btn btn-outline-primary">
-        <i class="fas fa-users"></i> Gerenciar Alunos
-    </a>
                 <a href="{{ url_for('alunos_bp.adicionar_aluno') }}" class="action-btn btn-outline-primary">
                     <i class="fas fa-user-plus"></i> Adicionar Aluno
                 </a>
@@ -558,12 +555,12 @@ document.addEventListener('DOMContentLoaded', function() {
         total_fmd: parseInt(totalFmdEl.textContent)
     };
 
-    // Inicializar GrÃ¡fico
+    // Inicializar Gráfico
     const ctx = document.getElementById('dashboardChart').getContext('2d');
     const chart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Alunos', 'RFOs Pendentes', 'OcorrÃªncias Tratadas', 'FMDs'],
+            labels: ['Alunos', 'RFOs Pendentes', 'Ocorrências Tratadas', 'FMDs'],
             datasets: [{
                 data: [currentData.total_alunos, currentData.rfos_pendentes, currentData.total_ocorrencias, currentData.total_fmd],
                 backgroundColor: [
@@ -655,5 +652,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
-

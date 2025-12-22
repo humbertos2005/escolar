@@ -6,6 +6,43 @@ import re
 
 cadastros_bp = Blueprint('cadastros_bp', __name__)
 
+# adicionar isto ao arquivo do blueprint cadastros (onde está cadastros_bp)
+@cadastros_bp.route('/cadastros/registros/fmd')
+def registros_fmd():
+    return render_template('registros/fmd.html')
+
+# adicionar isto ao arquivo do blueprint cadastros (onde está cadastros_bp)
+@cadastros_bp.route('/cadastros/registros/tac')
+def registros_tac():
+    return render_template('registros/tac.html')
+
+# Rota para o novo módulo "Registros -> RFO"
+@cadastros_bp.route('/registros/rfo')
+@admin_secundario_required
+def registros_rfo():
+    """
+    Página unificada de RFO (Registros) com 3 abas:
+      - Registrar  -> carrega /disciplinar/registrar_rfo
+      - Tratar     -> carrega /disciplinar/listar_rfo
+      - Visualizar -> carrega /visualizacoes/rfos
+    (O template real será criado no próximo passo.)
+    """
+    return render_template('registros/rfo.html')
+
+# Rota unificada: Dados Disciplinares (apenas renderiza o template com abas)
+@cadastros_bp.route('/dados_disciplinares')
+@admin_secundario_required
+def dados_disciplinares():
+    """
+    Página que conterá 3 abas:
+      - Faltas Disciplinares
+      - Elogios
+      - Bimestres
+    O template carregará o conteúdo de cada aba via AJAX (partials) para reaproveitar
+    exatamente as listagens existentes sem recarregar o layout principal.
+    """
+    return render_template('cadastros/dados_disciplinares.html')
+
 @cadastros_bp.route('/faltas')
 @admin_secundario_required
 def listar_faltas():
@@ -433,6 +470,47 @@ def cabecalho_excluir(id):
 # --- INÍCIO BLOCO DADOS_ESCOLA ---
 from flask import jsonify
 # endpoints para Dados da Escola
+
+# Adicione esta função em blueprints/cadastros.py (por exemplo logo após listar_dados_escola / listar_cabecalhos)
+@cadastros_bp.route('/dados_documentos')
+@admin_secundario_required
+def dados_documentos():
+    """Página unificada Dados Escolar / Documentos com 3 abas (Dados Escola, Novo Cabeçalho, Cabeçalho Documentos)."""
+    db = get_db()
+
+    # carregar cabecalhos (mesma lógica de listar_cabecalhos)
+    rows = db.execute('SELECT * FROM cabecalhos ORDER BY id DESC').fetchall()
+    cabecalhos = [dict(r) for r in rows]
+    for c in cabecalhos:
+        if c.get('logo_estado'):
+            c['logo_estado_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_estado"]}')
+        else:
+            c['logo_estado_url'] = None
+        if c.get('logo_escola'):
+            c['logo_escola_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_escola"]}')
+        else:
+            c['logo_escola_url'] = None
+        if c.get('logo_prefeitura'):
+            c['logo_prefeitura_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_prefeitura"]}')
+        else:
+            c['logo_prefeitura_url'] = None
+
+    # carregar dados da escola (mesma lógica de listar_dados_escola)
+    rows2 = db.execute("SELECT * FROM dados_escola ORDER BY id DESC").fetchall()
+    dados = [dict(r) for r in rows2]
+    for d in dados:
+        if d.get('cabecalho_id'):
+            ch = db.execute("SELECT escola FROM cabecalhos WHERE id = ?", (d['cabecalho_id'],)).fetchone()
+            d['escola_origem'] = ch['escola'] if ch else None
+        else:
+            d['escola_origem'] = None
+
+    # Renderizar o novo template (a seguir eu entrego o arquivo templates/cadastros/dados_documentos.html)
+    # Passamos cabecalhos e dados. Passamos cabecalho/dados None para os formulários "novo".
+    return render_template('cadastros/dados_documentos.html',
+                           cabecalhos=cabecalhos,
+                           dados=dados,
+                           cabecalho=None)
 
 @cadastros_bp.route('/dados_escola')
 @admin_secundario_required

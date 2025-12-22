@@ -1,5 +1,5 @@
-﻿{% extends 'base.html' %}{% set tipo_val = (ocorrencia.get('tratamento_tipo') or ocorrencia.get('tipo_rfo') or ocorrencia.get('tipo_ocorrencia_nome') or '')|lower %}
-{% block content %}
+﻿<!-- Partial gerado automaticamente a partir de tratar_rfo.html - não estende base -->
+{% set tipo_val = (ocorrencia.get('tratamento_tipo') or ocorrencia.get('tipo_rfo') or ocorrencia.get('tipo_ocorrencia_nome') or '')|lower %}
 <h2>Tratamento da Falta Disciplinar</h2>
 <p class="subtitle">RFO Nº {{ ocorrencia.rfo_id }}</p>
 <div class="rfo-container">
@@ -281,8 +281,10 @@
 .reclassify-types .button.tipo-adicionar.active { background:#f1c40f; border-color:#f39c12; color:#000; }
 </style>
 {% block scripts %}
-{{ super() }}
+{% if has_scripts_parent is defined and has_scripts_parent %}{{ super() }}{% endif %}
 <script src="{{ url_for('static', filename='js/tratar_rfo.js') }}?v={{ range(1,100000) | random }}"></script>
+
 {% endblock %}
-{% endblock %}
+
+
 

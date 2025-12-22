@@ -1,342 +1,339 @@
-{% extends 'base.html' %}
-{% block content %}
-<h2>Lista de Alunos Cadastrados</h2>
-<div class="toolbar">
-    <div class="toolbar-left">
-        <a href="{{ url_for('alunos_bp.adicionar_aluno') }}" class="button">
-            <i class="fas fa-user-plus"></i> Adicionar Novo Aluno
-        </a>
-        <a href="{{ url_for('alunos_bp.backup_alunos') }}" class="button btn-secondary">
-            <i class="fas fa-download"></i> Backup (CSV)
-        </a>
-    </div>
-    <div class="toolbar-right">
-        <form method="GET" class="search-form">
-            <input type="text" name="search" placeholder="Buscar por nome ou matrícula..." 
-                   value="{{ search }}" class="search-input">
-            <button type="submit" class="button">
-                <i class="fas fa-search"></i> Buscar
-            </button>
-            {% if search %}
-            <a href="{{ url_for('alunos_bp.listar_alunos') }}" class="button btn-secondary">
-                <i class="fas fa-times"></i> Limpar
-            </a>
-            {% endif %}
-        </form>
-    </div>
-</div>
-
-{% if session.get('nivel') == 1 %}
-<div class="danger-zone">
-    <form method="POST" action="{{ url_for('alunos_bp.excluir_todos') }}" style="display:inline;" 
-          onsubmit="return confirm('ATENÇÃO: Deseja realmente excluir TODOS os alunos? Esta ação é IRREVERSÍVEL e o contador de IDs será reiniciado.');">
-        <button type="submit" class="button btn-danger">
-            <i class="fas fa-trash-alt"></i> Excluir Todos os Alunos
-        </button>
-    </form>
-</div>
-{% endif %}
-
-{% if alunos %}
-    <div class="table-info">
-        <p>Exibindo {{ alunos|length }} aluno(s) - Página {{ page }} de {{ total_pages }}</p>
-    </div>
-    <div class="table-container">
-        <table class="table table-data table-full">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Matrícula</th>
-                    <th style="min-width: 250px;">Nome Completo</th>
-                    <th>Série</th>
-                    <th>Turma</th>
-                    <th>Turno</th>
-                    <th style="min-width: 200px;">Pai</th>
-                    <th style="min-width: 200px;">Mãe</th>
-                    <th style="min-width: 200px;">Responsável</th>
-                    <th style="min-width: 140px;">Telefone 1</th>
-                    <th style="min-width: 140px;">Telefone 2</th>
-                    <th style="min-width: 140px;">Telefone 3</th>
-                    <th style="min-width: 200px;">E-mail</th>
-                    <th style="min-width: 300px;">Endereço</th>
-                    <th style="min-width: 150px;">Bairro</th>
-                    <th style="min-width: 150px;">Cidade</th>
-                    <th>Estado</th>
-                    <th class="actions">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for aluno in alunos %}
-                <tr>
-                    <td>{{ aluno.id }}</td>
-                    <td><strong>{{ aluno.matricula }}</strong></td>
-                    <td><div class="text-left">{{ aluno.nome }}</div></td>
-                    <td>{{ aluno.serie or '-' }}</td>
-                    <td>{{ aluno.turma or '-' }}</td>
-                    <td>{{ aluno.turno or '-' }}</td>
-                    <td><div class="text-left">{{ aluno.pai or '-' }}</div></td>
-                    <td><div class="text-left">{{ aluno.mae or '-' }}</div></td>
-                    <td><div class="text-left">{{ aluno.responsavel or '-' }}</div></td>
-                    <td><div class="text-left small-text">{{ aluno.telefone_1 }}</div></td>
-                    <td><div class="text-left small-text">{{ aluno.telefone_2 }}</div></td>
-                    <td><div class="text-left small-text">{{ aluno.telefone_3 }}</div></td>
-                    <td><div class="text-left small-text">{{ aluno.email or '-' }}</div></td>
-                    <td>
-                        <div class="text-left small-text">
-                            {% if aluno.rua %}
-                                {{ aluno.rua }}{% if aluno.numero %}, {{ aluno.numero }}{% endif %}{% if aluno.complemento %} - {{ aluno.complemento }}{% endif %}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </div>
-                    </td>
-                    <td><div class="text-left">{{ aluno.bairro or '-' }}</div></td>
-                    <td><div class="text-left">{{ aluno.cidade or '-' }}</div></td>
-                    <td>{{ aluno.estado or '-' }}</td>
-                    <td class="actions">
-                        <a href="{{ url_for('alunos_bp.editar_aluno', aluno_id=aluno.id) }}" 
-                           class="btn btn-sm btn-info" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        {% if session.get('nivel') == 1 %}
-                        <form method="POST" action="{{ url_for('alunos_bp.excluir_aluno', aluno_id=aluno.id) }}" 
-                              style="display:inline;" 
-                              onsubmit="return confirm('Tem certeza que deseja excluir o aluno {{ aluno.nome }} (Matrícula: {{ aluno.matricula }})?');">
-                            <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <!-- Paginação -->
-    {% if total_pages > 1 %}
-    <div class="pagination">
-        {% if page > 1 %}
-        <a href="{{ url_for('alunos_bp.listar_alunos', page=page-1, search=search) }}" class="page-link">
-            <i class="fas fa-chevron-left"></i> Anterior
-        </a>
-        {% endif %}
-        <span class="page-info">Página {{ page }} de {{ total_pages }}</span>
-        {% if page < total_pages %}
-        <a href="{{ url_for('alunos_bp.listar_alunos', page=page+1, search=search) }}" class="page-link">
-            Próxima <i class="fas fa-chevron-right"></i>
-        </a>
-        {% endif %}
-    </div>
-    {% endif %}
-{% else %}
-    <div class="empty-state">
-        <i class="fas fa-users"></i>
-        <p>Nenhum aluno cadastrado{% if search %} com o termo "{{ search }}"{% endif %}.</p>
-        <a href="{{ url_for('alunos_bp.adicionar_aluno') }}" class="button">
-            <i class="fas fa-plus"></i> Cadastrar Primeiro Aluno
-        </a>
-    </div>
-{% endif %}
-
-<style>
-.toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-.toolbar-left, .toolbar-right {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-.search-form {
-    display: flex;
-    gap: 10px;
-}
-.search-input {
-    padding: 8px 15px;
-    border: 2px solid #e0e0e0;
-    border-radius: 5px;
-    font-size: 1em;
-    min-width: 250px;
-}
-.search-input:focus {
-    outline: none;
-    border-color: #3498db;
-}
-.danger-zone {
-    background: #ffe5e5;
-    border: 2px solid #ff6b6b;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-.table-info {
-    color: #7f8c8d;
-    margin-bottom: 10px;
-    font-weight: 600;
-}
-/* Container com altura fixa e scroll fixo na viewport */
-.table-container {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-    overflow-x: auto;
-    overflow-y: visible;
-    max-height: calc(100vh - 350px);
-    position: relative;
-}
-/* Estilização da barra de rolagem SEMPRE VISÍVEL */
-.table-container::-webkit-scrollbar {
-    height: 16px;
-}
-.table-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 0 0 8px 8px;
-}
-.table-container::-webkit-scrollbar-thumb {
-    background: #3498db;
-    border-radius: 10px;
-    border: 2px solid #f1f1f1;
-}
-.table-container::-webkit-scrollbar-thumb:hover {
-    background: #2980b9;
-}
-/* Para Firefox */
-.table-container {
-    scrollbar-width: auto;
-    scrollbar-color: #3498db #f1f1f1;
-}
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 0;
-}
-.table-full {
-    min-width: 2800px;
-}
-.table th, .table td {
-    border: 1px solid #e0e0e0;
-    padding: 12px 10px;
-    text-align: center;
-    vertical-align: middle;
-    white-space: nowrap;
-}
-.table th {
-    background: #2c3e50;
-    color: white;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.8em;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-.table tbody tr:hover {
-    background: #f8f9fa;
-}
-.table tbody tr:nth-child(even) {
-    background: #fafafa;
-}
-.table tbody tr:nth-child(even):hover {
-    background: #f0f0f0;
-}
-.text-left {
-    text-align: left !important;
-    white-space: normal;
-    word-wrap: break-word;
-    max-width: 300px;
-}
-.small-text {
-    font-size: 0.85em;
-    line-height: 1.3;
-}
-.actions {
-    white-space: nowrap;
-    min-width: 100px;
-}
-.btn-sm {
-    padding: 6px 10px;
-    font-size: 0.9em;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin: 2px;
-}
-.btn-info {
-    background: #3498db;
-    color: white;
-}
-.btn-info:hover {
-    background: #2980b9;
-    transform: scale(1.05);
-}
-.btn-danger {
-    background: #e74c3c;
-    color: white;
-}
-.btn-danger:hover {
-    background: #c0392b;
-    transform: scale(1.05);
-}
-.pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 20px;
-    margin-top: 20px;
-}
-.page-link {
-    padding: 10px 20px;
-    background: #3498db;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    transition: all 0.3s;
-    font-weight: 600;
-}
-.page-link:hover {
-    background: #2980b9;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
-}
-.page-info {
-    color: #2c3e50;
-    font-weight: 600;
-    font-size: 1.1em;
-}
-.empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-.empty-state i {
-    font-size: 4em;
-    color: #bdc3c7;
-    margin-bottom: 20px;
-}
-.empty-state p {
-    color: #7f8c8d;
-    font-size: 1.2em;
-    margin-bottom: 20px;
-}
-/* Responsivo */
-@media (max-width: 1400px) {
-    .table th, .table td {
-        padding: 8px 6px;
-        font-size: 0.85em;
-    }
-    .table-container {
-        max-height: calc(100vh - 300px);
-    }
-}
-</style>
-{% endblock %}
+﻿{% extends 'base.html' %}
+{% block content %}
+<h2>Lista de Alunos Cadastrados</h2>
+<div class="toolbar">
+    <div class="toolbar-left">
+        <a href="{{ url_for('alunos_bp.adicionar_aluno') }}" class="button">
+            <i class="fas fa-user-plus"></i> Adicionar Novo Aluno
+        </a>
+        <a href="{{ url_for('alunos_bp.backup_alunos') }}" class="button btn-secondary">
+            <i class="fas fa-download"></i> Backup (CSV)
+        </a>
+    </div>
+    <div class="toolbar-right">
+        <form method="GET" class="search-form">
+            <input type="text" name="search" placeholder="Buscar por nome ou matrÃ­cula..." 
+                   value="{{ search }}" class="search-input">
+            <button type="submit" class="button">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+            {% if search %}
+            <a href="{{ url_for('alunos_bp.listar_alunos') }}" class="button btn-secondary">
+                <i class="fas fa-times"></i> Limpar
+            </a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% if session.get('nivel') == 1 %}
+<div class="danger-zone">
+    <form method="POST" action="{{ url_for('alunos_bp.excluir_todos') }}" style="display:inline;" 
+          onsubmit="return confirm('ATENÃ‡ÃƒO: Deseja realmente excluir TODOS os alunos? Esta aÃ§Ã£o Ã© IRREVERSÃVEL e o contador de IDs serÃ¡ reiniciado.');">
+        <button type="submit" class="button btn-danger">
+            <i class="fas fa-trash-alt"></i> Excluir Todos os Alunos
+        </button>
+    </form>
+</div>
+{% endif %}
+{% if alunos %}
+    <div class="table-info">
+        <p>Exibindo {{ alunos|length }} aluno(s) - PÃ¡gina {{ page }} de {{ total_pages }}</p>
+    </div>
+    <div class="table-container">
+        <table class="table table-data table-full">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>MatrÃ­cula</th>
+                    <th style="min-width: 250px;">Nome Completo</th>
+                    <th>SÃ©rie</th>
+                    <th>Turma</th>
+                    <th>Turno</th>
+                    <th style="min-width: 200px;">Pai</th>
+                    <th style="min-width: 200px;">MÃ£e</th>
+                    <th style="min-width: 200px;">ResponsÃ¡vel</th>
+                    <th style="min-width: 140px;">Telefone 1</th>
+                    <th style="min-width: 140px;">Telefone 2</th>
+                    <th style="min-width: 140px;">Telefone 3</th>
+                    <th style="min-width: 200px;">E-mail</th>
+                    <th style="min-width: 300px;">EndereÃ§o</th>
+                    <th style="min-width: 150px;">Bairro</th>
+                    <th style="min-width: 150px;">Cidade</th>
+                    <th>Estado</th>
+                    <th class="actions">AÃ§Ãµes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for aluno in alunos %}
+                <tr>
+                    <td>{{ aluno.id }}</td>
+                    <td><strong>{{ aluno.matricula }}</strong></td>
+                    <td><div class="text-left">{{ aluno.nome }}</div></td>
+                    <td>{{ aluno.serie or '-' }}</td>
+                    <td>{{ aluno.turma or '-' }}</td>
+                    <td>{{ aluno.turno or '-' }}</td>
+                    <td><div class="text-left">{{ aluno.pai or '-' }}</div></td>
+                    <td><div class="text-left">{{ aluno.mae or '-' }}</div></td>
+                    <td><div class="text-left">{{ aluno.responsavel or '-' }}</div></td>
+                    <td><div class="text-left small-text">{{ aluno.telefone_1 }}</div></td>
+                    <td><div class="text-left small-text">{{ aluno.telefone_2 }}</div></td>
+                    <td><div class="text-left small-text">{{ aluno.telefone_3 }}</div></td>
+                    <td><div class="text-left small-text">{{ aluno.email or '-' }}</div></td>
+                    <td>
+                        <div class="text-left small-text">
+                            {% if aluno.rua %}
+                                {{ aluno.rua }}{% if aluno.numero %}, {{ aluno.numero }}{% endif %}{% if aluno.complemento %} - {{ aluno.complemento }}{% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td><div class="text-left">{{ aluno.bairro or '-' }}</div></td>
+                    <td><div class="text-left">{{ aluno.cidade or '-' }}</div></td>
+                    <td>{{ aluno.estado or '-' }}</td>
+                    <td class="actions">
+                        <a href="{{ url_for('alunos_bp.editar_aluno', aluno_id=aluno.id) }}" 
+                           class="btn btn-sm btn-info" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if session.get('nivel') == 1 %}
+                        <form method="POST" action="{{ url_for('alunos_bp.excluir_aluno', aluno_id=aluno.id) }}" 
+                              style="display:inline;" 
+                              onsubmit="return confirm('Tem certeza que deseja excluir o aluno {{ aluno.nome }} (MatrÃ­cula: {{ aluno.matricula }})?');">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!-- PaginaÃ§Ã£o -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+        <a href="{{ url_for('alunos_bp.listar_alunos', page=page-1, search=search) }}" class="page-link">
+            <i class="fas fa-chevron-left"></i> Anterior
+        </a>
+        {% endif %}
+        <span class="page-info">PÃ¡gina {{ page }} de {{ total_pages }}</span>
+        {% if page < total_pages %}
+        <a href="{{ url_for('alunos_bp.listar_alunos', page=page+1, search=search) }}" class="page-link">
+            PrÃ³xima <i class="fas fa-chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+{% else %}
+    <div class="empty-state">
+        <i class="fas fa-users"></i>
+        <p>Nenhum aluno cadastrado{% if search %} com o termo "{{ search }}"{% endif %}.</p>
+        <a href="{{ url_for('alunos_bp.adicionar_aluno') }}" class="button">
+            <i class="fas fa-plus"></i> Cadastrar Primeiro Aluno
+        </a>
+    </div>
+{% endif %}
+<style>
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.toolbar-left, .toolbar-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.search-form {
+    display: flex;
+    gap: 10px;
+}
+.search-input {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 5px;
+    font-size: 1em;
+    min-width: 250px;
+}
+.search-input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+.danger-zone {
+    background: #ffe5e5;
+    border: 2px solid #ff6b6b;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+.table-info {
+    color: #7f8c8d;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+/* Container com altura fixa e scroll fixo na viewport */
+.table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    overflow-x: auto;
+    overflow-y: visible;
+    max-height: calc(100vh - 350px);
+    position: relative;
+}
+/* EstilizaÃ§Ã£o da barra de rolagem SEMPRE VISÃVEL */
+.table-container::-webkit-scrollbar {
+    height: 16px;
+}
+.table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 0 0 8px 8px;
+}
+.table-container::-webkit-scrollbar-thumb {
+    background: #3498db;
+    border-radius: 10px;
+    border: 2px solid #f1f1f1;
+}
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #2980b9;
+}
+/* Para Firefox */
+.table-container {
+    scrollbar-width: auto;
+    scrollbar-color: #3498db #f1f1f1;
+}
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+.table-full {
+    min-width: 2800px;
+}
+.table th, .table td {
+    border: 1px solid #e0e0e0;
+    padding: 12px 10px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.table th {
+    background: #2c3e50;
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8em;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.table tbody tr:hover {
+    background: #f8f9fa;
+}
+.table tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+.table tbody tr:nth-child(even):hover {
+    background: #f0f0f0;
+}
+.text-left {
+    text-align: left !important;
+    white-space: normal;
+    word-wrap: break-word;
+    max-width: 300px;
+}
+.small-text {
+    font-size: 0.85em;
+    line-height: 1.3;
+}
+.actions {
+    white-space: nowrap;
+    min-width: 100px;
+}
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin: 2px;
+}
+.btn-info {
+    background: #3498db;
+    color: white;
+}
+.btn-info:hover {
+    background: #2980b9;
+    transform: scale(1.05);
+}
+.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+.btn-danger:hover {
+    background: #c0392b;
+    transform: scale(1.05);
+}
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+.page-link {
+    padding: 10px 20px;
+    background: #3498db;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: all 0.3s;
+    font-weight: 600;
+}
+.page-link:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+}
+.page-info {
+    color: #2c3e50;
+    font-weight: 600;
+    font-size: 1.1em;
+}
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.empty-state i {
+    font-size: 4em;
+    color: #bdc3c7;
+    margin-bottom: 20px;
+}
+.empty-state p {
+    color: #7f8c8d;
+    font-size: 1.2em;
+    margin-bottom: 20px;
+}
+/* Responsivo */
+@media (max-width: 1400px) {
+    .table th, .table td {
+        padding: 8px 6px;
+        font-size: 0.85em;
+    }
+    .table-container {
+        max-height: calc(100vh - 300px);
+    }
+}
+</style>
+{% endblock %}

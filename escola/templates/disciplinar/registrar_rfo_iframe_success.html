@@ -1,0 +1,45 @@
+﻿<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>RFO Registrado</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    /* minimal styling para exibir algo caso o iframe permaneça visível */
+    body { font-family: Arial, Helvetica, sans-serif; margin: 12px; background: transparent; color: #222; }
+    .msg { padding: 12px 16px; border-radius: 6px; background: #e9f7ef; color: #155724; border: 1px solid #c3e6cb; }
+  </style>
+</head>
+<body>
+  <div class="msg">RFO registrado. Se estiver em um painel, a página pai será notificada.</div>
+
+  <script type="text/javascript">
+    (function(){
+      try {
+        // se estamos dentro de um parent (iframe), apenas notificar via postMessage
+        if (window.parent && window.parent !== window) {
+          try {
+            window.parent.postMessage({ type: 'rfo-registered', rfo_id: "{{ rfo_id }}" }, '*');
+          } catch(e){
+            // falha silenciosa na postagem da mensagem
+            console.warn('postMessage failed', e);
+          }
+          // não navegamos o parent — o parent decide o que fazer (ex.: mostrar aviso, recarregar a lista)
+          // opcional: manter a mensagem visível por alguns segundos e depois auto-fechar o iframe (se desejar)
+          return;
+        }
+
+        // se NÃO estamos em iframe (acesso direto), redirecionar para a listagem normal
+        window.location.href = "{{ url_for('disciplinar_bp.listar_rfo') }}";
+      } catch(err) {
+        // fallback seguro: redireciona para a listagem
+        try { window.location.href = "{{ url_for('disciplinar_bp.listar_rfo') }}"; } catch(e){}
+      }
+    })();
+  </script>
+
+  <noscript>
+    RFO registrado com sucesso. <a href="{{ url_for('disciplinar_bp.listar_rfo') }}">Ver lista de RFOs</a>
+  </noscript>
+</body>
+</html>

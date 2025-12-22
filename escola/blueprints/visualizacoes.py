@@ -1574,6 +1574,7 @@ def ata_pdf(ata_id):
                     cabecalho["diretor"] = diretor_nome
         except Exception as _:
             pass
+        print("DEBUG: cabecalho['diretor'] ->", (cabecalho.get("diretor") if cabecalho else "<no cabecalho>"))
         # --- fim debug ---
 
         # --- DEBUG: tentar obter diretor e imprimir informações úteis no terminal ---
@@ -1611,6 +1612,7 @@ def ata_pdf(ata_id):
                     cabecalho["diretor"] = diretor_nome
         except Exception as _:
             pass
+        print("DEBUG: cabecalho['diretor'] ->", (cabecalho.get("diretor") if cabecalho else "<no cabecalho>"))
         # --- fim debug ---
 
         # DEBUG TEMPORÁRIO: logar valores antes do render (cole ANTES de render_template(...))

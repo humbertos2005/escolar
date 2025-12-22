@@ -1,31 +1,68 @@
-﻿{% extends "base.html" %}
-{% block title %}Gerenciar Alunos{% endblock %}
-
+﻿{% extends 'base.html' %}
 {% block content %}
-<div class="container mt-4">
-  <h2>Gerenciar Alunos</h2>
 
-  <ul class="nav nav-tabs" id="alunosTab" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="cadastrar-tab" data-bs-toggle="tab" data-bs-target="#cadastrar" type="button" role="tab">Cadastrar Aluno</button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="importar-tab" data-bs-toggle="tab" data-bs-target="#importar" type="button" role="tab">Importar Alunos</button>
-    </li>
-  </ul>
+<h2>Gerenciar Alunos</h2>
 
-  <div class="tab-content p-3 border border-top-0" id="alunosTabContent">
-    <!-- Aba: Cadastrar (carrega a rota existente em modo embed) -->
-    <div class="tab-pane fade show active" id="cadastrar" role="tabpanel">
-      <iframe src="{{ url_for('alunos_bp.adicionar_aluno') + '?embed=1' }}?embed=1" style="width:100%; min-height:760px; border:0;" title="Cadastrar Aluno"></iframe>
+<div class="manage-tabs" style="max-width:1200px;margin:20px auto;">
+
+  <div class="manage-tabs-nav" style="display:flex;gap:10px;margin-bottom:15px;">
+    <button type="button" class="tab-btn active" data-tab="cadastrar" style="padding:10px 16px;border:1px solid #ddd;background:#fff;border-radius:6px;cursor:pointer;">Cadastrar Aluno</button>
+    <button type="button" class="tab-btn" data-tab="importar" style="padding:10px 16px;border:1px solid #ddd;background:#f7f7f7;border-radius:6px;cursor:pointer;">Importar Alunos</button>
+  </div>
+
+  <div class="manage-tabs-content">
+    <div id="tab-cadastrar" class="tab-panel" style="display:block;">
+      {% include 'cadastros/_adicionar_aluno_content.html' %}
     </div>
 
-    <!-- Aba: Importar (carrega a rota existente em modo embed) -->
-    <div class="tab-pane fade" id="importar" role="tabpanel">
-      <iframe src="{{ url_for('alunos_bp.importar_alunos') + '?embed=1' }}?embed=1" style="width:100%; min-height:760px; border:0;" title="Importar Alunos"></iframe>
+    <div id="tab-importar" class="tab-panel" style="display:none;">
+      {% include 'cadastros/_importar_alunos_content.html' %}
     </div>
   </div>
 </div>
+
+<script>
+// ativa aba via ?tab=importar ou ?tab=cadastrar
+(function(){
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab) {
+      document.querySelectorAll('.manage-tabs .tab-btn').forEach(b => {
+        b.classList.remove('active'); b.style.background = '#f7f7f7';
+      });
+      const btn = document.querySelector('.manage-tabs .tab-btn[data-tab="'+tab+'"]');
+      if (btn) { btn.classList.add('active'); btn.style.background = '#fff'; }
+      document.querySelectorAll('.manage-tabs .tab-panel').forEach(function(p){
+        p.style.display = (p.id === 'tab-' + tab) ? 'block' : 'none';
+      });
+    }
+  } catch(e){ console.log(e); }
+})();
+</script>
+
+<script>
+(function(){
+  try {
+    var tabs = document.querySelectorAll('.manage-tabs .tab-btn');
+    tabs.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        tabs.forEach(function(b){ b.classList.remove('active'); b.style.background='#f7f7f7'; });
+        this.classList.add('active');
+        this.style.background = '#fff';
+        var tab = this.getAttribute('data-tab');
+        document.querySelectorAll('.manage-tabs .tab-panel').forEach(function(p){
+          p.style.display = (p.id === 'tab-' + tab) ? 'block' : 'none';
+        });
+        // scroll to top of content area
+        var el = document.querySelector('.manage-tabs');
+        if (el) { el.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+      });
+    });
+  } catch(e) {
+    console.log('Tabs init error', e);
+  }
+})();
+</script>
+
 {% endblock %}
-
-

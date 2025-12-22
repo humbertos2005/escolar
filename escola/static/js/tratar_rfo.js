@@ -633,3 +633,16 @@
     init();
   }
 })();
+
+// --- no final do arquivo, adicione:
+window.initTratarRfo = function(containerElement) {
+  // Se houver funções de inicialização internas, chame-as aqui.
+  // Exemplo: rebind events, inicializar autocomplete, carregar tipos já selecionados, etc.
+  try {
+    if (typeof initTipoFaltaWidgets === 'function') initTipoFaltaWidgets(containerElement);
+    if (typeof initFaltaAutocomplete === 'function') initFaltaAutocomplete(containerElement);
+    // ... outros init calls do seu JS...
+  } catch (e) {
+    console.error('Erro ao inicializar tratamentos injetados:', e);
+  }
+};

@@ -1,82 +1,87 @@
 ﻿{% extends 'base.html' %}
 {% block content %}
 
-<h2>Tratamento da Falta Disciplinar (Relatórios de Fato Observado)</h2>
-
-<div class="toolbar">
-    <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="button btn-primary">
-        <i class="fas fa-plus-circle"></i> Registrar Novo RFO
-    </a>
-</div>
-
-{% if rfos %}
-    <div class="table-scroll-wrapper">
-        <table class="table table-rfo">
-            <thead>
-                <tr>
-                    <th>RFO ID</th>
-                    <th>Data/Hora</th>
-                    <th>Aluno</th>
-                    <th>Turma</th>
-                    <th>Tipo Ocorrência</th>
-                    <th>Registrado por</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for rfo in rfos %}
-                <tr>
-                    <td><strong>{{ rfo.rfo_id }}</strong></td>
-                    <td>{{ rfo.data_ocorrencia | data_br }}</td>
-                    <td>{{ rfo.alunos or rfo.nome_aluno }}</td>
-                    <td>{{ rfo.series_turmas or rfo.serie }} </td>
-                    <td>{{ rfo.tipo_ocorrencia_nome }}</td>
-                    <td>{{ rfo.responsavel_registro_username }}</td>
-                    <td>
-                        {% if rfo.status == 'AGUARDANDO TRATAMENTO' %}
-                            <span class="badge-status pendente">
-                                <i class="fas fa-clock"></i> {{ rfo.status }}
-                            </span>
-                        {% else %}
-                            <span class="badge-status tratado">
-                                <i class="fas fa-check-circle"></i> {{ rfo.status }}
-                            </span>
-                        {% endif %}
-                    </td>
-                    <td class="actions">
-                        <!-- Botão: Visualizar Formulário Original -->
-                        <a href="{{ url_for('disciplinar_bp.visualizar_rfo', ocorrencia_id=rfo.id) }}" 
-                           class="btn btn-sm btn-info" 
-                           title="Visualizar Formulário Original">
-                            <i class="fas fa-eye"></i> Visualizar
-                        </a>
-                        
-                        <!-- Botão: Iniciar Tratamento (somente para pendentes) -->
-                        {% if rfo.status == 'AGUARDANDO TRATAMENTO' %}
-                        <a href="{{ url_for('disciplinar_bp.tratar_rfo', ocorrencia_id=rfo.id) }}" 
-                           class="btn btn-sm btn-warning" 
-                           title="Iniciar Tratamento">
-                            <i class="fas fa-edit"></i> Tratar
-                        </a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-{% else %}
-    <div class="empty-state">
-        <i class="fas fa-clipboard-list"></i>
-        <p>Não há Relatórios de Fato Observado (RFO) registrados.</p>
-        <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="button btn-primary">
-            <i class="fas fa-plus"></i> Registrar Primeiro RFO
-        </a>
-    </div>
+{# Se usarmos o back-end que define focus_tratar e ocorrencia (ou, se usa request.args.get('focus'), ajuste para essa condição) #}
+{% if focus_tratar and ocorrencia and request.args.get('open') in ['1','true','True'] %}
+  {% include 'disciplinar/tratar_rfo_partial_inner.html' %}
 {% endif %}
 
-<style>
+{% if True %}
+  <div class="toolbar">
+      <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="button btn-primary">
+          <i class="fas fa-plus-circle"></i> Registrar Novo RFO
+      </a>
+  </div>
+
+  {% if rfos %}
+      <div class="table-scroll-wrapper">
+          <table class="table table-rfo">
+              <thead>
+                  <tr>
+                      <th>RFO ID</th>
+                      <th>Data/Hora</th>
+                      <th>Aluno</th>
+                      <th>Turma</th>
+                      <th>Tipo Ocorrência</th>
+                      <th>Registrado por</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {% for rfo in rfos %}
+                  <tr>
+                      <td><strong>{{ rfo.rfo_id }}</strong></td>
+                      <td>{{ rfo.data_ocorrencia | data_br }}</td>
+                      <td>{{ rfo.alunos or rfo.nome_aluno }}</td>
+                      <td>{{ rfo.series_turmas or rfo.serie }} </td>
+                      <td>{{ rfo.tipo_ocorrencia_nome }}</td>
+                      <td>{{ rfo.responsavel_registro_username }}</td>
+                      <td>
+                          {% if not request.args.get('view_only') and rfo.status == 'AGUARDANDO TRATAMENTO' %}
+                              <span class="badge-status pendente">
+                                  <i class="fas fa-clock"></i> {{ rfo.status }}
+                              </span>
+                          {% else %}
+                              <span class="badge-status tratado">
+                                  <i class="fas fa-check-circle"></i> {{ rfo.status }}
+                              </span>
+                          {% endif %}
+                      </td>
+                      <td class="actions">
+  {% if request.args.get('focus') == 'tratar' and not request.args.get('view_only') and rfo.status == 'AGUARDANDO TRATAMENTO' %}
+    <a href="{{ url_for('disciplinar_bp.tratar_rfo', ocorrencia_id=rfo.id) }}"
+       class="btn btn-sm btn-warning" title="Tratar Ocorrência">
+      <i class="fas fa-edit"></i> Tratar
+    </a>
+  {% else %}
+    <a href="{{ url_for('disciplinar_bp.visualizar_rfo', ocorrencia_id=rfo.id) }}"
+       class="btn btn-sm btn-info" title="Visualizar Formulário Original">
+      <i class="fas fa-eye"></i> Visualizar
+    </a>
+    {% if not request.args.get('view_only') and rfo.status == 'AGUARDANDO TRATAMENTO' %}
+      <a href="{{ url_for('disciplinar_bp.tratar_rfo', ocorrencia_id=rfo.id) }}"
+         class="btn btn-sm btn-warning" title="Iniciar Tratamento">
+        <i class="fas fa-edit"></i> Tratar
+      </a>
+    {% endif %}
+  {% endif %}
+</td>
+                  </tr>
+                  {% endfor %}
+              </tbody>
+          </table>
+      </div>
+  {% else %}
+      <div class="empty-state">
+          <i class="fas fa-clipboard-list"></i>
+          <p>Não há Relatórios de Fato Observado (RFO) registrados.</p>
+          <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="button btn-primary">
+              <i class="fas fa-plus"></i> Registrar Primeiro RFO
+          </a>
+      </div>
+  {% endif %}
+{% endif %}<style>
 .toolbar {
     margin-bottom: 20px;
 }
@@ -203,5 +208,36 @@
 </style>
 
 {% endblock %}
+
+
+
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('focus') === 'tratar' && (params.get('open') === '1' || params.get('open') === 'true' || params.get('open') === 'True')) {
+      // seletor tolerante para o botão "Tratar" (várias possibilidades de title/class)
+      const sel = 'a.btn-warning[title*="Tratar"], a.btn-warning[title*="Tratar RFO"], button.btn-warning[title*="Tratar"]';
+      // tentar encontrar o primeiro botão "Tratar" visível
+      const btn = Array.from(document.querySelectorAll(sel)).find(b => b.offsetParent !== null);
+      if (btn) {
+        // dispara clique; se for <a> navegará dentro do iframe; se for controlado por JS, também acionará
+        btn.click();
+      }
+    }
+  } catch (e) {
+    console.warn('auto-focus-tratar error:', e);
+  }
+});
+</script>
+{% endblock %}
+
+
+
+
+
 
 
