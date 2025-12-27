@@ -1,0 +1,82 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+
+<h2>Visualizar ATA: {{ ata.numero }}/{{ ata.ano }}</h2>
+
+<div class="card card-body">
+  <div class="row">
+    <div class="col-md-8">
+      <p><strong>Aluno:</strong> {{ ata.aluno_nome or '-' }}</p>
+      <p><strong>Série:</strong> {{ (ata.serie_turma.split(' / ')[0] if ata.serie_turma and ' / ' in ata.serie_turma else (ata.serie_turma or '-')) }}</p>
+      <p><strong>Turma:</strong> {% if ata.serie_turma and ' / ' in ata.serie_turma %}{{ ata.serie_turma.split(' / ')[1] }}{% else %}{{ '-' }}{% endif %}</p>
+      <p><strong>Responsável:</strong> {{ ata.responsavel or '-' }}</p>
+      <p><strong>Número:</strong> {{ ata.numero }}/{{ ata.ano }}</p>
+    </div>
+  </div>
+
+  <hr />
+
+  <h4>Relato / Conteúdo</h4>
+  <div style="white-space:pre-wrap; margin-bottom: 12px;">{{ (ata.conteudo or '') | e | replace('\n', '<br>') | safe }}</div>
+
+  <hr />
+
+  <h4>Participantes</h4>
+
+  {# 1) Se a view passou 'participants' diretamente, privilegia isso #}
+  {% if participants is defined and participants and participants|length > 0 %}
+    <table class="table table-sm">
+      <thead>
+        <tr><th>Nome</th><th>Cargo</th></tr>
+      </thead>
+      <tbody>
+        {% for p in participants %}
+          <tr>
+            <td>{{ p.get('name') or p.get('nome') or p.get('nome_participante') or '-' }}</td>
+            <td>{{ p.get('role') or p.get('cargo') or p.get('position') or '-' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  {% else %}
+    {# 2) Tentar usar ata.participants_json diretamente (pode ser lista Python ou string JSON) #}
+    {% if ata.participants_json %}
+      {% set parsed = None %}
+      {% if ata.participants_json is iterable and not (ata.participants_json is string) %}
+        {% set parsed = ata.participants_json %}
+      {% else %}
+        {# tenta parsear string JSON; se falhar, parsed ficará None #}
+        {% set _tmp = ata.participants_json %}
+        {% set parsed = (_tmp | from_json) if (_tmp is string) else [] %}
+      {% endif %}
+
+      {% if parsed and parsed|length > 0 %}
+        <table class="table table-sm">
+          <thead><tr><th>Nome</th><th>Cargo</th></tr></thead>
+          <tbody>
+            {% for p in parsed %}
+              <tr>
+                <td>{{ p.get('name') or p.get('nome') or '-' }}</td>
+                <td>{{ p.get('role') or p.get('cargo') or '-' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p><em>Nenhum participante registrado.</em></p>
+      {% endif %}
+    {% else %}
+      <p><em>Nenhum participante registrado.</em></p>
+    {% endif %}
+  {% endif %}
+
+  <hr />
+
+  <div style="margin-top:12px;">
+    <a href="{{ url_for('visualizacoes_bp.ata_pdf', ata_id=ata.id) }}" target="_blank" class="btn btn-success">Salvar / Imprimir</a>
+    <a href="{{ url_for('formularios_ata_bp.list_atas') }}" class="btn btn-secondary">Voltar</a>
+  </div>
+</div>
+
+{% endblock %}

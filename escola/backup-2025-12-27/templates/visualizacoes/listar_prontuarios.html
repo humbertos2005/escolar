@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Prontuários dos Alunos</h2>
+
+{% if alunos %}
+    <div class="table-scroll-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Matrícula</th>
+                    <th>Nome</th>
+                    <th>Série/Turma</th>
+                    <th>Total RFOs</th>
+                    <th>Total FMDs</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for aluno in alunos %}
+                <tr>
+                    <td><strong>{{ aluno.matricula }}</strong></td>
+                    <td>{{ aluno.nome }}</td>
+                    <td>{{ aluno.serie }} {{ aluno.turma }}</td>
+                    <td>
+                        <span class="badge-count {% if aluno.total_rfos > 0 %}has-records{% endif %}">
+                            {{ aluno.total_rfos }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge-count {% if aluno.total_fmds > 0 %}has-records{% endif %}">
+                            {{ aluno.total_fmds }}
+                        </span>
+                    </td>
+                    <td class="actions">
+                        <a href="{{ url_for('formularios_bp.prontuario', aluno_id=aluno.id) }}" 
+                           class="btn btn-sm btn-info" title="Ver Prontuário" target="_blank">
+                            <i class="fas fa-folder-open"></i> Ver Prontuário
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <i class="fas fa-folder-open"></i>
+        <p>Nenhum aluno cadastrado no sistema.</p>
+    </div>
+{% endif %}
+
+<style>
+.table-scroll-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    background: white;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    border: 1px solid #e0e0e0;
+    padding: 12px;
+    text-align: left;
+}
+
+.table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    text-transform: uppercase;
+    font-size: 0.85em;
+}
+
+.table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.badge-count {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    font-weight: 600;
+    background: #e0e0e0;
+    color: #555;
+}
+
+.badge-count.has-records {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.actions {
+    white-space: nowrap;
+}
+
+.btn-sm {
+    padding: 8px 15px;
+    font-size: 0.9em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-info {
+    background: #3498db;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #2980b9;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.empty-state i {
+    font-size: 4em;
+    color: #bdc3c7;
+    margin-bottom: 20px;
+}
+
+.empty-state p {
+    color: #7f8c8d;
+    font-size: 1.2em;
+}
+</style>
+
+{% endblock %}

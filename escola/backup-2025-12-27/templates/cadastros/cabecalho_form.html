@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{% if cabecalho %}Editar{% else %}Novo{% endif %} Cabeçalho de Documentos</h2>
+
+<div class="form-card" style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.04);">
+    <form method="post" enctype="multipart/form-data">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Estado</label>
+                <input type="text" name="estado" class="form-control" value="{{ cabecalho.estado if cabecalho else '' }}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Secretaria</label>
+                <input type="text" name="secretaria" class="form-control" value="{{ cabecalho.secretaria if cabecalho else '' }}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Coordenação</label>
+                <input type="text" name="coordenacao" class="form-control" value="{{ cabecalho.coordenacao if cabecalho else '' }}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Escola</label>
+                <input type="text" name="escola" class="form-control" value="{{ cabecalho.escola if cabecalho else '' }}">
+            </div>
+        </div>
+
+        <hr style="margin:18px 0;">
+        <h5>Logotipos</h5>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Logotipo da Secretaria</label>
+                <input type="file" name="logo_estado" accept="image/*" class="form-control">
+                <div id="preview-logo-estado" style="margin-top:8px;">
+                    {% if cabecalho and cabecalho.logo_estado_url %}
+                        <img src="{{ cabecalho.logo_estado_url }}" alt="Logo Secretaria" style="max-width:220px;">
+                    {% endif %}
+                </div>
+
+                <!-- Novo campo: Logotipo do Estado/Prefeitura -->
+                <div style="margin-top:12px;">
+                    <label class="form-label">Logotipo do Estado/Prefeitura</label>
+                    <input type="file" name="logo_prefeitura" accept="image/*" class="form-control">
+                    <div id="preview-logo-prefeitura" style="margin-top:8px;">
+                        {% if cabecalho and cabecalho.logo_prefeitura_url %}
+                            <img src="{{ cabecalho.logo_prefeitura_url }}" alt="Logo Estado/Prefeitura" style="max-width:220px;">
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Logotipo da Escola</label>
+                <input type="file" name="logo_escola" accept="image/*" class="form-control">
+                <div id="preview-logo-escola" style="margin-top:8px;">
+                    {% if cabecalho and cabecalho.logo_escola_url %}
+                        <img src="{{ cabecalho.logo_escola_url }}" alt="Logo Escola" style="max-width:220px;">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:18px;">
+            <button type="submit" class="btn btn-primary">{% if cabecalho %}Salvar Alterações{% else %}Criar Cabeçalho{% endif %}</button>
+            <a href="{{ url_for('cadastros_bp.listar_cabecalhos') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    function preview(inputName, targetId){
+        const input = document.querySelector('input[name="'+inputName+'"]');
+        const target = document.getElementById(targetId);
+        if (!input || !target) return;
+        input.addEventListener('change', function(){
+            const f = input.files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = function(e){
+                target.innerHTML = '<img src="'+e.target.result+'" style="max-width:220px;">';
+            };
+            reader.readAsDataURL(f);
+        });
+    }
+    preview('logo_estado', 'preview-logo-estado');
+    preview('logo_prefeitura', 'preview-logo-prefeitura');
+    preview('logo_escola', 'preview-logo-escola');
+});
+</script>
+{% endblock %}
+{% endblock %}

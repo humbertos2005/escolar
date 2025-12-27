@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}RFO — Registros{% endblock %}
+
+{% block extra_styles %}
+<style>
+.rfo-wrapper { width: 100%; padding: 10px 18px; box-sizing: border-box; }
+.rfo-content { width: 100%; max-width: none; margin: 0; padding: 0; }
+.rfo-header { margin: 6px 0 8px 0; font-size: 1.6rem; font-weight: 600; }
+.rfo-btns { margin-bottom: 8px; }
+.rfo-iframe { display: block; width: 100%; border: 0; min-height: 680px; box-sizing: border-box; background: transparent; }
+.rfo-iframe-container { padding: 0; margin: 0; }
+.rfo-local-only * { box-sizing: border-box; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid rfo-wrapper rfo-local-only">
+  <div class="rfo-content">
+    <h2 class="rfo-header">RFO — Registros</h2>
+
+    <div class="btn-group rfo-btns" role="group" aria-label="abas rfo">
+      <button type="button" class="btn btn-outline-secondary active" data-tab="registrar">Registrar</button>
+      <button type="button" class="btn btn-outline-secondary" data-tab="tratar">Tratar</button>
+      <button type="button" class="btn btn-outline-secondary" data-tab="visualizar">Visualizar</button>
+    </div>
+
+    <div id="tabs-container" class="rfo-iframe-container">
+      <div id="panel-registrar" style="display:block;">
+        <iframe id="iframe-registrar" class="rfo-iframe" src="/disciplinar/registrar_rfo?iframe=1" loading="eager"></iframe>
+      </div>
+
+      <div id="panel-tratar" style="display:none;">
+        <iframe id="iframe-tratar" class="rfo-iframe" data-src="/disciplinar/listar_rfo?iframe=1" loading="lazy"></iframe>
+      </div>
+
+      <div id="panel-visualizar" style="display:none;">
+        <iframe id="iframe-visualizar" class="rfo-iframe" data-src="/visualizacoes/rfos?iframe=1" loading="lazy"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function(){
+  function show(tab) {
+    document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active', b.getAttribute('data-tab')===tab));
+    ['registrar','tratar','visualizar'].forEach(name=>{
+      const panel = document.getElementById('panel-'+name);
+      if (!panel) return;
+      panel.style.display = (name===tab) ? 'block' : 'none';
+      const iframe = document.getElementById('iframe-'+name);
+      if (iframe && !iframe.getAttribute('src')) {
+        const s = iframe.getAttribute('data-src');
+        if (s) iframe.setAttribute('src', s);
+      }
+    });
+  }
+
+  // injeta CSS dentro do iframe (somente se mesmo origem)
+  function injectCssIntoIframe(iframe) {
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      if (!doc) return;
+      // evita injetar duas vezes
+      if (doc.getElementById('rfo-embedded-fix')) return;
+
+      const style = doc.createElement('style');
+      style.id = 'rfo-embedded-fix';
+      style.type = 'text/css';
+      style.appendChild(doc.createTextNode(`
+        /* regras aplicadas somente ao iframe Registrar para remover gaps */
+        body { background: transparent !important; margin: 0 !important; padding: 0 !important; }
+        /* garante containers ocupem largura total dentro do iframe */
+        .container, .container-fluid { max-width: 100% !important; padding-left: 18px !important; padding-right: 18px !important; margin: 0 auto !important; }
+        /* reduz margem grande de títulos */
+        .page-header, h1, h2 { margin-top: 6px !important; margin-bottom: 6px !important; }
+        /* evita recuos laterais em painéis */
+        .panel, .card, .box { margin-left: 0 !important; margin-right: 0 !important; padding-left: 10px !important; padding-right: 10px !important; }
+        /* reduz larguras internas que podem centralizar o conteúdo */
+        .col-8, .col-md-8, .offset-md-2 { margin: 0 !important; float: none !important; width: 100% !important; }
+      `));
+      doc.head.appendChild(style);
+
+      // remove possíveis wrappers que adicionam padding left (ex.: .content-wrapper)
+      try {
+        const wrappers = doc.querySelectorAll('.content-wrapper, .main-content, .page-content');
+        wrappers.forEach(el => {
+          el.style.marginLeft = '0';
+          el.style.paddingLeft = '8px';
+          el.style.paddingRight = '8px';
+        });
+      } catch(e){}
+    } catch(e){
+      // falha (provavelmente cross-origin) — nada a fazer
+      console.warn('Não foi possível injetar CSS no iframe (cross-origin?):', e);
+    }
+  }
+
+  // conecta listeners
+  document.querySelectorAll('[data-tab]').forEach(b=>{
+    b.addEventListener('click', function(){ show(this.getAttribute('data-tab')); });
+  });
+
+  ['registrar','tratar','visualizar'].forEach(name=>{
+    const f = document.getElementById('iframe-'+name);
+    if (!f) return;
+    f.addEventListener('load', function(){
+      // tenta ajustar a altura
+      try {
+        const h = Math.max(this.contentDocument.body.scrollHeight, this.contentDocument.documentElement.scrollHeight);
+        this.style.height = (h + 40) + 'px';
+      } catch(e){}
+      // injeta css apenas no iframe registrar
+      if (name === 'registrar') injectCssIntoIframe(this);
+    });
+  });
+
+  // ativa tab por ?tab=...
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('tab');
+    if (t && ['registrar','tratar','visualizar'].includes(t)) {
+      const iframe = document.getElementById('iframe-'+t);
+      if (iframe && !iframe.getAttribute('src')) {
+        const s = iframe.getAttribute('data-src');
+        if (s) iframe.setAttribute('src', s);
+      }
+      show(t);
+    }
+  } catch(e){}
+})();
+</script>
+{% endblock %}

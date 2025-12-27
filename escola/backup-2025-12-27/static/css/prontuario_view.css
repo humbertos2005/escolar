@@ -1,0 +1,73 @@
+.document-print {
+  background: white;
+  padding: 18px;
+  border-radius: 6px;
+  border: 1px solid #e6e6e6;
+}
+.pront-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.pront-logo, .pront-photo {
+  text-align: center;
+}
+.pront-logo { width: 120px; }
+.pront-photo { width: 140px; }
+.pront-logo-img, .pront-photo-img {
+  max-width: 100%;
+  max-height: 120px;
+  border: 1px solid #ddd;
+  padding: 4px;
+}
+.pront-center {
+  flex: 1;
+  text-align: center;
+  line-height: 1.05;
+}
+.pront-center .line {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+.pront-title {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.pront-meta {
+  margin-top: 2px;
+  color: #666;
+}
+.pront-hr {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid #e6e6e6;
+}
+.pront-table {
+  width: 100%;
+  margin-bottom: 12px;
+  border-collapse: collapse;
+}
+.pront-table td {
+  vertical-align: top;
+  padding: 4px 6px;
+}
+.pront-label { width: 18%; font-weight: 600; }
+.pront-value { width: 32%; }
+.pront-records {
+  border: 1px solid #000;
+  padding: 10px;
+  min-height: 120px;
+  white-space: pre-wrap;
+  background: #fff;
+}
+.pront-section {
+  border: 1px solid #ccc;
+  padding: 10px;
+  min-height: 60px;
+  white-space: pre-wrap;
+}
+.pront-section-title { margin-top: 12px; }
+.pront-actions { margin-top: 18px; display:flex; gap:8px; }

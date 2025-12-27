@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Gerenciar Usuários</h2>
+
+<div class="toolbar">
+    <a href="{{ url_for('auth_bp.cadastro_usuario') }}" class="button btn-primary">
+        <i class="fas fa-user-plus"></i> Cadastrar Novo Usuário
+    </a>
+</div>
+
+{% if usuarios %}
+    <div class="table-scroll-wrapper">
+        <table class="table table-users">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome de Usuário</th>
+            <th>Cargo</th>
+                    <th>Nível de Acesso</th>
+                    <th>Data de Criação</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in usuarios %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td>
+                            <strong>{{ user.username }}</strong>
+            <td>{{ user.cargo }}</td>
+                            {% if user.id == session.get('user_id') %}
+                            <span class="badge-current">Você</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge-nivel nivel-{{ user.nivel }}">
+                                {{ nivel_map.get(user.nivel, 'Desconhecido') }}
+                            </span>
+                        </td>
+                        <td>{{ user.data_cadastro if user.data_cadastro else 'N/A' }}</td>
+                        <td class="actions">
+                            <a href="{{ url_for('auth_bp.editar_usuario', user_id=user.id) }}" class="button btn-sm btn-info" title="Editar Usuário">
+                                <i class="fas fa-edit"></i> Editar
+                            </a>
+                            {% if user.id != session.get('user_id') and user.nivel != 1 %}
+                                <form method="POST" action="{{ url_for('auth_bp.excluir_usuario', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir o usuário {{ user.username }}? Esta ação é irreversível.')">
+                                    <button type="submit" class="button btn-sm btn-danger" title="Excluir Usuário">
+                                        <i class="fas fa-trash"></i> Excluir
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-info">
+        <p>Total de {{ usuarios|length }} usuário(s) cadastrado(s).</p>
+    </div>
+
+{% else %}
+    <div class="alert-info">
+        <i class="fas fa-info-circle"></i>
+        <p>Nenhum usuário encontrado no sistema.</p>
+    </div>
+{% endif %}
+
+<style>
+.form-usuario {
+    max-width: 450px;
+    margin: 20px auto;
+}
+
+.form-usuario label {
+    font-weight: 600;
+}
+
+.table-users {
+    width: 100%;
+    margin-top: 20px;
+    background: white;
+    border-collapse: collapse;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden; /* Garante que o border-radius funcione */
+}
+
+.table-users th,
+.table-users td {
+    border: 1px solid #e0e0e0;
+    padding: 12px;
+    text-align: left;
+}
+
+.table-users th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    text-transform: uppercase;
+    font-size: 0.85em;
+}
+
+.table-users tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.badge-current {
+    background: #3498db;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    margin-left: 8px;
+}
+
+.badge-nivel {
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.nivel-1 {
+    background: #e74c3c;
+    color: white;
+}
+
+.nivel-2 {
+    background: #f39c12;
+    color: white;
+}
+
+.nivel-3 {
+    background: #95a5a6;
+    color: white;
+}
+
+.actions {
+    white-space: nowrap;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.9em;
+    border: none;
+    border-radius: 4px;
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-sm.btn-info {
+    background: #3498db;
+    color: white;
+}
+
+.btn-sm.btn-info:hover {
+    background: #2980b9;
+}
+
+.btn-sm.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+.btn-sm.btn-danger:hover {
+    background: #c0392b;
+}
+
+.table-scroll-wrapper {
+    overflow-x: auto;
+    margin-bottom: 25px;
+}
+
+.table-info {
+    margin-top: 15px;
+    color: #555;
+    font-style: italic;
+}
+
+.toolbar {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+</style>
+
+{% endblock %}

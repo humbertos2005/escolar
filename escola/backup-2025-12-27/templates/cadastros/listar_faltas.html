@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Faltas Disciplinares</h2>
+
+<div class="toolbar">
+    <a href="{{ url_for('cadastros_bp.adicionar_falta') }}" class="button btn-primary">
+        <i class="fas fa-plus-circle"></i> Adicionar Nova Falta
+    </a>
+</div>
+
+{% if faltas %}
+    <div class="table-scroll-wrapper">
+        <table class="table table-faltas">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Item</th>
+                    <th>Especificação</th>
+                    <th style="width: 120px;">Natureza</th>
+                    <th style="width: 150px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for falta in faltas %}
+                <tr>
+                    <td style="text-align: center;"><strong>{{ falta.id }}</strong></td>
+                    <td style="text-align: left; padding-left: 15px;">{{ falta.descricao }}</td>
+                    <td style="text-align: center;">
+                        <span class="badge-falta {{ falta.natureza|lower|replace('é', 'e')|replace('í', 'i') }}">
+                            {{ falta.natureza }}
+                        </span>
+                    </td>
+                    <td class="actions" style="text-align: center;">
+                        <a href="{{ url_for('cadastros_bp.editar_falta', falta_id=falta.id) }}" 
+                           class="btn btn-sm btn-info" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if session.get('nivel') == 1 %}
+                        <form method="POST" action="{{ url_for('cadastros_bp.excluir_falta', falta_id=falta.id) }}" 
+                              style="display:inline;" 
+                              onsubmit="return confirm('Tem certeza que deseja excluir esta falta?');">
+                            <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <i class="fas fa-exclamation-triangle"></i>
+        <p>Nenhuma falta disciplinar cadastrada.</p>
+        <a href="{{ url_for('cadastros_bp.adicionar_falta') }}" class="button btn-primary">
+            <i class="fas fa-plus"></i> Cadastrar Primeira Falta
+        </a>
+    </div>
+{% endif %}
+
+<style>
+.table-faltas {
+    font-size: 0.95em;
+    width: 100%;
+}
+
+.table-faltas td {
+    vertical-align: middle;
+    padding: 12px 10px;
+    border: 1px solid #e0e0e0;
+}
+
+.table-faltas th {
+    background: #2c3e50;
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    padding: 12px 10px;
+    border: 1px solid #34495e;
+}
+
+.badge-falta {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-falta.leve {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-falta.media {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.badge-falta.grave {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    margin: 2px;
+}
+</style>
+
+{% endblock %}

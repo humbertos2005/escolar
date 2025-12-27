@@ -1,0 +1,16 @@
+﻿[
+  {
+    "id": 1,
+    "nome": "João Silva",
+    "serie": "5º Ano",
+    "turma": "A",
+    "responsavel": "Maria Silva"
+  },
+  {
+    "id": 2,
+    "nome": "Mariana Santos",
+    "serie": "8º Ano",
+    "turma": "B",
+    "responsavel": "Carlos Santos"
+  }
+]
