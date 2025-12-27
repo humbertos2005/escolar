@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="main-content-inner">
+  <h2>{% if ano %}Editar{% else %}Criar{% endif %} Bimestres</h2>
+
+  <form method="post" class="form-horizontal">
+    <div class="form-group">
+      <label for="ano">Ano</label>
+      <input type="number" id="ano" name="ano" class="form-control" value="{{ ano or '' }}" required min="2000" max="2100">
+    </div>
+
+    <hr>
+    {% for n in range(1,5) %}
+    <div class="form-section">
+      <h4>{{ n }}º Bimestre</h4>
+      <div class="form-row" style="display:flex; gap:10px;">
+        <div style="flex:1;">
+          <label for="inicio_{{ n }}">Início</label>
+          <input type="date" id="inicio_{{ n }}" name="inicio_{{ n }}" class="form-control" value="{{ bimestres[n].inicio }}">
+        </div>
+        <div style="flex:1;">
+          <label for="fim_{{ n }}">Fim</label>
+          <input type="date" id="fim_{{ n }}" name="fim_{{ n }}" class="form-control" value="{{ bimestres[n].fim }}">
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div style="margin-top:20px;">
+      <button type="submit" class="btn btn-success">Salvar Bimestres</button>
+      <a class="btn btn-secondary" href="{{ url_for('bimestres_bp.listar_bimestres') }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

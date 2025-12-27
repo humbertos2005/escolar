@@ -1,0 +1,138 @@
+<!-- Partial "inner" — painel interno com layout forçado em duas colunas -->
+<style>
+/* regras locais e seguras só para este partial */
+.rfo-container-flex {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;      /* garante alinhamento pelo topo */
+  flex-wrap: wrap;              /* responsivo: empilha em telas pequenas */
+}
+.rfo-container-flex > .rfo-col {
+  flex: 0 0 48%;
+  max-width: 48%;
+  box-sizing: border-box;
+}
+@media (max-width: 991px) {
+  .rfo-container-flex > .rfo-col {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}
+</style>
+
+<div class="rfo-panel container-fluid" id="rfo-tratar-panel" style="padding:18px 24px;">
+  <div class="row mb-3">
+    <div class="col-12">
+      <h2 class="rfo-panel-title">Tratamento da Falta Disciplinar</h2>
+      <p class="subtitle">RFO Nº {{ ocorrencia.rfo_id }}</p>
+    </div>
+  </div>
+
+  <!-- wrapper flex que força as duas colunas lado a lado -->
+  <div class="rfo-container-flex">
+    <!-- esquerda: detalhes -->
+    <div class="rfo-col rfo-details">
+      <div class="card p-3">
+        <h3 class="h5"><i class="fas fa-file-alt"></i> Detalhes do RFO</h3>
+
+        <div class="detail-item mt-3">
+          <strong>Status:</strong>
+          <span class="badge-status {% if ocorrencia.status == 'TRATADO' %}tratado{% else %}pendente{% endif %}">
+            {{ ocorrencia.status }}
+          </span>
+        </div>
+
+        <div class="detail-item mt-2"><strong>Data do RFO:</strong> {{ ocorrencia.data_ocorrencia | data_br }}</div>
+        <div class="detail-item mt-2"><strong>Tipo de Ocorrência:</strong> {{ ocorrencia.tipo_ocorrencia_nome }}</div>
+
+        <hr/>
+        <h4 class="h6"><i class="fas fa-user-graduate"></i> Aluno(s) Envolvido(s)</h4>
+        {% if ocorrencia.alunos_list %}
+          <ul class="list-unstyled mb-0">
+          {% for al in ocorrencia.alunos_list %}
+            <li class="mb-3">
+              <strong>Nome:</strong> {{ al.nome }}<br/>
+              <strong>Matrícula:</strong> {{ al.matricula }}<br/>
+              <strong>Série/Turma:</strong>
+              {% if al.serie or al.turma %}
+                {{ (al.serie ~ ' - ' ~ al.turma).strip(' - ') }}
+              {% else %}
+                —
+              {% endif %}
+            </li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <div>
+            <strong>Nome:</strong> {{ ocorrencia.nome_aluno or ocorrencia.alunos or '—' }}<br/>
+            <strong>Matrícula:</strong> {{ ocorrencia.matricula or '—' }}<br/>
+            <strong>Série/Turma:</strong> {{ ocorrencia.series_turmas or (ocorrencia.serie ~ ' - ' ~ ocorrencia.turma)|default('—') }}
+          </div>
+        {% endif %}
+
+        <hr/>
+        <h4 class="h6"><i class="fas fa-align-left"></i> Relato do Observador</h4>
+        <div class="relato-box">{{ ocorrencia.relato_observador }}</div>
+      </div>
+    </div>
+
+    <!-- direita: formulário de tratamento (vai ficar no topo por causa do align-items:flex-start) -->
+    <div class="rfo-col tratamento-form">
+      <div class="card p-3">
+        <h3 class="h5"><i class="fas fa-clipboard-check"></i>
+          {% if ocorrencia.status == 'TRATADO' %}Tratamento Registrado{% else %}Registrar Tratamento{% endif %}
+        </h3>
+
+        <form method="POST" id="form-tratar-rfo">
+          <input type="hidden" name="aluno_id" value="{{ ocorrencia.aluno_id }}">
+          <input type="hidden" id="reincidencia_hidden" name="reincidencia" value="{{ ocorrencia.reincidencia if ocorrencia.reincidencia is not none else 0 }}">
+
+          <fieldset class="form-fieldset mt-3">
+            <legend class="small"><i class="fas fa-list-alt"></i> Classificação da Falta</legend>
+
+            <div class="form-group mt-2">
+              <label>Tipo de Falta <span class="required">*</span></label>
+              <div id="tipo-falta-buttons" style="display:flex; gap:10px; margin-bottom:10px;">
+                <button type="button" class="button tipo-adicionar" data-tipo="LEVE" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>LEVE</button>
+                <button type="button" class="button tipo-adicionar" data-tipo="MÉDIA" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>MÉDIA</button>
+                <button type="button" class="button tipo-adicionar" data-tipo="GRAVE" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>GRAVE</button>
+              </div>
+              <input type="hidden" id="tipo_falta_list" name="tipo_falta_list" value="{{ ocorrencia.tipo_falta if ocorrencia.tipo_falta else '' }}">
+            </div>
+
+            <div class="form-group mt-2">
+              <label for="falta_search">Item/Descrição da Falta <span class="required">*</span></label>
+              <input type="text" id="falta_search" class="form-control" placeholder="Digite 3+ caracteres para buscar..." autocomplete="off" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+              <div id="falta_autocomplete_list" class="autocomplete-items" role="listbox"></div>
+              <input type="hidden" id="falta_disciplinar_ids" name="falta_disciplinar_ids" value="{{ ocorrencia.falta_ids if ocorrencia.falta_ids else '' }}">
+            </div>
+          </fieldset>
+
+          <fieldset class="form-fieldset mt-3">
+            <legend class="small"><i class="fas fa-gavel"></i> Medida Disciplinar</legend>
+            <div class="form-group mt-2">
+              <label for="medida_aplicada">Medida Aplicada <span class="required">*</span></label>
+              <select id="medida_aplicada" name="medida_aplicada" required class="form-control" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+                <option value="">Selecione a Medida...</option>
+                {% for key, value in medidas_map.items() %}
+                  <option value="{{ value }}" {% if ocorrencia.medida_aplicada == value %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+                <option value="Elogio Individual" {% if ocorrencia.medida_aplicada == 'Elogio Individual' %}selected{% endif %}>Elogio Individual</option>
+                <option value="Elogio Coletivo" {% if ocorrencia.medida_aplicada == 'Elogio Coletivo' %}selected{% endif %}>Elogio Coletivo</option>
+              </select>
+            </div>
+          </fieldset>
+
+          <div class="form-actions mt-3">
+            {% if ocorrencia.status != 'TRATADO' %}
+              <button type="submit" class="button btn-success btn-lg"><i class="fas fa-check"></i> Aprovar</button>
+              <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="button btn-secondary btn-lg"><i class="fas fa-arrow-left"></i> Voltar</a>
+            {% else %}
+              <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="button btn-primary btn-lg"><i class="fas fa-arrow-left"></i> Voltar para Lista</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

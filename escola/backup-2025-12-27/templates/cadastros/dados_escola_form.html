@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>{% if dados %}Editar{% else %}Novo{% endif %} - Dados da Escola</h2>
+
+<div class="form-card" style="background:#fff; padding:20px; border-radius:8px;">
+  <form method="post" id="form-dados-escola">
+    <input type="hidden" name="cabecalho_id" id="cabecalho_id" value="{{ dados.cabecalho_id if dados else '' }}">
+
+    <div class="mb-3">
+      <label class="form-label">Escola (autocomplete)</label>
+      <input list="cabecalhos_list" id="escola_search" name="escola" class="form-control"
+             value="{{ dados.escola if dados else '' }}" autocomplete="off" placeholder="Digite para buscar...">
+      <datalist id="cabecalhos_list"></datalist>
+      <small class="text-muted">Selecione uma opção para preencher automaticamente os dados do cabeçalho.</small>
+    </div>
+
+    <div class="row g-2">
+      <div class="col-md-6"><label class="form-label">Rua</label><input name="rua" id="rua" class="form-control" value="{{ dados.rua if dados else '' }}"></div>
+      <div class="col-md-2"><label class="form-label">Número</label><input name="numero" id="numero" class="form-control" value="{{ dados.numero if dados else '' }}"></div>
+      <div class="col-md-4"><label class="form-label">Complemento</label><input name="complemento" id="complemento" class="form-control" value="{{ dados.complemento if dados else '' }}"></div>
+      <div class="col-md-4"><label class="form-label">Bairro</label><input name="bairro" id="bairro" class="form-control" value="{{ dados.bairro if dados else '' }}"></div>
+      <div class="col-md-4"><label class="form-label">Cidade</label><input name="cidade" id="cidade" class="form-control" value="{{ dados.cidade if dados else '' }}"></div>
+
+      <!-- Campo Estado ajustado: aceita somente sigla (2 letras) -->
+      <div class="col-md-4">
+        <label class="form-label">Estado (sigla)</label>
+        <input name="estado" id="estado" class="form-control" value="{{ (dados.estado[:2] if dados and dados.estado else '') }}" maxlength="2" pattern="[A-Za-z]{2}" title="Digite a sigla do estado (2 letras), ex: MT" placeholder="MT" autocomplete="off">
+      </div>
+
+      <div class="col-md-4"><label class="form-label">CEP</label><input name="cep" id="cep" class="form-control" value="{{ dados.cep if dados else '' }}"></div>
+      <div class="col-md-4"><label class="form-label">CNPJ</label><input name="cnpj" id="cnpj" class="form-control" value="{{ dados.cnpj if dados else '' }}"></div>
+      <div class="col-md-6"><label class="form-label">Nome do Diretor</label><input name="diretor_nome" id="diretor_nome" class="form-control" value="{{ dados.diretor_nome if dados else '' }}"></div>
+      <div class="col-md-6"><label class="form-label">CPF do Diretor</label><input name="diretor_cpf" id="diretor_cpf" class="form-control" value="{{ dados.diretor_cpf if dados else '' }}"></div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button type="submit" class="btn btn-primary">{% if dados %}Salvar{% else %}Criar{% endif %}</button>
+      <a href="{{ url_for('cadastros_bp.listar_dados_escola') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const input = document.getElementById('escola_search');
+  const datalist = document.getElementById('cabecalhos_list');
+  const cabecalhoIdInput = document.getElementById('cabecalho_id');
+
+  async function fetchSuggestions(q){
+    const res = await fetch("{{ url_for('cadastros_bp.cabecalhos_autocomplete') }}?q="+encodeURIComponent(q||''));
+    if (!res.ok) return [];
+    return await res.json();
+  }
+
+  input.addEventListener('input', async function(){
+    const q = input.value.trim();
+    const list = await fetchSuggestions(q);
+    datalist.innerHTML = '';
+    list.forEach(item=>{
+      const opt = document.createElement('option');
+      opt.value = (item.escola || '').trim();
+      opt.setAttribute('data-id', String(item.id || ''));
+      datalist.appendChild(opt);
+    });
+    cabecalhoIdInput.value = '';
+  });
+
+  input.addEventListener('change', async function(){
+    const v = (input.value || '').trim();
+    if (!v) {
+      cabecalhoIdInput.value = '';
+      return;
+    }
+    let matchedId = '';
+    try {
+      const opts = Array.from(datalist.options || []);
+      const matched = opts.find(o => (o.value || '').trim() === v);
+      if (matched) {
+        matchedId = matched.getAttribute('data-id') || '';
+      } else {
+        const res = await fetch("{{ url_for('cadastros_bp.cabecalhos_autocomplete') }}?q="+encodeURIComponent(v));
+        if (res.ok) {
+          const results = await res.json();
+          const exact = results.find(r => (r.escola||'').trim() === v);
+          if (exact) matchedId = String(exact.id || '');
+        }
+      }
+    } catch(e){ console.error(e); }
+
+    cabecalhoIdInput.value = matchedId || '';
+
+    if (matchedId) {
+      try {
+        const res = await fetch("{{ url_for('cadastros_bp.cabecalho_by_id') }}?id="+encodeURIComponent(matchedId));
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data) {
+          document.getElementById('cabecalho_id').value = data.id || '';
+          if (data.rua) document.getElementById('rua').value = data.rua || '';
+          if (data.numero) document.getElementById('numero').value = data.numero || '';
+          if (data.complemento) document.getElementById('complemento').value = data.complemento || '';
+          if (data.bairro) document.getElementById('bairro').value = data.bairro || '';
+          if (data.cidade) document.getElementById('cidade').value = data.cidade || '';
+          if (data.estado) document.getElementById('estado').value = (data.estado || '').toString().substring(0,2).toUpperCase();
+          if (data.cep) document.getElementById('cep').value = data.cep || '';
+          if (data.cnpj) document.getElementById('cnpj').value = data.cnpj || '';
+          if (data.diretor_nome) document.getElementById('diretor_nome').value = data.diretor_nome || '';
+          if (data.diretor_cpf) document.getElementById('diretor_cpf').value = data.diretor_cpf || '';
+        }
+      } catch(e){ console.error(e); }
+    }
+  });
+
+  // Estado field: force uppercase and allow only letters, limit to 2 chars
+  const estadoInput = document.getElementById('estado');
+  if (estadoInput) {
+    estadoInput.addEventListener('input', function(e){
+      // remove non-letters, keep only A-Z
+      let v = (estadoInput.value || '').toUpperCase().replace(/[^A-Z]/g, '');
+      if (v.length > 2) v = v.slice(0,2);
+      estadoInput.value = v;
+    });
+    // optional: prevent paste of long/invalid values
+    estadoInput.addEventListener('paste', function(e){
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      let v = text.toUpperCase().replace(/[^A-Z]/g, '').slice(0,2);
+      estadoInput.value = v;
+    });
+  }
+});
+</script>
+{% endblock %}
+{% endblock %}

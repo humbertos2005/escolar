@@ -1,849 +1,759 @@
-﻿{% extends 'base.html' %}
-
-{% block head %}
-{{ super() }}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/disciplinar.css') }}">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-{% endblock %}
-
-{% block content %}
-<style>
-    /* CSS inline para garantir que funcione */
-    .main-content-inner { max-width: 800px; margin: 0 auto; padding: 20px; }
-    .rfo-id-display { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; }
-    .rfo-id-display h3 { margin: 0; color: #495057; font-size: 1.2em; }
-    .rfo-id-display span { font-weight: bold; color: #007bff; }
-    .form-section { margin-bottom: 30px; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .section-title { margin: 0 0 20px 0; color: #343a40; font-size: 1.3em; display: flex; align-items: center; }
-    .section-title i { margin-right: 10px; color: #007bff; }
-    .form-group { margin-bottom: 20px; }
-    .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #495057; }
-    .required { color: #dc3545; }
-    .form-control { width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; }
-    .form-control:focus { border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
-    .autocomplete { position: relative; }
-    .autocomplete-items { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    .autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s; }
-    .autocomplete-items div:hover, .autocomplete-active { background-color: #f8f9fa; }
-    .info-display { margin-top: 8px; padding: 8px; background: #e9ecef; border-radius: 4px; font-size: 0.9em; color: #6c757d; display: none; }
-    .info-display.show { display: block; }
-    .radio-buttons { display: flex; gap: 15px; margin: 10px 0; }
-    .radio-buttons label { display: flex; align-items: center; padding: 10px 16px; border: 2px solid #dee2e6; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 14px; background: white; }
-    .radio-buttons label:hover { border-color: #007bff; background: #f8f9fa; }
-    .radio-buttons input[type="radio"] { margin-right: 8px; }
-    .radio-buttons label.active { background: #007bff; color: white; border-color: #007bff; }
-    .char-counter { font-size: 0.85em; color: #7f8c8d; text-align: right; margin-top: 5px; }
-    .char-counter.warning { color: #e74c3c; }
-    textarea.form-control { resize: vertical; min-height: 120px; font-family: inherit; }
-    
-    /* BOTÕES MELHORADOS - CSS INLINE */
-    .form-rfo .form-actions { 
-        text-align: center !important; 
-        margin-top: 40px !important; 
-        padding-top: 30px !important; 
-        border-top: 2px solid #e9ecef !important; 
-        display: flex !important; 
-        gap: 15px !important; 
-        justify-content: center !important; 
-        flex-wrap: wrap !important; 
-    }
-    
-    .form-rfo .form-actions .btn-action { 
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 10px !important;
-        padding: 14px 32px !important; 
-        border: none !important; 
-        border-radius: 8px !important; 
-        font-size: 16px !important; 
-        font-weight: 600 !important; 
-        cursor: pointer !important; 
-        transition: all 0.3s ease !important; 
-        text-decoration: none !important;
-        min-width: 180px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-    }
-    
-    .form-rfo .form-actions .btn-action i { 
-        font-size: 18px !important; 
-    }
-    
-    .form-rfo .form-actions .btn-registrar { 
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important; 
-        color: white !important; 
-        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4) !important; 
-    }
-    
-    .form-rfo .form-actions .btn-registrar:hover:not(:disabled) { 
-        background: linear-gradient(135deg, #218838 0%, #1aa179 100%) !important; 
-        transform: translateY(-2px) !important; 
-        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.5) !important; 
-        color: white !important;
-    }
-    
-    .form-rfo .form-actions .btn-registrar:active {
-        transform: translateY(0) !important;
-        box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3) !important;
-    }
-    
-    .form-rfo .form-actions .btn-registrar:disabled { 
-        background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%) !important; 
-        cursor: not-allowed !important; 
-        box-shadow: none !important; 
-        opacity: 0.7 !important;
-    }
-    
-    .form-rfo .form-actions .btn-cancelar { 
-        background: white !important; 
-        color: #6c757d !important; 
-        border: 2px solid #6c757d !important; 
-        box-shadow: 0 2px 8px rgba(108, 117, 125, 0.2) !important; 
-    }
-    
-    .form-rfo .form-actions .btn-cancelar:hover { 
-        background: #6c757d !important; 
-        color: white !important; 
-        transform: translateY(-2px) !important; 
-        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3) !important; 
-    }
-    
-    .form-rfo .form-actions .btn-cancelar:active {
-        transform: translateY(0) !important;
-        box-shadow: 0 2px 6px rgba(108, 117, 125, 0.2) !important;
-    }
-    
-    @media (max-width: 768px) {
-        .form-rfo .form-actions { 
-            flex-direction: column !important; 
-        }
-        .form-rfo .form-actions .btn-action { 
-            width: 100% !important; 
-        }
-    }
-</style>
-
-<div class="main-content-inner">
-    <h2>Registrar Relatório de Fato Observado</h2>
-    <div class="rfo-id-display">
-        <h3>RFO ID: <span>{{ rfo_id_gerado }}</span></h3>
-    </div>
-    <form action="{{ url_for('disciplinar_bp.registrar_rfo') }}" method="POST" class="form-rfo">
-        <div class="form-section">
-            <h3 class="section-title"><i class="fas fa-user-graduate"></i> Identificação do Aluno</h3>
-            <div class="form-group autocomplete">
-                <label for="aluno_busca">Aluno (Matrícula e Nome) <span class="required">*</span></label>
-                <!-- Inserir IMEDIATAMENTE APÓS esta linha de label:
-                <label for="aluno_busca">Aluno (Matrícula e Nome) <span class="required">*</span></label>
-                Cole o trecho abaixo na linha seguinte. -->
-                <small class="form-text text-muted" style="margin-top:6px;">
-                  Se for um elogio coletivo, usar o nome do líder da turma
-                </small>
-
-<!-- Início do bloco modificado para permitir múltiplos alunos usando o campo já existente (aluno_busca) -->
-<div id="alunos-container" class="mb-2">
-  <div class="aluno-entry d-flex align-items-start mb-2">
-    <div style="flex:1">
-      <!-- reaproveita o input existente (preserva id/name para o JS atual) -->
-      <input type="text" id="aluno_busca" name="aluno_busca" class="form-control aluno-search"
-             placeholder="Digite matrícula ou nome para buscar..." autocomplete="off" required>
-      <input type="hidden" name="aluno_id" class="aluno-id" />
-      <p class="aluno-info info-display mb-0"></p>
-    </div>
-    <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">
-      <button type="button" class="btn btn-outline-primary add-aluno-btn" title="Adicionar outro aluno" aria-label="Adicionar outro aluno">+</button>
-    </div>
-  </div>
-</div>
-
-<!-- dynamic-alunos-script-v2 -->
-<script>
-(function(){
-  // dynamic-alunos-script-v2: add/remove aluno entries and init autocomplete for dynamic inputs
-  var container = document.getElementById('alunos-container');
-
-  function makeEntryHtml() {
-    return '\
-  <div class="aluno-entry d-flex align-items-start mb-2">\
-    <div style="flex:1">\
-      <input type="text" class="form-control aluno-search" placeholder="Aluno (Matrícula e Nome)" autocomplete="off" />\
-      <input type="hidden" name="aluno_id" class="aluno-id" />\
-      <p class="aluno-info info-display mb-0"></p>\
-    </div>\
-    <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">\
-      <button type="button" class="btn btn-success add-aluno-btn" title="Adicionar">+</button>\
-      <button type="button" class="btn btn-danger remove-aluno-btn" title="Remover">-</button>\
-    </div>\
-  </div>';
-  }
-
-  function attachAlunoSearch(inputEl, hiddenEl, infoEl) {
-    if (typeof window.initAlunoSearch === 'function') {
-      try {
-        window.initAlunoSearch(inputEl, hiddenEl, infoEl);
-        return;
-      } catch(e) { console.warn('initAlunoSearch failed:', e); }
-    }
-    // fallback: simple blur handler
-    try {
-      inputEl.addEventListener('blur', function(){
-        var v = inputEl.value && inputEl.value.trim();
-        if (!v) { hiddenEl.value = ''; infoEl.textContent = ''; infoEl.classList.remove('show'); return; }
-        var m = v.match(/^(\d{1,})/);
-        if (m) { hiddenEl.value = m[1]; infoEl.textContent = v; infoEl.classList.add('show'); }
-        else { infoEl.textContent = v; infoEl.classList.add('show'); }
-      });
-    } catch(e){}
-  }
-
-  function onContainerClick(e) {
-    e.stopPropagation();
-    var addBtn = e.target.closest && e.target.closest('.add-aluno-btn');
-    var removeBtn = e.target.closest && e.target.closest('.remove-aluno-btn');
-
-    if (addBtn) {
-      var wrapper = document.createElement('div');
-      wrapper.innerHTML = makeEntryHtml();
-      var newEntry = wrapper.firstElementChild;
-      var parent = container || document.querySelector('.form-section') || document.body;
-      parent.appendChild(newEntry);
-
-      var input = newEntry.querySelector('.aluno-search');
-      var hidden = newEntry.querySelector('.aluno-id');
-      var info = newEntry.querySelector('.aluno-info');
-
-      try {
-        if (!input.id || String(input.id).trim() === '') {
-          input.id = 'aluno_busca_' + Math.floor(Math.random() * 1000000);
-        }
-      } catch(e){}
-
-      attachAlunoSearch(input, hidden, info);
-      try { input.focus(); } catch(e){}
-      if (e.preventDefault) e.preventDefault();
-      return;
-    }
-
-    if (removeBtn) {
-      var entry = e.target.closest && e.target.closest('.aluno-entry');
-      if (entry && entry.parentNode) entry.remove();
-      if (e.preventDefault) e.preventDefault();
-      return;
-    }
-  }
-
-  if (container) {
-    container.addEventListener('click', onContainerClick);
-  } else {
-    document.addEventListener('click', function(e){
-      if (e.target.closest && !e\.target\.closest\('\#alunos-container'\)\ &&\ \(e\.target\.closest\('\.add-aluno-btn'\)\ \|\|\ e\.target\.closest\('\.remove-aluno-btn'\)\)) {
-        onContainerClick(e);
-      }
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    var first = (container && container.querySelector('.aluno-entry')) || document.querySelector('.aluno-entry');
-    if (first) {
-      var input = first.querySelector('.aluno-search');
-      var hidden = first.querySelector('.aluno-id');
-      var info = first.querySelector('.aluno-info');
-      if (input) {
-        try { if (!input.id || String(input.id).trim() === '') input.id = 'aluno_busca_' + Math.floor(Math.random()*1000000); } catch(e){}
-        attachAlunoSearch(input, hidden, info);
-      }
-    }
-  });
-
-})();
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-    function toggleTipoRfo() {
-        var tipoEl = document.querySelector('input[name="tipo_rfo"]:checked');
-        var tipo = tipoEl ? tipoEl.value : null;
-        var subtipoBlk = document.getElementById('subtipo-elogio-block');
-        var advBlk = document.getElementById('advertencia-oral-block');
-
-        if (tipo === 'Elogio') {
-            if (subtipoBlk) subtipoBlk.style.display = 'block';
-            if (advBlk) advBlk.style.display = 'none';
-            // garantir seleção padrão em subtipo de elogio
-            if (subtipoBlk) {
-                var r = subtipoBlk.querySelectorAll('input[name="subtipo_elogio"]');
-                if (r && !Array.from(r).some(x=>x.checked)) r[0].checked = true;
-            }
-        } else {
-            if (subtipoBlk) subtipoBlk.style.display = 'none';
-            if (advBlk) advBlk.style.display = 'block';
-            // garantir seleção padrão em advertência
-            if (advBlk) {
-                var r = advBlk.querySelectorAll('input[name="advertencia_oral"]');
-                if (r && !Array.from(r).some(x=>x.checked)) r[0].checked = true;
-            }
-        }
-    }
-
-    // ligar o handler aos radios tipo_rfo
-    document.querySelectorAll('input[name="tipo_rfo"]').forEach(function(r){
-        r.addEventListener('change', toggleTipoRfo);
-    });
-
-    // inicialização imediata
-    toggleTipoRfo();
-});
-</script>
-<script>
-(function(){
-  const container = document.getElementById('alunos-container');
-
-  function makeEntry() {
-    const div = document.createElement('div');
-    div.className = 'aluno-entry d-flex align-items-start mb-2';
-    div.innerHTML = `
-      <div style="flex:1">
-        <input type="text" class="form-control aluno-search" placeholder="Aluno (Matrícula e Nome)" autocomplete="off" />
-        <input type="hidden" name="aluno_id" class="aluno-id" />
-        <p class="aluno-info info-display mb-0"></p>
-      </div>
-      <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">
-        <button type="button" class="btn btn-success add-aluno-btn" title="Adicionar">+</button>
-        <button type="button" class="btn btn-danger remove-aluno-btn" title="Remover">-</button>
-      </div>
-    `;
-    return div;
-  }
-
-  function ensureId(inputEl){
-    try {
-      if (!inputEl.id || String(inputEl.id).trim() === '') {
-        inputEl.id = 'aluno_busca_' + Math.floor(Math.random()*1000000);
-      }
-    } catch(e){}
-  }
-
-  // Try calling common external initializer names; return true if one ran without throwing
-  function tryExternalInit(inputEl, hiddenEl, infoEl){
-    const candidates = [
-      'initAlunoSearch','setupAlunoSearch','bindAlunoSearch','attachAlunoSearch',
-      'initAlunoAutocomplete','initAlunoAutoComplete','initAutocompleteAluno','alunoAutocompleteInit'
-    ];
-    for (let i=0;i<candidates.length;i++){
-      try{
-        const fn = window[candidates[i]];
-        if (typeof fn === 'function'){
-          try { fn(inputEl, hiddenEl, infoEl); return true; } catch(e){ /* continue */ }
-        }
-      } catch(e){}
-    }
-    return false;
-  }
-
-  // Internal lightweight autocomplete fallback (only used if external initializer absent)
-  function internalInit(inputEl, hiddenEl, infoEl){
-    try {
-      ensureId(inputEl);
-      if (inputEl._internalBound) return;
-      inputEl._internalBound = true;
-
-      const url = (typeof AUTOCOMPLETE_ALUNOS_URL !== 'undefined') ? AUTOCOMPLETE_ALUNOS_URL : '/disciplinar/buscar_alunos_json';
-
-      function createList(){
-        let list = inputEl._autoList;
-        if (!list){
-          list = document.createElement('div');
-          list.className = 'autocomplete-items';
-          list.style.position = 'absolute';
-          list.style.zIndex = 10000;
-          list.style.left = 0;
-          list.style.right = 0;
-          inputEl.parentNode.style.position = inputEl.parentNode.style.position || 'relative';
-          inputEl.parentNode.appendChild(list);
-          inputEl._autoList = list;
-        }
-        return list;
-      }
-
-      function render(items){
-        const list = createList();
-        list.innerHTML = '';
-        if (!items || !items.length){ list.style.display='none'; return; }
-        items.forEach(function(it){
-          const el = document.createElement('div');
-          el.textContent = (it.Matrícula ? it.Matrícula + ' - ' : '') + (it.nome || '');
-          el.style.cursor = 'pointer';
-          el.addEventListener('click', function(){
-            inputEl.value = el.textContent;
-            if (hiddenEl) hiddenEl.value = it.id || '';
-            if (infoEl) {
-              const st = it.serie_turma || it.serie || it.turma || '';
-              infoEl.textContent = st ? ('SÃ©rie/Turma: ' + st) : '';
-              if (st) infoEl.classList.add('show');
-            }
-            list.style.display='none';
-          });
-          list.appendChild(el);
-        });
-        list.style.display='block';
-      }
-
-      let debounceT;
-      inputEl.addEventListener('input', function(){
-        clearTimeout(debounceT);
-        debounceT = setTimeout(function(){
-          const q = inputEl.value && inputEl.value.trim();
-          if (!q) { render([]); return; }
-          fetch(url + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
-            .then(r => r.ok ? r.json() : [])
-            .then(json => render(Array.isArray(json) ? json : []))
-            .catch(()=> render([]));
-        }, 180);
-      });
-
-      document.addEventListener('click', function(ev){
-        const list = inputEl._autoList;
-        if (!list) return;
-        if (!inputEl.contains(ev.target) && ev.target !== inputEl && !list.contains(ev.target)) {
-          list.style.display='none';
-        }
-      });
-
-      // keyboard support
-      inputEl.addEventListener('keydown', function(e){
-        const list = inputEl._autoList;
-        if (!list || list.style.display==='none') return;
-        const items = Array.from(list.children);
-        if (!items.length) return;
-        let idx = items.findIndex(it => it.classList.contains('autocomplete-active'));
-        if (e.key === 'ArrowDown') {
-          if (idx >=0) items[idx].classList.remove('autocomplete-active');
-          idx = Math.min(items.length-1, idx+1);
-          items[idx].classList.add('autocomplete-active');
-          e.preventDefault();
-        } else if (e.key === 'ArrowUp') {
-          if (idx >=0) items[idx].classList.remove('autocomplete-active');
-          idx = Math.max(0, idx-1);
-          items[idx].classList.add('autocomplete-active');
-          e.preventDefault();
-        } else if (e.key === 'Enter') {
-          if (idx >= 0) { items[idx].click(); e.preventDefault(); }
-        } else if (e.key === 'Escape') {
-          list.style.display='none';
-        }
-      });
-
-    } catch(e){}
-  }
-
-  function initFor(inputEl){
-    if (!inputEl) return;
-    const parent = inputEl.closest('.aluno-entry');
-    const hidden = parent ? parent.querySelector('.aluno-id') : null;
-    const info = parent ? parent.querySelector('.aluno-info') : null;
-
-    // Prefer external initializer; if not present within a short timeout, install internal fallback.
-    let ranExternal = false;
-    try { ranExternal = tryExternalInit(inputEl, hidden, info); } catch(e){ ranExternal = false; }
-    if (ranExternal) return;
-
-    // schedule a couple of retries for asynchronous script load scenarios
-    let attempts = 0;
-    const retry = setInterval(function(){
-      attempts++;
-      if (tryExternalInit(inputEl, hidden, info)) { clearInterval(retry); return; }
-      if (attempts >= 3) { clearInterval(retry); internalInit(inputEl, hidden, info); }
-    }, 250);
-  }
-
-  // DelegaÃ§Ã£o de cliques para adicionar/remover
-  if (container){
-    container.addEventListener('click', function(e){
-      if (e.target.closest('.add-aluno-btn')) {
-        const newEntry = makeEntry();
-        container.appendChild(newEntry);
-// Trecho a colar IMEDIATAMENTE APÓS container.appendChild(newEntry);
-setTimeout(function(){
-  try {
-    // referências aos elementos dentro da nova entrada
-    const input = newEntry.querySelector('.aluno-search');
-    const hidden = newEntry.querySelector('.aluno-id');
-    const info  = newEntry.querySelector('.aluno-info');
-
-    // remover flags que impedem rebind (se houver)
-    try { delete input._alunoSearchInit; } catch(e){}
-    try { delete input._autocompleteBound; } catch(e){}
-    try { delete input._alunoSearchInitialized; } catch(e){}
-    try { delete input._internalBound; } catch(e){}
-
-    // chamar inicializador global conhecido (tenta variações)
-    if (typeof window.initAlunoSearch === 'function') {
-      window.initAlunoSearch(input, hidden, info);
-    } else if (typeof window.setupAlunoSearch === 'function') {
-      window.setupAlunoSearch(input, hidden, info);
-    } else if (typeof window.bindAlunoSearch === 'function') {
-      window.bindAlunoSearch(input, hidden, info);
-    }
-  } catch(e){
-    console.error('rebind aluno-search failed', e);
-  }
-}, 40);
-
-        const input = newEntry.querySelector('.aluno-search');
-        // init bindings (try external, fallback to internal)
-        initFor(input);
-
-        // ensure external gets another chance shortly (some modules attach after mutation)
-        setTimeout(function(){ tryExternalInit(input, newEntry.querySelector('.aluno-id'), newEntry.querySelector('.aluno-info')); }, 350);
-        try { input.focus(); } catch(e){}
-        if (e.preventDefault) e.preventDefault();
-        return;
-      }
-      if (e.target.closest('.remove-aluno-btn')) {
-        const entry = e.target.closest('.aluno-entry');
-        if (entry) entry.remove();
-        if (e.preventDefault) e.preventDefault();
-        return;
-      }
-    });
-  }
-
-  // Inicializar entradas existentes na carga
-  document.addEventListener('DOMContentLoaded', function(){
-    try {
-      const list = container ? container.querySelectorAll('.aluno-entry .aluno-search') : document.querySelectorAll('.aluno-search');
-      list.forEach(function(inp){
-        // slight defer to allow other scripts to run first
-        setTimeout(function(){ initFor(inp); }, 50);
-      });
-    } catch(e){}
-  });
-
-})();
-</script>
-<!-- Fim do bloco modificado para permitir múltiplos alunos -->
-
-            </div>
-        </div>
-        
-        <div class="form-section">
-            <h3 class="section-title"><i class="fas fa-clipboard-list"></i> Dados da Ocorrência</h3>
-            <div class="form-group">
-                <label for="tipo_ocorrencia_id">Tipo de Ocorrência <span class="required">*</span></label>
-                <select id="tipo_ocorrencia_id" name="tipo_ocorrencia_id" class="form-control" required>
-                    <option value="">Selecione o Tipo</option>
-                    {% for tipo in tipos_ocorrencia %}
-                    <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="data_ocorrencia">Data da Ocorrência <span class="required">*</span></label>
-                <input type="date" id="data_ocorrencia" name="data_ocorrencia" class="form-control" value="{{ request.form.get('data_ocorrencia', '') or (request.args.get('data_padrao') or '') }}" required>
-            </div>
-            <div class="form-group">
-                <label>Nome do Observador</label>
-                <input type="text" id="observador_nome_display" class="form-control" value="{{ session.get('username') if session.get('username') else 'Usuário logado' }}" readonly style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 10px;">
-                <input type="hidden" id="observador_id" name="observador_id" value="{{ g.user.id if g.user else '' }}">
-                <small class="text-muted">Preenchido automaticamente com o usuário logado.</small>
-            </div>
-        </div>
-
-        <!-- INSERIR este bloco IMEDIATAMENTE APÓS o form-group de "Nome do Observador" -->
-        <!-- Bloco condicional: mostra advertência OU subtipo de elogio -->
-        <div class="form-group" id="tipo-rfo-conditional" style="margin-top:6px;">
-            <label>Trata-se de um RFO de?</label>
-            <div class="radio-buttons" id="tipo-rfo-radios">
-                <label>
-                    <input type="radio" name="tipo_rfo" value="Falta Disciplinar" checked> Falta Disciplinar
-                </label>
-                <label>
-                    <input type="radio" name="tipo_rfo" value="Elogio"> Elogio
-                </label>
-            </div>
-
-            <!-- Sub-bloco: advertência (mostrado quando Falta Disciplinar) -->
-            <div id="advertencia-oral-block" style="margin-top:10px;">
-                <label>Considerar como Advertência Oral? <span class="required">*</span></label>
-                <div class="radio-buttons">
-                    <label>
-                        <input type="radio" name="advertencia_oral" value="sim" checked> Sim
-                    </label>
-                    <label>
-                        <input type="radio" name="advertencia_oral" value="nao"> Não
-                    </label>
-                </div>
-            </div>
-
-            <!-- Sub-bloco: subtipo de elogio (mostrado quando Elogio) -->
-            <div id="subtipo-elogio-block" style="display:none; margin-top:8px;">
-                <label>Tipo de Elogio</label>
-                <div class="radio-buttons">
-                    <label><input type="radio" name="subtipo_elogio" value="Individual" checked> Individual</label>
-                    <label><input type="radio" name="subtipo_elogio" value="Coletivo"> Coletivo</label>
-                </div>
-            </div>
-        </div>
-        
-        <div class="form-section">
-            <h3 class="section-title"><i class="fas fa-file-alt"></i> Relato Detalhado</h3>
-            <div class="form-group">
-                <label for="relato_observador">Relato do Observador <span class="required">*</span></label>
-                <textarea id="relato_observador" name="relato_observador" class="form-control" 
-                              placeholder="Descreva detalhadamente o fato observado..." maxlength="500" required>{{ request.form.get('relato_observador', '') }}</textarea>
-                <div class="char-counter">0/500 caracteres</div>
-            </div>
-            <div class="form-group">
-                <label for="material_recolhido">Material Recolhido (se houver)</label>
-                <textarea id="material_recolhido" name="material_recolhido" class="form-control" 
-                              placeholder="Descreva qualquer material confiscado ou recolhido..." rows="3"></textarea>
-            </div>
-        </div>
-        
-        <div class="form-actions">
-            <button type="submit" class="btn-action btn-registrar">
-                <i class="fas fa-save"></i> Registrar RFO
-            </button>
-            <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="btn-action btn-cancelar">
-                <i class="fas fa-times"></i> Cancelar
-            </a>
-        </div>
-    </form>
-</div>
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
-<script>
-    const AUTOCOMPLETE_ALUNOS_URL = "{{ url_for('disciplinar_bp.buscar_alunos_json') }}";
-</script>
-<script src="{{ url_for('static', filename='js/registrar_rfo.js') }}"></script>
-
-<!-- Small fix: correct mojibake for "Série" shown inside aluno-info elements when external JS returns messed-up encoding -->
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  function fixTextNode(node){
-    if(!node) return;
-    // operate on element's innerHTML and textContent to be safe
-    try {
-      var html = node.innerHTML;
-      if(html && /SÃ©rie|SÃ©rie\/Turma|SÃ©rie\/Turma|SÃ©rie:/.test(html)){
-        html = html.replace(/SÃ©rie\/Turma/g,'Série/Turma').replace(/SÃ©rie/g,'Série').replace(/SÃ©rie:/g,'Série:');
-        node.innerHTML = html;
-      }
-    } catch(e){}
-    try {
-      var txt = node.textContent;
-      if(txt && /SÃ©rie|SÃ©rie\/Turma|SÃ©rie:/ .test(txt)){
-        txt = txt.replace(/SÃ©rie\/Turma/g,'Série/Turma').replace(/SÃ©rie/g,'Série').replace(/SÃ©rie:/g,'Série:');
-        node.textContent = txt;
-      }
-    } catch(e){}
-  }
-
-  function scanAndFix(){
-    document.querySelectorAll('.aluno-info, .info-display, .aluno-info *').forEach(function(el){
-      fixTextNode(el);
-    });
-  }
-
-  // initial pass
-  scanAndFix();
-
-  // observe container for dynamic additions/changes
-  var container = document.getElementById('alunos-container');
-  if(container){
-    var obs = new MutationObserver(function(mutations){
-      scanAndFix();
-    });
-    try {
-      obs.observe(container, { childList: true, subtree: true, characterData: true });
-    } catch(e){}
-  }
-
-  // short polling to catch updates from async code (a few times)
-  var attempts = 0;
-  var poll = setInterval(function(){
-    scanAndFix();
-    attempts++;
-    if(attempts>30) clearInterval(poll);
-  },150);
-});
-</script>
-
-<script>
-
-
-/* DYN TOGGLE: delegação segura para alternar advertência/subtipo ao mudar tipo_rfo */
-
-
-(function(){
-
-
-  document.addEventListener('change', function(e){
-
-
-    try{
-
-
-      if(!e || !e.target) return;
-
-
-      if (e.target.name !== 'tipo_rfo') return;
-
-
-      var val = e.target.value;
-
-
-      var adv = document.getElementById('advertencia-oral-block');
-
-
-      var subt = document.getElementById('subtipo-elogio-block');
-
-
-      if (!adv || !subt) return;
-
-
-      if (val === 'Elogio') {
-
-
-        adv.style.display = 'none';
-
-
-        adv.querySelectorAll('input').forEach(function(i){ i.removeAttribute('required'); });
-
-
-        subt.style.display = 'block';
-
-
-        var radios = subt.querySelectorAll("input[name='subtipo_elogio']");
-
-
-        if (radios && radios.length && !Array.from(radios).some(r=>r.checked)) radios[0].checked = true;
-
-
-      } else {
-
-
-        subt.style.display = 'none';
-
-
-        adv.style.display = 'block';
-
-
-        var advRad = adv.querySelectorAll("input[name='advertencia_oral']");
-
-
-        if (advRad && advRad.length && !Array.from(advRad).some(r=>r.checked)) advRad[0].checked = true;
-
-
-        advRad.forEach(function(r){ r.setAttribute('required','required'); });
-
-
-      }
-
-
-    } catch(err) {
-
-
-      console && console.warn && console.warn('DYN TOGGLE error', err);
-
-
-    }
-
-
-  }, false);
-
-
-
-
-
-  // Reconcile initial state after load (timeout to let other scripts run)
-
-
-  window.addEventListener('load', function(){
-
-
-    setTimeout(function(){
-
-
-      var cur = document.querySelector("input[name='tipo_rfo']:checked");
-
-
-      if (cur) {
-
-
-        var ev = new Event('change', { bubbles: true });
-
-
-        cur.dispatchEvent(ev);
-
-
-      }
-
-
-    }, 120);
-
-
-  });
-
-
-})();
-
-
-</script>
-{% endblock %}
-
-
-
-
-
-
-
-
-
-<script>
-/* DYN TOGGLE: delegação segura para alternar advertência/subtipo ao mudar tipo_rfo */
-(function(){
-  document.addEventListener('change', function(e){
-    try{
-      if(!e || !e.target) return;
-      if (e.target.name !== 'tipo_rfo') return;
-      var val = e.target.value;
-      var adv = document.getElementById('advertencia-oral-block');
-      var subt = document.getElementById('subtipo-elogio-block');
-      if (!adv || !subt) return;
-      if (val === 'Elogio') {
-        adv.style.display = 'none';
-        // remove possible required from advertência
-        adv.querySelectorAll('input').forEach(function(i){ i.removeAttribute('required'); });
-        subt.style.display = 'block';
-        var radios = subt.querySelectorAll("input[name='subtipo_elogio']");
-        if (radios && radios.length && !Array.from(radios).some(r=>r.checked)) radios[0].checked = true;
-      } else {
-        subt.style.display = 'none';
-        adv.style.display = 'block';
-        var advRad = adv.querySelectorAll("input[name='advertencia_oral']");
-        if (advRad && advRad.length && !Array.from(advRad).some(r=>r.checked)) advRad[0].checked = true;
-        // tornar required (se necessário)
-        advRad.forEach(function(r){ r.setAttribute('required','required'); });
-      }
-    } catch(err) {
-      console && console.warn && console.warn('DYN TOGGLE error', err);
-    }
-  }, false);
-
-  // Reconcile initial state after load (timeout to let other scripts run)
-  window.addEventListener('load', function(){
-    setTimeout(function(){
-      var cur = document.querySelector("input[name='tipo_rfo']:checked");
-      if (cur) {
-        var ev = new Event('change', { bubbles: true });
-        cur.dispatchEvent(ev);
-      }
-    }, 80);
-  });
-})();
-</script>
-
-
-
+﻿{% extends 'base.html' %}
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/disciplinar.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+{% endblock %}
+{% block content %}
+<style>
+    /* CSS inline para garantir que funcione */
+    .main-content-inner { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .rfo-id-display { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; }
+    .rfo-id-display h3 { margin: 0; color: #495057; font-size: 1.2em; }
+    .rfo-id-display span { font-weight: bold; color: #007bff; }
+    .form-section { margin-bottom: 30px; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .section-title { margin: 0 0 20px 0; color: #343a40; font-size: 1.3em; display: flex; align-items: center; }
+    .section-title i { margin-right: 10px; color: #007bff; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #495057; }
+    .required { color: #dc3545; }
+    .form-control { width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; }
+    .form-control:focus { border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
+    .autocomplete { position: relative; }
+    .autocomplete-items { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s; }
+    .autocomplete-items div:hover, .autocomplete-active { background-color: #f8f9fa; }
+    .info-display { margin-top: 8px; padding: 8px; background: #e9ecef; border-radius: 4px; font-size: 0.9em; color: #6c757d; display: none; }
+    .info-display.show { display: block; }
+    .radio-buttons { display: flex; gap: 15px; margin: 10px 0; }
+    .radio-buttons label { display: flex; align-items: center; padding: 10px 16px; border: 2px solid #dee2e6; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 14px; background: white; }
+    .radio-buttons label:hover { border-color: #007bff; background: #f8f9fa; }
+    .radio-buttons input[type="radio"] { margin-right: 8px; }
+    .radio-buttons label.active { background: #007bff; color: white; border-color: #007bff; }
+    .char-counter { font-size: 0.85em; color: #7f8c8d; text-align: right; margin-top: 5px; }
+    .char-counter.warning { color: #e74c3c; }
+    textarea.form-control { resize: vertical; min-height: 120px; font-family: inherit; }
+    /* BOTÕES MELHORADOS - CSS INLINE */
+    .form-rfo .form-actions { 
+        text-align: center !important; 
+        margin-top: 40px !important; 
+        padding-top: 30px !important; 
+        border-top: 2px solid #e9ecef !important; 
+        display: flex !important; 
+        gap: 15px !important; 
+        justify-content: center !important; 
+        flex-wrap: wrap !important; 
+    }
+    .form-rfo .form-actions .btn-action { 
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 10px !important;
+        padding: 14px 32px !important; 
+        border: none !important; 
+        border-radius: 8px !important; 
+        font-size: 16px !important; 
+        font-weight: 600 !important; 
+        cursor: pointer !important; 
+        transition: all 0.3s ease !important; 
+        text-decoration: none !important;
+        min-width: 180px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    }
+    .form-rfo .form-actions .btn-action i { 
+        font-size: 18px !important; 
+    }
+    .form-rfo .form-actions .btn-registrar { 
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important; 
+        color: white !important; 
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4) !important; 
+    }
+    .form-rfo .form-actions .btn-registrar:hover:not(:disabled) { 
+        background: linear-gradient(135deg, #218838 0%, #1aa179 100%) !important; 
+        transform: translateY(-2px) !important; 
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.5) !important; 
+        color: white !important;
+    }
+    .form-rfo .form-actions .btn-registrar:active {
+        transform: translateY(0) !important;
+        box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3) !important;
+    }
+    .form-rfo .form-actions .btn-registrar:disabled { 
+        background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%) !important; 
+        cursor: not-allowed !important; 
+        box-shadow: none !important; 
+        opacity: 0.7 !important;
+    }
+    .form-rfo .form-actions .btn-cancelar { 
+        background: white !important; 
+        color: #6c757d !important; 
+        border: 2px solid #6c757d !important; 
+        box-shadow: 0 2px 8px rgba(108, 117, 125, 0.2) !important; 
+    }
+    .form-rfo .form-actions .btn-cancelar:hover { 
+        background: #6c757d !important; 
+        color: white !important; 
+        transform: translateY(-2px) !important; 
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3) !important; 
+    }
+    .form-rfo .form-actions .btn-cancelar:active {
+        transform: translateY(0) !important;
+        box-shadow: 0 2px 6px rgba(108, 117, 125, 0.2) !important;
+    }
+    @media (max-width: 768px) {
+        .form-rfo .form-actions { 
+            flex-direction: column !important; 
+        }
+        .form-rfo .form-actions .btn-action { 
+            width: 100% !important; 
+        }
+    }
+    {% if request.args.get('iframe') %}
+    /* Overrides somente quando a página é carregada dentro do iframe */
+    .main-content-inner {
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 6px 18px !important;
+    }
+    .container, .container-fluid {
+      max-width: 100% !important;
+      padding-left: 18px !important;
+      padding-right: 18px !important;
+    }
+    .form-section, .panel, .card {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+    .page-header, h1, h2 {
+      margin-top: 6px !important;
+      margin-bottom: 6px !important;
+    }
+    {% endif %}
+    /* Ajustes para alinhar o formulário com o box RFO ID e aumentar legibilidade */
+    .main-content-inner {
+      /* garante que o wrapper não imponha largura fixa */
+      max-width: none !important;
+      padding-left: 18px !important;
+      padding-right: 18px !important;
+    }
+    /* Faz o bloco de formulário ocupar a largura disponível (mesma margem do RFO ID) */
+    .form-section,
+    .form-rfo,
+    .card,
+    .panel {
+      max-width: none !important;
+      width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      padding-left: 18px !important;
+      padding-right: 18px !important;
+      box-sizing: border-box !important;
+    }
+    /* Caso o formulário esteja dentro de colunas (col-8, offset etc), forçamos 100% */
+    .col-8, .offset-md-2, .col-md-8 {
+      width: 100% !important;
+      margin: 0 !important;
+      float: none !important;
+    }
+    /* Aumenta fonte e padding dos campos para melhor leitura e ajuste ao espaço */
+    .form-control,
+    textarea.form-control {
+      font-size: 1.03rem !important;        /* um pouco maior */
+      padding: 12px 14px !important;       /* aumenta área clicável */
+      line-height: 1.3 !important;
+    }
+    /* melhora o comportamento do placeholder/longos textos dentro do campo */
+    .form-control::placeholder {
+      font-size: 0.98rem !important;
+      opacity: 0.7 !important;
+    }
+    /* reduz margens superiores dos títulos para aproximar do RFO ID se necessário */
+    .section-title, .page-header, h1, h2 {
+      margin-top: 6px !important;
+      margin-bottom: 8px !important;
+    }
+</style>
+<div class="main-content-inner">
+    <h2>Registrar Relatório de Fato Observado</h2>
+    <div class="rfo-id-display">
+        <h3>RFO ID: <span>{{ rfo_id_gerado }}</span></h3>
+    </div>
+    <form action="{{ url_for('disciplinar_bp.registrar_rfo') }}" method="POST" class="form-rfo">
+    <input type="hidden" name="iframe" value="1">
+        <div class="form-section">
+            <h3 class="section-title"><i class="fas fa-user-graduate"></i> Identificação do Aluno</h3>
+            <div class="form-group autocomplete">
+                <label for="aluno_busca">Aluno (Matrícula e Nome) <span class="required">*</span></label>
+                <!-- Inserir IMEDIATAMENTE APÓS esta linha de label:
+                <label for="aluno_busca">Aluno (Matrícula e Nome) <span class="required">*</span></label>
+                Cole o trecho abaixo na linha seguinte. -->
+                <small class="form-text text-muted" style="margin-top:6px;">
+                  Se for um elogio coletivo, usar o nome do líder da turma
+                </small>
+<!-- Início do bloco modificado para permitir múltiplos alunos usando o campo já existente (aluno_busca) -->
+<div id="alunos-container" class="mb-2">
+  <div class="aluno-entry d-flex align-items-start mb-2">
+    <div style="flex:1">
+      <!-- reaproveita o input existente (preserva id/name para o JS atual) -->
+      <input type="text" id="aluno_busca" name="aluno_busca" class="form-control aluno-search"
+             placeholder="Digite matrícula ou nome para buscar..." autocomplete="off" required>
+      <input type="hidden" name="aluno_id" class="aluno-id" />
+      <p class="aluno-info info-display mb-0"></p>
+    </div>
+    <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">
+      <button type="button" class="btn btn-outline-primary add-aluno-btn" title="Adicionar outro aluno" aria-label="Adicionar outro aluno">+</button>
+    </div>
+  </div>
+</div>
+<!-- dynamic-alunos-script-v2 -->
+<script>
+(function(){
+  // dynamic-alunos-script-v2: add/remove aluno entries and init autocomplete for dynamic inputs
+  var container = document.getElementById('alunos-container');
+  function makeEntryHtml() {
+    return '\
+  <div class="aluno-entry d-flex align-items-start mb-2">\
+    <div style="flex:1">\
+      <input type="text" class="form-control aluno-search" placeholder="Aluno (Matrícula e Nome)" autocomplete="off" />\
+      <input type="hidden" name="aluno_id" class="aluno-id" />\
+      <p class="aluno-info info-display mb-0"></p>\
+    </div>\
+    <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">\
+      <button type="button" class="btn btn-success add-aluno-btn" title="Adicionar">+</button>\
+      <button type="button" class="btn btn-danger remove-aluno-btn" title="Remover">-</button>\
+    </div>\
+  </div>';
+  }
+  function attachAlunoSearch(inputEl, hiddenEl, infoEl) {
+    if (typeof window.initAlunoSearch === 'function') {
+      try {
+        window.initAlunoSearch(inputEl, hiddenEl, infoEl);
+        return;
+      } catch(e) { console.warn('initAlunoSearch failed:', e); }
+    }
+    // fallback: simple blur handler
+    try {
+      inputEl.addEventListener('blur', function(){
+        var v = inputEl.value && inputEl.value.trim();
+        if (!v) { hiddenEl.value = ''; infoEl.textContent = ''; infoEl.classList.remove('show'); return; }
+        var m = v.match(/^(\d{1,})/);
+        if (m) { hiddenEl.value = m[1]; infoEl.textContent = v; infoEl.classList.add('show'); }
+        else { infoEl.textContent = v; infoEl.classList.add('show'); }
+      });
+    } catch(e){}
+  }
+  function onContainerClick(e) {
+    e.stopPropagation();
+    var addBtn = e.target.closest && e.target.closest('.add-aluno-btn');
+    var removeBtn = e.target.closest && e.target.closest('.remove-aluno-btn');
+    if (addBtn) {
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = makeEntryHtml();
+      var newEntry = wrapper.firstElementChild;
+      var parent = container || document.querySelector('.form-section') || document.body;
+      parent.appendChild(newEntry);
+      var input = newEntry.querySelector('.aluno-search');
+      var hidden = newEntry.querySelector('.aluno-id');
+      var info = newEntry.querySelector('.aluno-info');
+      try {
+        if (!input.id || String(input.id).trim() === '') {
+          input.id = 'aluno_busca_' + Math.floor(Math.random() * 1000000);
+        }
+      } catch(e){}
+      attachAlunoSearch(input, hidden, info);
+      try { input.focus(); } catch(e){}
+      if (e.preventDefault) e.preventDefault();
+      return;
+    }
+    if (removeBtn) {
+      var entry = e.target.closest && e.target.closest('.aluno-entry');
+      if (entry && entry.parentNode) entry.remove();
+      if (e.preventDefault) e.preventDefault();
+      return;
+    }
+  }
+  if (container) {
+    container.addEventListener('click', onContainerClick);
+  } else {
+    document.addEventListener('click', function(e){
+      if (e.target && e.target.closest && (e.target.closest('.add-aluno-btn') || e.target.closest('.remove-aluno-btn'))) {
+        onContainerClick(e);
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    var first = (container && container.querySelector('.aluno-entry')) || document.querySelector('.aluno-entry');
+    if (first) {
+      var input = first.querySelector('.aluno-search');
+      var hidden = first.querySelector('.aluno-id');
+      var info = first.querySelector('.aluno-info');
+      if (input) {
+        try { if (!input.id || String(input.id).trim() === '') input.id = 'aluno_busca_' + Math.floor(Math.random()*1000000); } catch(e){}
+        attachAlunoSearch(input, hidden, info);
+      }
+    }
+  });
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    function toggleTipoRfo() {
+        var tipoEl = document.querySelector('input[name="tipo_rfo"]:checked');
+        var tipo = tipoEl ? tipoEl.value : null;
+        var subtipoBlk = document.getElementById('subtipo-elogio-block');
+        var advBlk = document.getElementById('advertencia-oral-block');
+        if (tipo === 'Elogio') {
+            if (subtipoBlk) subtipoBlk.style.display = 'block';
+            if (advBlk) advBlk.style.display = 'none';
+            // garantir seleção padrão em subtipo de elogio
+            if (subtipoBlk) {
+                var r = subtipoBlk.querySelectorAll('input[name="subtipo_elogio"]');
+                if (r && !Array.from(r).some(x=>x.checked)) r[0].checked = true;
+            }
+        } else {
+            if (subtipoBlk) subtipoBlk.style.display = 'none';
+            if (advBlk) advBlk.style.display = 'block';
+            // garantir seleção padrão em advertência
+            if (advBlk) {
+                var r = advBlk.querySelectorAll('input[name="advertencia_oral"]');
+                if (r && !Array.from(r).some(x=>x.checked)) r[0].checked = true;
+            }
+        }
+    }
+    // ligar o handler aos radios tipo_rfo
+    document.querySelectorAll('input[name="tipo_rfo"]').forEach(function(r){
+        r.addEventListener('change', toggleTipoRfo);
+    });
+    // inicialização imediata
+    toggleTipoRfo();
+});
+</script>
+<script>
+(function(){
+  const container = document.getElementById('alunos-container');
+  function makeEntry() {
+    const div = document.createElement('div');
+    div.className = 'aluno-entry d-flex align-items-start mb-2';
+    div.innerHTML = `
+      <div style="flex:1">
+        <input type="text" class="form-control aluno-search" placeholder="Aluno (Matrícula e Nome)" autocomplete="off" />
+        <input type="hidden" name="aluno_id" class="aluno-id" />
+        <p class="aluno-info info-display mb-0"></p>
+      </div>
+      <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">
+        <button type="button" class="btn btn-success add-aluno-btn" title="Adicionar">+</button>
+        <button type="button" class="btn btn-danger remove-aluno-btn" title="Remover">-</button>
+      </div>
+    `;
+    return div;
+  }
+  function ensureId(inputEl){
+    try {
+      if (!inputEl.id || String(inputEl.id).trim() === '') {
+        inputEl.id = 'aluno_busca_' + Math.floor(Math.random()*1000000);
+      }
+    } catch(e){}
+  }
+  // Try calling common external initializer names; return true if one ran without throwing
+  function tryExternalInit(inputEl, hiddenEl, infoEl){
+    const candidates = [
+      'initAlunoSearch','setupAlunoSearch','bindAlunoSearch','attachAlunoSearch',
+      'initAlunoAutocomplete','initAlunoAutoComplete','initAutocompleteAluno','alunoAutocompleteInit'
+    ];
+    for (let i=0;i<candidates.length;i++){
+      try{
+        const fn = window[candidates[i]];
+        if (typeof fn === 'function'){
+          try { fn(inputEl, hiddenEl, infoEl); return true; } catch(e){ /* continue */ }
+        }
+      } catch(e){}
+    }
+    return false;
+  }
+  // Internal lightweight autocomplete fallback (only used if external initializer absent)
+  function internalInit(inputEl, hiddenEl, infoEl){
+    try {
+      ensureId(inputEl);
+      if (inputEl._internalBound) return;
+      inputEl._internalBound = true;
+      const url = (typeof AUTOCOMPLETE_ALUNOS_URL !== 'undefined') ? AUTOCOMPLETE_ALUNOS_URL : '/disciplinar/buscar_alunos_json';
+      function createList(){
+        let list = inputEl._autoList;
+        if (!list){
+          list = document.createElement('div');
+          list.className = 'autocomplete-items';
+          list.style.position = 'absolute';
+          list.style.zIndex = 10000;
+          list.style.left = 0;
+          list.style.right = 0;
+          inputEl.parentNode.style.position = inputEl.parentNode.style.position || 'relative';
+          inputEl.parentNode.appendChild(list);
+          inputEl._autoList = list;
+        }
+        return list;
+      }
+      function render(items){
+        const list = createList();
+        list.innerHTML = '';
+        if (!items || !items.length){ list.style.display='none'; return; }
+        items.forEach(function(it){
+          const el = document.createElement('div');
+          el.textContent = (it.Matrícula ? it.Matrícula + ' - ' : '') + (it.nome || '');
+          el.style.cursor = 'pointer';
+          el.addEventListener('click', function(){
+            inputEl.value = el.textContent;
+            if (hiddenEl) hiddenEl.value = it.id || '';
+            if (infoEl) {
+              const st = it.serie_turma || it.serie || it.turma || '';
+              infoEl.textContent = st ? ('SÃ©rie/Turma: ' + st) : '';
+              if (st) infoEl.classList.add('show');
+            }
+            list.style.display='none';
+          });
+          list.appendChild(el);
+        });
+        list.style.display='block';
+      }
+      let debounceT;
+      inputEl.addEventListener('input', function(){
+        clearTimeout(debounceT);
+        debounceT = setTimeout(function(){
+          const q = inputEl.value && inputEl.value.trim();
+          if (!q) { render([]); return; }
+          fetch(url + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+            .then(r => r.ok ? r.json() : [])
+            .then(json => render(Array.isArray(json) ? json : []))
+            .catch(()=> render([]));
+        }, 180);
+      });
+      document.addEventListener('click', function(ev){
+        const list = inputEl._autoList;
+        if (!list) return;
+        if (!inputEl.contains(ev.target) && ev.target !== inputEl && !list.contains(ev.target)) {
+          list.style.display='none';
+        }
+      });
+      // keyboard support
+      inputEl.addEventListener('keydown', function(e){
+        const list = inputEl._autoList;
+        if (!list || list.style.display==='none') return;
+        const items = Array.from(list.children);
+        if (!items.length) return;
+        let idx = items.findIndex(it => it.classList.contains('autocomplete-active'));
+        if (e.key === 'ArrowDown') {
+          if (idx >=0) items[idx].classList.remove('autocomplete-active');
+          idx = Math.min(items.length-1, idx+1);
+          items[idx].classList.add('autocomplete-active');
+          e.preventDefault();
+        } else if (e.key === 'ArrowUp') {
+          if (idx >=0) items[idx].classList.remove('autocomplete-active');
+          idx = Math.max(0, idx-1);
+          items[idx].classList.add('autocomplete-active');
+          e.preventDefault();
+        } else if (e.key === 'Enter') {
+          if (idx >= 0) { items[idx].click(); e.preventDefault(); }
+        } else if (e.key === 'Escape') {
+          list.style.display='none';
+        }
+      });
+    } catch(e){}
+  }
+  function initFor(inputEl){
+    if (!inputEl) return;
+    const parent = inputEl.closest('.aluno-entry');
+    const hidden = parent ? parent.querySelector('.aluno-id') : null;
+    const info = parent ? parent.querySelector('.aluno-info') : null;
+    // Prefer external initializer; if not present within a short timeout, install internal fallback.
+    let ranExternal = false;
+    try { ranExternal = tryExternalInit(inputEl, hidden, info); } catch(e){ ranExternal = false; }
+    if (ranExternal) return;
+    // schedule a couple of retries for asynchronous script load scenarios
+    let attempts = 0;
+    const retry = setInterval(function(){
+      attempts++;
+      if (tryExternalInit(inputEl, hidden, info)) { clearInterval(retry); return; }
+      if (attempts >= 3) { clearInterval(retry); internalInit(inputEl, hidden, info); }
+    }, 250);
+  }
+  // DelegaÃ§Ã£o de cliques para adicionar/remover
+  if (container){
+    container.addEventListener('click', function(e){
+      if (e.target.closest('.add-aluno-btn')) {
+        const newEntry = makeEntry();
+        container.appendChild(newEntry);
+// Trecho a colar IMEDIATAMENTE APÓS container.appendChild(newEntry);
+setTimeout(function(){
+  try {
+    // referências aos elementos dentro da nova entrada
+    const input = newEntry.querySelector('.aluno-search');
+    const hidden = newEntry.querySelector('.aluno-id');
+    const info  = newEntry.querySelector('.aluno-info');
+    // remover flags que impedem rebind (se houver)
+    try { delete input._alunoSearchInit; } catch(e){}
+    try { delete input._autocompleteBound; } catch(e){}
+    try { delete input._alunoSearchInitialized; } catch(e){}
+    try { delete input._internalBound; } catch(e){}
+    // chamar inicializador global conhecido (tenta variações)
+    if (typeof window.initAlunoSearch === 'function') {
+      window.initAlunoSearch(input, hidden, info);
+    } else if (typeof window.setupAlunoSearch === 'function') {
+      window.setupAlunoSearch(input, hidden, info);
+    } else if (typeof window.bindAlunoSearch === 'function') {
+      window.bindAlunoSearch(input, hidden, info);
+    }
+  } catch(e){
+    console.error('rebind aluno-search failed', e);
+  }
+}, 40);
+        const input = newEntry.querySelector('.aluno-search');
+        // init bindings (try external, fallback to internal)
+        initFor(input);
+        // ensure external gets another chance shortly (some modules attach after mutation)
+        setTimeout(function(){ tryExternalInit(input, newEntry.querySelector('.aluno-id'), newEntry.querySelector('.aluno-info')); }, 350);
+        try { input.focus(); } catch(e){}
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.target.closest('.remove-aluno-btn')) {
+        const entry = e.target.closest('.aluno-entry');
+        if (entry) entry.remove();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+    });
+  }
+  // Inicializar entradas existentes na carga
+  document.addEventListener('DOMContentLoaded', function(){
+    try {
+      const list = container ? container.querySelectorAll('.aluno-entry .aluno-search') : document.querySelectorAll('.aluno-search');
+      list.forEach(function(inp){
+        // slight defer to allow other scripts to run first
+        setTimeout(function(){ initFor(inp); }, 50);
+      });
+    } catch(e){}
+  });
+})();
+</script>
+<!-- Fim do bloco modificado para permitir múltiplos alunos -->
+            </div>
+        </div>
+        <div class="form-section">
+            <h3 class="section-title"><i class="fas fa-clipboard-list"></i> Dados da Ocorrência</h3>
+            <div class="form-group">
+                <label for="tipo_ocorrencia_id">Tipo de Ocorrência <span class="required">*</span></label>
+                <select id="tipo_ocorrencia_id" name="tipo_ocorrencia_id" class="form-control" required>
+                    <option value="">Selecione o Tipo</option>
+                    {% for tipo in tipos_ocorrencia %}
+                    <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="data_ocorrencia">Data da Ocorrência <span class="required">*</span></label>
+                <input type="date" id="data_ocorrencia" name="data_ocorrencia" class="form-control" value="{{ request.form.get('data_ocorrencia', '') or (request.args.get('data_padrao') or '') }}" required>
+            </div>
+            <div class="form-group">
+                <label>Nome do Observador</label>
+                <input type="text" id="observador_nome_display" class="form-control" value="{{ session.get('username') if session.get('username') else 'Usuário logado' }}" readonly style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 10px;">
+                <input type="hidden" id="observador_id" name="observador_id" value="{{ g.user.id if g.user else '' }}">
+                <small class="text-muted">Preenchido automaticamente com o usuário logado.</small>
+            </div>
+        </div>
+        <!-- INSERIR este bloco IMEDIATAMENTE APÓS o form-group de "Nome do Observador" -->
+        <!-- Bloco condicional: mostra advertência OU subtipo de elogio -->
+        <div class="form-group" id="tipo-rfo-conditional" style="margin-top:6px;">
+            <label>Trata-se de um RFO de?</label>
+            <div class="radio-buttons" id="tipo-rfo-radios">
+                <label>
+                    <input type="radio" name="tipo_rfo" value="Falta Disciplinar" checked> Falta Disciplinar
+                </label>
+                <label>
+                    <input type="radio" name="tipo_rfo" value="Elogio"> Elogio
+                </label>
+            </div>
+            <!-- Sub-bloco: advertência (mostrado quando Falta Disciplinar) -->
+            <div id="advertencia-oral-block" style="margin-top:10px;">
+                <label>Considerar como Advertência Oral? <span class="required">*</span></label>
+                <div class="radio-buttons">
+                    <label>
+                        <input type="radio" name="advertencia_oral" value="sim" checked> Sim
+                    </label>
+                    <label>
+                        <input type="radio" name="advertencia_oral" value="nao"> Não
+                    </label>
+                </div>
+            </div>
+            <!-- Sub-bloco: subtipo de elogio (mostrado quando Elogio) -->
+            <div id="subtipo-elogio-block" style="display:none; margin-top:8px;">
+                <label>Tipo de Elogio</label>
+                <div class="radio-buttons">
+                    <label><input type="radio" name="subtipo_elogio" value="Individual" checked> Individual</label>
+                    <label><input type="radio" name="subtipo_elogio" value="Coletivo"> Coletivo</label>
+                </div>
+            </div>
+        </div>
+        <div class="form-section">
+            <h3 class="section-title"><i class="fas fa-file-alt"></i> Relato Detalhado</h3>
+            <div class="form-group">
+                <label for="relato_observador">Relato do Observador <span class="required">*</span></label>
+                <textarea id="relato_observador" name="relato_observador" class="form-control" 
+                              placeholder="Descreva detalhadamente o fato observado..." maxlength="500" required>{{ request.form.get('relato_observador', '') }}</textarea>
+                <div class="char-counter">0/500 caracteres</div>
+            </div>
+            <div class="form-group">
+                <label for="material_recolhido">Material Recolhido (se houver)</label>
+                <textarea id="material_recolhido" name="material_recolhido" class="form-control" 
+                              placeholder="Descreva qualquer material confiscado ou recolhido..." rows="3"></textarea>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn-action btn-registrar">
+                <i class="fas fa-save"></i> Registrar RFO
+            </button>
+            <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="btn-action btn-cancelar">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    const AUTOCOMPLETE_ALUNOS_URL = "{{ url_for('disciplinar_bp.buscar_alunos_json') }}";
+</script>
+<script src="{{ url_for('static', filename='js/registrar_rfo.js') }}"></script>
+<!-- Small fix: correct mojibake for "Série" shown inside aluno-info elements when external JS returns messed-up encoding -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  function fixTextNode(node){
+    if(!node) return;
+    // operate on element's innerHTML and textContent to be safe
+    try {
+      var html = node.innerHTML;
+      if(html && /SÃ©rie|SÃ©rie\/Turma|SÃ©rie\/Turma|SÃ©rie:/.test(html)){
+        html = html.replace(/SÃ©rie\/Turma/g,'Série/Turma').replace(/SÃ©rie/g,'Série').replace(/SÃ©rie:/g,'Série:');
+        node.innerHTML = html;
+      }
+    } catch(e){}
+    try {
+      var txt = node.textContent;
+      if(txt && /SÃ©rie|SÃ©rie\/Turma|SÃ©rie:/ .test(txt)){
+        txt = txt.replace(/SÃ©rie\/Turma/g,'Série/Turma').replace(/SÃ©rie/g,'Série').replace(/SÃ©rie:/g,'Série:');
+        node.textContent = txt;
+      }
+    } catch(e){}
+  }
+  function scanAndFix(){
+    document.querySelectorAll('.aluno-info, .info-display, .aluno-info *').forEach(function(el){
+      fixTextNode(el);
+    });
+  }
+  // initial pass
+  scanAndFix();
+  // observe container for dynamic additions/changes
+  var container = document.getElementById('alunos-container');
+  if(container){
+    var obs = new MutationObserver(function(mutations){
+      scanAndFix();
+    });
+    try {
+      obs.observe(container, { childList: true, subtree: true, characterData: true });
+    } catch(e){}
+  }
+  // short polling to catch updates from async code (a few times)
+  var attempts = 0;
+  var poll = setInterval(function(){
+    scanAndFix();
+    attempts++;
+    if(attempts>30) clearInterval(poll);
+  },150);
+});
+</script>
+<script>
+/* DYN TOGGLE: delegação segura para alternar advertência/subtipo ao mudar tipo_rfo */
+(function(){
+  document.addEventListener('change', function(e){
+    try{
+      if(!e || !e.target) return;
+      if (e.target.name !== 'tipo_rfo') return;
+      var val = e.target.value;
+      var adv = document.getElementById('advertencia-oral-block');
+      var subt = document.getElementById('subtipo-elogio-block');
+      if (!adv || !subt) return;
+      if (val === 'Elogio') {
+        adv.style.display = 'none';
+        adv.querySelectorAll('input').forEach(function(i){ i.removeAttribute('required'); });
+        subt.style.display = 'block';
+        var radios = subt.querySelectorAll("input[name='subtipo_elogio']");
+        if (radios && radios.length && !Array.from(radios).some(r=>r.checked)) radios[0].checked = true;
+      } else {
+        subt.style.display = 'none';
+        adv.style.display = 'block';
+        var advRad = adv.querySelectorAll("input[name='advertencia_oral']");
+        if (advRad && advRad.length && !Array.from(advRad).some(r=>r.checked)) advRad[0].checked = true;
+        advRad.forEach(function(r){ r.setAttribute('required','required'); });
+      }
+    } catch(err) {
+      console && console.warn && console.warn('DYN TOGGLE error', err);
+    }
+  }, false);
+  // Reconcile initial state after load (timeout to let other scripts run)
+  window.addEventListener('load', function(){
+    setTimeout(function(){
+      var cur = document.querySelector("input[name='tipo_rfo']:checked");
+      if (cur) {
+        var ev = new Event('change', { bubbles: true });
+        cur.dispatchEvent(ev);
+      }
+    }, 120);
+  });
+})();
+</script>
+{% endblock %}
+<script>
+/* DYN TOGGLE: delegação segura para alternar advertência/subtipo ao mudar tipo_rfo */
+(function(){
+  document.addEventListener('change', function(e){
+    try{
+      if(!e || !e.target) return;
+      if (e.target.name !== 'tipo_rfo') return;
+      var val = e.target.value;
+      var adv = document.getElementById('advertencia-oral-block');
+      var subt = document.getElementById('subtipo-elogio-block');
+      if (!adv || !subt) return;
+      if (val === 'Elogio') {
+        adv.style.display = 'none';
+        // remove possible required from advertência
+        adv.querySelectorAll('input').forEach(function(i){ i.removeAttribute('required'); });
+        subt.style.display = 'block';
+        var radios = subt.querySelectorAll("input[name='subtipo_elogio']");
+        if (radios && radios.length && !Array.from(radios).some(r=>r.checked)) radios[0].checked = true;
+      } else {
+        subt.style.display = 'none';
+        adv.style.display = 'block';
+        var advRad = adv.querySelectorAll("input[name='advertencia_oral']");
+        if (advRad && advRad.length && !Array.from(advRad).some(r=>r.checked)) advRad[0].checked = true;
+        // tornar required (se necessário)
+        advRad.forEach(function(r){ r.setAttribute('required','required'); });
+      }
+    } catch(err) {
+      console && console.warn && console.warn('DYN TOGGLE error', err);
+    }
+  }, false);
+  // Reconcile initial state after load (timeout to let other scripts run)
+  window.addEventListener('load', function(){
+    setTimeout(function(){
+      var cur = document.querySelector("input[name='tipo_rfo']:checked");
+      if (cur) {
+        var ev = new Event('change', { bubbles: true });
+        cur.dispatchEvent(ev);
+      }
+    }, 80);
+  });
+})();
+</script>
+
+<script src="/static/js/tratar-handler.js"></script>

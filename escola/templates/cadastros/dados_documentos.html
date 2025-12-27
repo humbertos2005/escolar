@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Dados Escolar / Documentos</h2>
+
+<div class="manage-tabs" style="max-width:1200px;margin:20px auto;">
+
+  <div class="manage-tabs-nav" style="display:flex;gap:10px;margin-bottom:15px;">
+    <button type="button" class="tab-btn active" data-tab="dados" style="padding:10px 16px;border:1px solid #ddd;background:#fff;border-radius:6px;cursor:pointer;">Dados Escola</button>
+    <button type="button" class="tab-btn" data-tab="novo" style="padding:10px 16px;border:1px solid #ddd;background:#f7f7f7;border-radius:6px;cursor:pointer;">Novo Cabeçalho</button>
+    <button type="button" class="tab-btn" data-tab="cabecalhos" style="padding:10px 16px;border:1px solid #ddd;background:#f7f7f7;border-radius:6px;cursor:pointer;">Cabeçalho Documentos</button>
+  </div>
+
+  <div class="manage-tabs-content">
+
+    <!-- ABA 1: Dados Escola (listagem) -->
+    <div id="tab-dados" class="manage-tab-panel" style="display:block;">
+      <div style="margin-bottom:12px;">
+        <a href="#" id="btn-novo-dado" class="btn btn-primary">Novo</a>
+      </div>
+
+      <table class="table table-striped">
+        <thead>
+          <tr><th>ID</th><th>Escola</th><th>Cidade</th><th>Estado</th><th>Diretor</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for d in dados %}
+            <tr>
+              <td>{{ d.id }}</td>
+              <td>{{ d.escola or d.escola_origem or '-' }}</td>
+              <td>{{ d.cidade or '-' }}</td>
+              <td>{{ d.estado or '-' }}</td>
+              <td>{{ d.diretor_nome or '-' }}</td>
+              <td>
+                <a href="{{ url_for('cadastros_bp.dados_escola_editar', id=d.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                <form method="post" action="{{ url_for('cadastros_bp.dados_escola_excluir', id=d.id) }}" style="display:inline" onsubmit="return confirm('Excluir?');">
+                  <button class="btn btn-sm btn-danger">Excluir</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6">Nenhum registro</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ABA 2: Novo Cabeçalho (formulário) -->
+    <div id="tab-novo" class="manage-tab-panel" style="display:none;">
+      <h3>Novo Cabeçalho</h3>
+      <div class="form-card" style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.04);">
+        <!-- Formulário adaptado de cabecalho_form.html (cabecalho = None para novo) -->
+        <form method="post" action="{{ url_for('cadastros_bp.cabecalho_novo') }}" enctype="multipart/form-data">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Estado</label>
+              <input type="text" name="estado" class="form-control" value="">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Secretaria</label>
+              <input type="text" name="secretaria" class="form-control" value="">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Coordenação</label>
+              <input type="text" name="coordenacao" class="form-control" value="">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Escola</label>
+              <input type="text" name="escola" class="form-control" value="">
+            </div>
+          </div>
+
+          <hr style="margin:18px 0;">
+          <h5>Logotipos</h5>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Logotipo da Secretaria</label>
+              <input type="file" name="logo_estado" accept="image/*" class="form-control">
+              <div id="preview-logo-estado" style="margin-top:8px;"></div>
+
+              <div style="margin-top:12px;">
+                <label class="form-label">Logotipo do Estado/Prefeitura</label>
+                <input type="file" name="logo_prefeitura" accept="image/*" class="form-control">
+                <div id="preview-logo-prefeitura" style="margin-top:8px;"></div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Logotipo da Escola</label>
+              <input type="file" name="logo_escola" accept="image/*" class="form-control">
+              <div id="preview-logo-escola" style="margin-top:8px;"></div>
+            </div>
+          </div>
+
+          <div style="margin-top:18px;">
+            <button type="submit" class="btn btn-primary">Criar Cabeçalho</button>
+            <a href="#" class="btn btn-secondary" id="btn-cancelar-novo-cabecalho">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ABA 3: Listagem de Cabeçalhos -->
+    <div id="tab-cabecalhos" class="manage-tab-panel" style="display:none;">
+      <div class="toolbar" style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+        <a href="#" id="btn-novo-cabecalho" class="button btn-primary">
+          <i class="fas fa-plus"></i> Novo Cabeçalho
+        </a>
+      </div>
+
+      {% if cabecalhos %}
+      <table class="table table-data">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Estado</th>
+            <th>Secretaria</th>
+            <th>Coordenação</th>
+            <th>Escola</th>
+            <th>Logos</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in cabecalhos %}
+          <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.estado or '-' }}</td>
+            <td>{{ c.secretaria or '-' }}</td>
+            <td>{{ c.coordenacao or '-' }}</td>
+            <td>{{ c.escola or '-' }}</td>
+            <td>
+              {% if c.logo_estado_url %}
+                <img src="{{ c.logo_estado_url }}" alt="Logo Estado" style="max-width:80px; margin-right:6px; vertical-align:middle;">
+              {% endif %}
+              {% if c.logo_escola_url %}
+                <img src="{{ c.logo_escola_url }}" alt="Logo Escola" style="max-width:80px; vertical-align:middle;">
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('cadastros_bp.cabecalho_editar', id=c.id) }}" class="button btn-primary" style="margin-right:6px;">
+                <i class="fas fa-edit"></i> Editar
+              </a>
+              <form method="POST" action="{{ url_for('cadastros_bp.cabecalho_excluir', id=c.id) }}" style="display:inline;" onsubmit="return confirm('Confirmar exclusão?');">
+                <button type="submit" class="button btn-danger"><i class="fas fa-trash"></i> Excluir</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <p>Nenhum cabeçalho cadastrado.</p>
+        <a href="#" id="btn-criar-primeiro-cabecalho" class="button btn-primary">Criar primeiro Cabeçalho</a>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Tab switching logic (buttons)
+(function(){
+  function showTab(name){
+    document.querySelectorAll('.manage-tabs .tab-btn').forEach(b=>{
+      b.classList.toggle('active', b.getAttribute('data-tab') === name);
+      b.style.background = b.classList.contains('active') ? '#fff' : '#f7f7f7';
+    });
+    document.querySelectorAll('.manage-tab-panel').forEach(p=>{
+      p.style.display = (p.id === 'tab-'+name) ? 'block' : 'none';
+    });
+    // update URL param without reload
+    try {
+      const url = new URL(window.location);
+      url.searchParams.set('tab', name);
+      window.history.replaceState(null, '', url);
+    } catch(e){}
+  }
+
+  document.querySelectorAll('.manage-tabs .tab-btn').forEach(b=>{
+    b.addEventListener('click', function(){ showTab(this.getAttribute('data-tab')); });
+  });
+
+  // buttons inside the panels that should open other tabs
+  const btnNovoDado = document.getElementById('btn-novo-dado');
+  if (btnNovoDado) btnNovoDado.addEventListener('click', function(e){ e.preventDefault(); showTab('novo'); });
+
+  const btnNovoCab = document.getElementById('btn-novo-cabecalho');
+  if (btnNovoCab) btnNovoCab.addEventListener('click', function(e){ e.preventDefault(); showTab('novo'); });
+
+  const btnCriarPrimeiro = document.getElementById('btn-criar-primeiro-cabecalho');
+  if (btnCriarPrimeiro) btnCriarPrimeiro.addEventListener('click', function(e){ e.preventDefault(); showTab('novo'); });
+
+  const btnCancelarNovoCab = document.getElementById('btn-cancelar-novo-cabecalho');
+  if (btnCancelarNovoCab) btnCancelarNovoCab.addEventListener('click', function(e){ e.preventDefault(); showTab('cabecalhos'); });
+
+  // activate tab from ?tab=... on load
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('tab');
+    if (t && ['dados','novo','cabecalhos'].includes(t)) { showTab(t); }
+  } catch(e){}
+
+  // Preview images for cabecalho form
+  function preview(inputName, targetId){
+    const input = document.querySelector('input[name="'+inputName+'"]');
+    const target = document.getElementById(targetId);
+    if (!input || !target) return;
+    input.addEventListener('change', function(){
+      const f = input.files[0];
+      if (!f) { target.innerHTML = ''; return; }
+      const reader = new FileReader();
+      reader.onload = function(e){
+        target.innerHTML = '<img src="'+e.target.result+'" style="max-width:220px;">';
+      };
+      reader.readAsDataURL(f);
+    });
+  }
+  preview('logo_estado', 'preview-logo-estado');
+  preview('logo_prefeitura', 'preview-logo-prefeitura');
+  preview('logo_escola', 'preview-logo-escola');
+})();
+</script>
+
+<!-- Reaproveita scripts de dados_escola_form: autocomplete datalist -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const input = document.getElementById('escola_search');
+  const datalist = document.getElementById('cabecalhos_list');
+  const cabecalhoIdInput = document.getElementById('cabecalho_id');
+  if (!input) return;
+
+  async function fetchSuggestions(q){
+    const res = await fetch("{{ url_for('cadastros_bp.cabecalhos_autocomplete') }}?q="+encodeURIComponent(q||''));
+    if (!res.ok) return [];
+    return await res.json();
+  }
+
+  input.addEventListener('input', async function(){
+    const q = input.value.trim();
+    const list = await fetchSuggestions(q);
+    datalist.innerHTML = '';
+    list.forEach(item=>{
+      const opt = document.createElement('option');
+      opt.value = (item.escola || '').trim();
+      opt.setAttribute('data-id', String(item.id || ''));
+      datalist.appendChild(opt);
+    });
+    if (cabecalhoIdInput) cabecalhoIdInput.value = '';
+  });
+
+  input.addEventListener('change', async function(){
+    const v = (input.value || '').trim();
+    if (!v) {
+      if (cabecalhoIdInput) cabecalhoIdInput.value = '';
+      return;
+    }
+    let matchedId = '';
+    try {
+      const opts = Array.from(datalist.options || []);
+      const matched = opts.find(o => (o.value || '').trim() === v);
+      if (matched) matchedId = matched.getAttribute('data-id') || '';
+      else {
+        const res = await fetch("{{ url_for('cadastros_bp.cabecalhos_autocomplete') }}?q="+encodeURIComponent(v));
+        if (res.ok) {
+          const results = await res.json();
+          const exact = results.find(r => (r.escola||'').trim() === v);
+          if (exact) matchedId = String(exact.id || '');
+        }
+      }
+    } catch(e){ console.error(e); }
+
+    if (cabecalhoIdInput) cabecalhoIdInput.value = matchedId || '';
+
+    if (matchedId) {
+      try {
+        const res = await fetch("{{ url_for('cadastros_bp.cabecalho_by_id') }}?id="+encodeURIComponent(matchedId));
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data) {
+          if (document.getElementById('cabecalho_id')) document.getElementById('cabecalho_id').value = data.id || '';
+          if (data.rua && document.getElementById('rua')) document.getElementById('rua').value = data.rua || '';
+          if (data.numero && document.getElementById('numero')) document.getElementById('numero').value = data.numero || '';
+          if (data.complemento && document.getElementById('complemento')) document.getElementById('complemento').value = data.complemento || '';
+          if (data.bairro && document.getElementById('bairro')) document.getElementById('bairro').value = data.bairro || '';
+          if (data.cidade && document.getElementById('cidade')) document.getElementById('cidade').value = data.cidade || '';
+          if (data.estado && document.getElementById('estado')) document.getElementById('estado').value = (data.estado || '').toString().substring(0,2).toUpperCase();
+          if (data.cep && document.getElementById('cep')) document.getElementById('cep').value = data.cep || '';
+          if (data.cnpj && document.getElementById('cnpj')) document.getElementById('cnpj').value = data.cnpj || '';
+          if (data.diretor_nome && document.getElementById('diretor_nome')) document.getElementById('diretor_nome').value = data.diretor_nome || '';
+          if (data.diretor_cpf && document.getElementById('diretor_cpf')) document.getElementById('diretor_cpf').value = data.diretor_cpf || '';
+        }
+      } catch(e){ console.error(e); }
+    }
+  });
+
+  // Estado field: enforce uppercase and only letters, limit to 2
+  const estadoInput = document.getElementById('estado');
+  if (estadoInput) {
+    estadoInput.addEventListener('input', function(e){
+      let v = (estadoInput.value || '').toUpperCase().replace(/[^A-Z]/g, '');
+      if (v.length > 2) v = v.slice(0,2);
+      estadoInput.value = v;
+    });
+    estadoInput.addEventListener('paste', function(e){
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      let v = text.toUpperCase().replace(/[^A-Z]/g, '').slice(0,2);
+      estadoInput.value = v;
+    });
+  }
+});
+</script>
+{% endblock %}

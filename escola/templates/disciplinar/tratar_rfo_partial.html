@@ -1,0 +1,290 @@
+﻿<!-- Partial gerado automaticamente a partir de tratar_rfo.html - não estende base -->
+{% set tipo_val = (ocorrencia.get('tratamento_tipo') or ocorrencia.get('tipo_rfo') or ocorrencia.get('tipo_ocorrencia_nome') or '')|lower %}
+<h2>Tratamento da Falta Disciplinar</h2>
+<p class="subtitle">RFO Nº {{ ocorrencia.rfo_id }}</p>
+<div class="rfo-container">
+    <!-- Coluna Esquerda: Detalhes do RFO -->
+    <div class="rfo-details">
+        <h3><i class="fas fa-file-alt"></i> Detalhes do RFO</h3>
+        <div class="detail-item">
+            <strong>Status:</strong>
+            <span class="badge-status {% if ocorrencia.status == 'TRATADO' %}tratado{% else %}pendente{% endif %}">
+                {{ ocorrencia.status }}
+            </span>
+        </div>
+        <div class="detail-item">
+            <strong>Data do RFO:</strong> {{ ocorrencia.data_ocorrencia | data_br }}
+        </div>
+        <div class="detail-item">
+            <strong>Tipo de Ocorrência:</strong> {{ ocorrencia.tipo_ocorrencia_nome }}
+        </div>
+        <hr>
+        <!-- Substitua a seção “Aluno Envolvido” existente por este bloco -->
+        <h4><i class="fas fa-user-graduate"></i> Aluno(s) Envolvido(s)</h4>
+        <div class="detail-item">
+        {% if ocorrencia.alunos_list %}
+            <ul class="list-unstyled mb-0">
+            {% for al in ocorrencia.alunos_list %}
+                <li class="mb-3">
+                <strong>Nome:</strong> {{ al.nome }}<br/>
+                <strong>Matrícula:</strong> {{ al.matricula }}<br/>
+                <strong>Série/Turma:</strong>
+                {% if al.serie or al.turma %}
+                    {{ (al.serie ~ ' - ' ~ al.turma).strip(' - ') }}
+                {% else %}
+                    —
+                {% endif %}
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <!-- fallback: compatibilidade com qualquer campo string que exista -->
+            <div>
+            <strong>Nome:</strong> {{ ocorrencia.nome_aluno or ocorrencia.alunos or '—' }}<br/>
+            <strong>Matrícula:</strong> {{ ocorrencia.matricula or '—' }}<br/>
+            <strong>Série/Turma:</strong> {{ ocorrencia.series_turmas or (ocorrencia.serie ~ ' - ' ~ ocorrencia.turma)|default('—') }}
+            </div>
+        {% endif %}
+        </div>
+        <hr>
+        <h4><i class="fas fa-user"></i> Informações de Registro</h4>
+        <div class="detail-item">
+            <strong>Observador/Registrador:</strong> {{ ocorrencia.responsavel_registro_username if ocorrencia.responsavel_registro_username else 'N/A' }}
+        </div>
+        <hr>
+        <h4><i class="fas fa-align-left"></i> Relato do Observador</h4>
+        <div class="relato-box">
+            {{ ocorrencia.relato_observador }}
+        </div>
+        {% if ocorrencia.material_recolhido_info %}
+        <hr>
+        <h4><i class="fas fa-box"></i> Material Recolhido</h4>
+        <div class="material-box">
+            {{ ocorrencia.material_recolhido_info }}
+        </div>
+{% include 'disciplinar/_rfo_tipo_block.html' %}
+{% endif %}
+        {% if ocorrencia.status == 'TRATADO' %}
+        <hr>
+        <h4><i class="fas fa-check-circle"></i> Informações do Tratamento</h4>
+        <div class="detail-item">
+            <strong>Data do Tratamento:</strong> {{ ocorrencia.data_tratamento | data_br }}
+        </div>
+        {% if ocorrencia.data_despacho %}
+        <div class="detail-item">
+            <strong>Data do Despacho:</strong> {{ ocorrencia.data_despacho | data_br }}
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+    <!-- Coluna Direita: Formulário de Tratamento -->
+    <div class="tratamento-form">
+        <h3>
+            <i class="fas fa-clipboard-check"></i> 
+            {% if ocorrencia.status == 'TRATADO' %}Tratamento Registrado{% else %}Registrar Tratamento{% endif %}
+        </h3>
+        <form method="POST" id="form-tratar-rfo">
+            <!-- Hidden com aluno_id para as chamadas JS -->
+            <input type="hidden" name="aluno_id" value="{{ ocorrencia.aluno_id }}">
+            <!-- Hidden para envio definitivo do valor de reincidência (0/1). O JS atualiza este campo. -->
+            <input type="hidden" id="reincidencia_hidden" name="reincidencia" value="{{ ocorrencia.reincidencia if ocorrencia.reincidencia is not none else 0 }}">
+            <!-- SEÇÃO 1: CLASSIFICAÇÃO DA FALTA -->
+            <fieldset class="form-fieldset">
+                <legend><i class="fas fa-list-alt"></i> Classificação da Falta</legend>
+                <div class="form-group">
+                    <label>Tipo de Falta <span class="required">*</span></label>
+                    <!-- Nova UI: botões para adicionar tipos (permite duplicatas) -->
+                    <div id="tipo-falta-buttons" style="display:flex; gap:10px; margin-bottom:10px;">
+                        <button type="button" class="button tipo-adicionar" data-tipo="LEVE" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>LEVE</button>
+                        <button type="button" class="button tipo-adicionar" data-tipo="MÉDIA" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>MÉDIA</button>
+                        <button type="button" class="button tipo-adicionar" data-tipo="GRAVE" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>GRAVE</button>
+                    </div>
+                    <!-- Área que mostra os tipos adicionados como "pills" -->
+                    <div id="tipo_falta_selecionadas" style="margin-bottom:8px;"></div>
+                    <!-- Campo oculto que envia a lista ordenada (com duplicatas) para o backend -->
+                    <input type="hidden" id="tipo_falta_list" name="tipo_falta_list" value="{{ ocorrencia.tipo_falta if ocorrencia.tipo_falta else '' }}">
+                    <small class="help-text">Clique nas opções para adicionar. É possível adicionar o mesmo tipo mais de uma vez (ex.: LEVE/LEVE/GRAVE).</small>
+                </div>
+                <div class="form-group">
+                    <label for="falta_search">Item/Descrição da Falta <span class="required">*</span></label>
+                    <!-- Autocomplete livre; permite múltiplos lançamentos -->
+                    <input type="text" id="falta_search" class="form-control" placeholder="Digite 3+ caracteres para buscar..." autocomplete="off" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+                    <div id="falta_autocomplete_list" class="autocomplete-items" role="listbox" aria-label="Sugestões de faltas"></div>
+                    <div id="falta_selecionadas" style="margin-top:12px;">
+                        {# inicialização de itens selecionados do servidor (se existir) - tratada no JS para carregar descrições #}
+                    </div>
+                    <input type="hidden" id="falta_disciplinar_ids" name="falta_disciplinar_ids" value="{{ ocorrencia.falta_ids if ocorrencia.falta_ids else '' }}">
+                    <small class="help-text">Você pode adicionar vários itens. O sistema grava os IDs (campo oculto).</small>
+                </div>
+                <div class="form-group">
+                    <label>É Reincidência?</label>
+                    <div class="radio-group">
+                        {# radios permanecem no DOM (por compatibilidade), mas ficam ocultos e não são usados pelo fluxo principal.
+                           O valor final enviado ao backend vem de #reincidencia_hidden que o JS atualiza automaticamente. #}
+                        <label class="radio-label" style="display:none;">
+                            <input type="radio" name="reincidencia" value="1" {% if ocorrencia.reincidencia == 1 %}checked{% endif %} {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+</label>
+                        <label class="radio-label" style="display:none;">
+                            <input type="radio" name="reincidencia" value="0" {% if ocorrencia.reincidencia == 0 %}checked{% endif %} {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+                            <span>Não</span>
+                        </label>
+                    </div>
+                    <!-- Resultado do check automático de reincidência (inserido dinamicamente pelo JS) -->
+                    <div id="reincidence-block" style="margin-top:8px;">
+                        <label class="form-label">Verificação de Reincidência</label>
+                        <div id="reincidenciaResult" style="font-weight:700;"></div>
+                        <div id="reclassifyContainer" class="mt-2"></div>
+                    </div>
+                </div>
+            </fieldset>
+            <!-- SEÇÃO 2: MEDIDA APLICADA -->
+            <fieldset class="form-fieldset">
+                <legend><i class="fas fa-gavel"></i> Medida Disciplinar</legend>
+                <!-- NOVO: dropdown de classificação de tratamento -->
+                <div class="form-group">
+                    <label for="tratamento_classificacao">Este RFO será tratado como:</label>
+                    <select id="tratamento_classificacao" name="tratamento_classificacao" class="form-control" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+                        <option value="">-- Selecione --</option>
+                        <option value="Medida Disciplinar">Medida Disciplinar</option>
+                        <option value="Admoestação">Admoestação</option>
+                        <option value="Anulado">Anulado</option>
+                        <option value="Elogio Individual">Elogio Individual</option>
+                        <option value="Elogio Coletivo">Elogio Coletivo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="medida_aplicada">Medida Aplicada <span class="required">*</span></label>
+                    <select id="medida_aplicada" name="medida_aplicada" required class="form-control"
+                            {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+                        <option value="">Selecione a Medida...</option>
+                        {% for key, value in medidas_map.items() %}
+                        <option value="{{ value }}" 
+                                {% if ocorrencia.medida_aplicada == value %}selected{% endif %}>
+                            {{ value }}
+                        </option>
+                        {% endfor %}
+                        {# Garantir que as opções de Elogio estejam presentes caso o backend não as tenha adicionado ainda #}
+                        <option value="Elogio Individual" {% if ocorrencia.medida_aplicada == 'Elogio Individual' %}selected{% endif %}>Elogio Individual</option>
+                        <option value="Elogio Coletivo" {% if ocorrencia.medida_aplicada == 'Elogio Coletivo' %}selected{% endif %}>Elogio Coletivo</option>
+                    </select>
+                </div>
+            </fieldset>
+            <!-- SEÇÃO 2.5: Circunstâncias (NOVOS CAMPOS) -->
+            <fieldset class="form-fieldset">
+                <legend><i class="fas fa-book-open"></i> Circunstâncias</legend>
+                <div class="form-group">
+                    <label for="circunstancias_atenuantes">Circunstâncias Atenuantes</label>
+                    <textarea id="circunstancias_atenuantes" name="circunstancias_atenuantes" class="form-control" rows="3" {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}></textarea>
+                    <small class="form-text text-muted">Se deixar vazio, será registrado como "Não há".</small>
+                </div>
+                <div class="form-group">
+                    <label for="circunstancias_agravantes">Circunstâncias Agravantes</label>
+                    <textarea id="circunstancias_agravantes" name="circunstancias_agravantes" class="form-control" rows="3" {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}></textarea>
+                    <small class="form-text text-muted">Se deixar vazio, será registrado como "Não há".</small>
+                </div>
+            </fieldset>
+            <!-- SEÇÃO 3: TRATAMENTO ADMINISTRATIVO -->
+            {% if session.get('nivel') in [1, 2] %}
+            <fieldset class="form-fieldset tratamento-fieldset">
+                <legend><i class="fas fa-user-tie"></i> Tratamento Administrativo</legend>
+                <div class="form-group">
+                    <label for="relato_estudante">Relato do Estudante</label>
+                    <textarea id="relato_estudante" name="relato_estudante" 
+                              class="form-control" rows="5" 
+                              placeholder="Digite o relato do estudante sobre o ocorrido..."
+                              {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>{{ ocorrencia.relato_estudante if ocorrencia.relato_estudante else '' }}</textarea>
+                    <small class="help-text">Registro do que o estudante relatou sobre a ocorrência</small>
+                </div>
+                <div class="form-group">
+                    <label for="despacho_gestor">Despacho do Gestor <span class="required">*</span></label>
+                    <textarea id="despacho_gestor" name="despacho_gestor" 
+                              class="form-control" rows="5" required
+                              placeholder="Digite o despacho do gestor sobre o caso..."
+                              {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>{{ ocorrencia.despacho_gestor if ocorrencia.despacho_gestor else '' }}</textarea>
+                    <small class="help-text">Decisão final e orientações do gestor</small>
+                </div>
+                <div class="form-group">
+                    <label for="data_despacho">Data do Despacho <span class="required">*</span></label>
+                    <input type="date" id="data_despacho" name="data_despacho" 
+                           class="form-control" required
+                           value="{{ ocorrencia.data_despacho if ocorrencia.data_despacho else '' }}"
+                           {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>
+                    <small class="help-text">Data em que o despacho foi realizado</small>
+                </div>
+            </fieldset>
+            {% endif %}
+            <!-- AÇÕES DO FORMULÁRIO -->
+            {% if ocorrencia.status != 'TRATADO' %}
+            <div class="form-actions">
+                <button type="submit" class="button btn-success btn-lg">
+                    <i class="fas fa-check"></i> Aprovar
+                </button>
+                <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="button btn-secondary btn-lg">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </a>
+            </div>
+            {% else %}
+            <div class="form-actions">
+                <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="button btn-primary btn-lg">
+                    <i class="fas fa-arrow-left"></i> Voltar para Lista
+                </a>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+<style>
+/* Visuais e helpers */
+.radio-buttons-multiple { display:flex; gap:10px; flex-wrap:wrap; }
+.tipo-falta-item { padding:8px 12px; border:1px solid #e0e0e0; border-radius:6px; background:#fff; cursor:pointer; }
+.tipo-falta-item input { margin-right:6px; }
+#tipo_falta_selecionadas .pill, #falta_selecionadas .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:16px; background:#f1f1f1; margin-right:6px; margin-bottom:6px; }
+#tipo_falta_selecionadas .pill .remove, #falta_selecionadas .pill .remove { cursor:pointer; color:#c0392b; font-weight:700; margin-left:6px; }
+.autocomplete-items {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 9999;
+  max-height: none; overflow: visible;
+  border: 1px solid #ddd;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+.autocomplete-items.show { display: block; }
+.autocomplete-items div { padding:8px 10px; border-bottom:1px solid #eee; cursor:pointer; }
+.autocomplete-items div:hover { background:#f8f9fa; }
+.button.tipo-adicionar { padding:8px 12px; border-radius:6px; border:1px solid #e0e0e0; background:white; cursor:pointer; }
+.button.tipo-adicionar:disabled { opacity:0.6; cursor:not-allowed; }
+#falta_selecionadas .pill, #tipo_falta_selecionadas .pill {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:16px;
+  background:#f1f1f1;
+  margin-right:6px;
+  margin-bottom:6px;
+}
+#falta_selecionadas .pill .remove, #tipo_falta_selecionadas .pill .remove {
+  cursor:pointer;
+  color:#c0392b;
+  font-weight:700;
+  margin-left:6px;
+}
+/* Garante que o container do campo seja posicionador para o dropdown */
+.form-group { position: relative; }
+/* Reclassify controls styled to match Tipo de Falta buttons */
+.reclassify-types { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+.reclassify-types .button.tipo-adicionar { min-width:64px; text-align:center; padding:8px 12px; }
+.reclassify-types .button.tipo-adicionar.active { background:#f1c40f; border-color:#f39c12; color:#000; }
+</style>
+{% block scripts %}
+{% if has_scripts_parent is defined and has_scripts_parent %}{{ super() }}{% endif %}
+<script src="{{ url_for('static', filename='js/tratar_rfo.js') }}?v={{ range(1,100000) | random }}"></script>
+
+{% endblock %}
+
+
+
