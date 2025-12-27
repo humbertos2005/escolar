@@ -562,8 +562,6 @@ def registrar_rfo():
 
             # sucesso: informar e redirecionar
             flash(f'RFO {rfo_id_final} registrado com sucesso!', 'success')
-            if request.values.get('iframe'):
-                return render_template('disciplinar/registrar_rfo_iframe_success.html', rfo_id=rfo_id_final)
             return redirect(url_for('disciplinar_bp.listar_rfo'))
 
         except sqlite3.IntegrityError as e:
@@ -629,101 +627,7 @@ def listar_rfo():
     ''').fetchall()
 
     rfos_list = [dict(rfo) for rfo in rfos]
-
-    # flags e valores padrão para template
-    focus_tratar = True if request.args.get('focus') == 'tratar' else False
-    # auto_open só habilita abertura do painel de tratamento quando explicitamente solicitado
-    auto_open = request.args.get('open') in ['1','true','True']
-    ocorrencia_for_template = None
-
-    tipos_falta = TIPO_FALTA_MAP
-    medidas_map = MEDIDAS_MAP
-
-    if focus_tratar and auto_open and not request.args.get('iframe'):
-        # pegar o primeiro RFO e montar o mesmo contexto que a view tratar_rfo usa
-        first_id = rfos_list[0].get('id')
-        if first_id:
-            ocorrencia = db.execute('''
-                SELECT
-                    o.*, a.matricula, a.nome AS nome_aluno, a.serie, a.turma,
-                    tipo_oc.nome AS tipo_ocorrencia_nome,
-                    u.username AS responsavel_registro_username
-                FROM ocorrencias o
-                JOIN alunos a ON o.aluno_id = a.id
-                JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-                LEFT JOIN usuarios u ON o.responsavel_registro_id = u.id
-                WHERE o.id = ? 
-            ''', (first_id,)).fetchone()
-
-            if ocorrencia:
-                ocorrencia_dict = dict(ocorrencia)
-
-                # montar lista de alunos associados (mesma lógica da função tratar_rfo)
-                alunos_rows = db.execute('''
-                    SELECT al.matricula, al.nome, al.serie, al.turma
-                    FROM ocorrencias_alunos oa
-                    LEFT JOIN alunos al ON al.id = oa.aluno_id
-                    WHERE oa.ocorrencia_id = ?
-                    ORDER BY oa.id
-                ''', (first_id,)).fetchall()
-
-                alunos_list = []
-                series_list = []
-                nomes_list = []
-                for ar in alunos_rows:
-                    # ar pode ser sqlite Row; proteger com .get quando for dict
-                    if isinstance(ar, dict):
-                        nome = ar.get('nome') or ''
-                        matricula = ar.get('matricula') or ''
-                        serie = ar.get('serie') or ''
-                        turma = ar.get('turma') or ''
-                    else:
-                        nome = ar['nome'] or ''
-                        matricula = ar['matricula'] or ''
-                        serie = ar['serie'] or ''
-                        turma = ar['turma'] or ''
-                    alunos_list.append({
-                        'nome': nome,
-                        'matricula': matricula,
-                        'serie': serie,
-                        'turma': turma
-                    })
-                    s = serie or ''
-                    t = turma or ''
-                    if s or t:
-                        series_list.append(f"{s} - {t}".strip(' - '))
-                    nomes_list.append(nome or '')
-
-                ocorrencia_dict['alunos_list'] = alunos_list
-                ocorrencia_dict['alunos'] = '; '.join([n for n in nomes_list if n]) if any(nomes_list) else ocorrencia_dict.get('alunos') or ocorrencia_dict.get('nome_aluno') or ''
-                if series_list:
-                    ocorrencia_dict['series_turmas'] = '; '.join(series_list)
-                else:
-                    ocorrencia_dict['series_turmas'] = ocorrencia_dict.get('series_turmas') or ((ocorrencia_dict.get('serie') and ocorrencia_dict.get('turma')) and f"{ocorrencia_dict.get('serie')} - {ocorrencia_dict.get('turma')}" or '')
-
-                # construir material_recolhido_info (mesma lógica)
-                tipo = ocorrencia_dict.get('trata_se') or ocorrencia_dict.get('tipo_rfo') or ocorrencia_dict.get('tipo') or ocorrencia_dict.get('trata_tipo') or ''
-                associado = (ocorrencia_dict.get('advertencia_oral')
-                             or ocorrencia_dict.get('tipo_elogio')
-                             or ocorrencia_dict.get('subtipo')
-                             or ocorrencia_dict.get('considerar_advertencia_oral')
-                             or '')
-                if isinstance(associado, bool):
-                    associado = 'Sim' if associado else 'Não'
-                material_info = tipo
-                if associado:
-                    material_info = f"{tipo} — {associado}"
-                ocorrencia_dict['material_recolhido_info'] = material_info
-
-                ocorrencia_for_template = ocorrencia_dict
-
-    # renderiza a lista (e possivelmente o panel de tratamento se focus_tratar True)
-    return render_template('disciplinar/listar_rfo.html',
-                           rfos=rfos_list,
-                           focus_tratar=focus_tratar,
-                           ocorrencia=ocorrencia_for_template,
-                           tipos_falta=tipos_falta,
-                           medidas_map=medidas_map)
+    return render_template('disciplinar/listar_rfo.html', rfos=rfos_list)
 
 
 @disciplinar_bp.route('/visualizar_rfo/<int:ocorrencia_id>')
@@ -1129,14 +1033,6 @@ def tratar_rfo(ocorrencia_id):
         material_info = f"{tipo} — {associado}"
     ocorrencia_dict['material_recolhido_info'] = material_info
 
-        # Quando solicitado por um iframe, retornar somente o partial (conteúdo interno) para evitar duplicação do layout
-    if request.values.get('iframe') == '1':
-        return render_template('disciplinar/tratar_rfo_partial.html',
-                               ocorrencia=ocorrencia_dict,
-                               tipos_falta=tipos_falta,
-                               medidas_map=medidas_map,
-                               request_form=request.form if request.method == 'POST' else None)
-
     return render_template('disciplinar/tratar_rfo.html',
                            ocorrencia=ocorrencia_dict,
                            tipos_falta=tipos_falta,
@@ -1530,11 +1426,5 @@ def api_usuarios_busca():
         return jsonify([])
     result = [{'id': r['id'], 'username': r['username'], 'full_name': r['full_name']} for r in rows]
     return jsonify(result)
-
-
-
-
-
-
 
 
