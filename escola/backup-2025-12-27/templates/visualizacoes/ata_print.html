@@ -1,0 +1,155 @@
+﻿{% set resp = (ata.responsavel or '') | trim %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>ATA {{ ata.numero }}/{{ ata.ano }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111; margin: 0 6px 6px 6px; }
+    .cabecalho { text-align: center; margin-bottom: 2px; padding-top: 2px; }
+    .logo { max-height: 96px; display:block; margin: 0 auto 6px; }
+    .cabecalho .linha { font-size: 16px; margin: 0px; font-weight: 600; letter-spacing: 0.2px; }
+    .cabecalho .escola { font-weight: 600; font-size: 16px; margin: 0px; }
+    .header-space { height: 8px; }
+    h3.title { text-align:center; margin-top: 6px; margin-bottom: 6px; font-size: 16px; font-weight:700; }
+    .espacador-apos-titulo { height: 48px; }
+    .conteudo { text-align: justify; text-justify: inter-word; margin-top: 4px; line-height: 1.45; font-size: 12.5pt; }
+    .conteudo p { margin: 0 0 12px 0; }
+    .assinaturas { display:flex; justify-content:space-around; margin-top:14mm; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+    .assinatura-campo { width:30%; min-width:150px; text-align:center; box-sizing:border-box; }
+    .linha-assinatura { border-top:1px solid #111; height: 1px; margin-bottom:8px; margin-left:10px; margin-right:10px; }
+    .assinatura-campo p { font-weight:bold; margin:0; font-size: 12pt; }
+    .assinatura-cargo { font-weight:normal; font-size:0.9em; color:#666; margin-top:4px; }
+    @media print {
+      body { margin: 4mm; }
+      .espacador-apos-titulo { height: 44px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="cabecalho">
+    {% set raw_logo = None %}
+    {% if cabecalho %}
+      {% set raw_logo = cabecalho.get('logo_file') %}
+    {% elif cabecalhos %}
+      {% set raw_logo = cabecalhos.get('logo_file') if cabecalhos is mapping else (cabecalhos[0].get('logo_file') if cabecalhos and cabecalhos[0] is mapping else None) %}
+    {% endif %}
+    {% if raw_logo %}
+      {% if raw_logo.startswith('http') %}
+        {% set logo_url = raw_logo %}
+      {% elif raw_logo.startswith('/') %}
+        {% set logo_url = request.url_root.rstrip('/') + raw_logo %}
+      {% else %}
+        {% set logo_url = url_for('static', filename=raw_logo, _external=True) %}
+      {% endif %}
+    {% else %}
+      {% set logo_url = url_for('static', filename='uploads/cabecalhos/logo_topo.png', _external=True) %}
+    {% endif %}
+    <div style="text-align:center; margin-bottom:4px;">
+      <img class="logo" src="{{ logo_data or logo_url }}" alt="Logotipo" style="max-width:220px; height:auto; display:block; margin:0 auto;">
+    </div>
+    <div class="linha">{{ cabecalho.get('estado') if cabecalho else 'ESTADO DO MATO GROSSO' }}</div>
+    <div class="linha">{{ cabecalho.get('secretaria') if cabecalho else 'SECRETARIA DE ESTADO DO MATO GROSSO' }}</div>
+    <div class="linha">{{ cabecalho.get('coordenacao') if cabecalho else 'COORDENADORIA DE ESCOLAS MILITARES' }}</div>
+    <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
+    <div class="header-space" aria-hidden="true"></div>
+  </div>
+  <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
+  <div class="espacador-apos-titulo"></div>
+  <p class="conteudo">
+    {% set data_text = ata.data_extenso if ata.get('data_extenso') else (ata.created_at if ata.get('created_at') else '') %}
+    Aos {{ data_text }}, compareceu na {{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}
+    {% set nome_responsavel = resp
+      or ata.get('responsavel')
+      or ata.get('responsavel_nome')
+      or ata.get('nome_responsavel')
+      or ata.get('resp_nome') %}
+    {% if (not nome_responsavel) and ata.get('aluno') %}
+      {% set nome_responsavel = (ata.aluno.get('responsavel') if (ata.aluno is mapping and ata.aluno.get('responsavel')) else (getattr(ata.aluno, 'responsavel', None) if getattr(ata.aluno, 'responsavel', None) else None)) %}
+    {% endif %}
+    {% if not nome_responsavel %}
+      {% set nome_responsavel = (ata.aluno.nome if ata.get('aluno') and getattr(ata.aluno, 'nome', None) else (ata.aluno_nome or '')) %}
+    {% endif %}
+    o(a) Sr.(a) <strong>{{ nome_responsavel }}</strong>,
+    responsável pelo(a) aluno(a) <strong>{{ ata.aluno_nome }}</strong>,
+    matriculado(a) na(s) {{ ata.serie_turma if ata.get('serie_turma') else '' }},
+    para tratar do(s) seguinte(s) assunto(s): {{ ata.conteudo or '' }}.
+  </p>
+  {% set parts = [] %}
+  {% if ata.participants_json %}
+    {% if ata.participants_json is iterable and ata.participants_json is not string %}
+      {% set parts = ata.participants_json %}
+    {% else %}
+      {% set parts = (ata.participants_json | from_json) %}
+    {% endif %}
+  {% endif %}
+  {% if diretor_nome is defined and diretor_nome %}
+    {% set _dn = diretor_nome %}
+  {% else %}
+    {% set _dn = None %}
+    {% if cabecalho %}
+      {% for k in ['diretor','nome_diretor','diretor_nome','nome_do_diretor','nome_diretor_escola'] %}
+        {% if cabecalho.get(k) and not _dn %}
+          {% set _dn = cabecalho.get(k) %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% if not _dn and cabecalhos %}
+      {% if cabecalhos is mapping and cabecalhos.get('diretor') %}
+        {% set _dn = cabecalhos.get('diretor') %}
+      {% elif cabecalhos and cabecalhos[0] is mapping %}
+        {% for k in ['diretor','nome_diretor','diretor_nome','nome_do_diretor','nome_diretor_escola'] %}
+          {% if cabecalhos[0].get(k) and not _dn %}
+            {% set _dn = cabecalhos[0].get(k) %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    {% endif %}
+    {% set diretor_nome = (_dn or None) %}
+  {% endif %}
+  {%- macro in_parts_ci(name, list_parts) -%}
+    {%- if not name %}{{ False }}{%- else -%}
+      {%- set found = False -%}
+      {%- for pp in list_parts -%}
+        {%- set candidate = (pp.get('name') or pp.get('nome') or '') | trim -%}
+        {%- if candidate and candidate | lower == name | lower -%}
+          {%- set found = True -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ found }}
+    {%- endif -%}
+  {%- endmacro %}
+
+  <div class="assinaturas" aria-label="Assinaturas">
+    {% if diretor_nome %}
+      <div class="assinatura-campo">
+        <div class="linha-assinatura"></div>
+        <p>{{ diretor_nome | upper }}</p>
+        <div class="assinatura-cargo">Diretor</div>
+      </div>
+    {% endif %}
+    {% for p in parts %}
+      {% set pname = (p.get('name') or p.get('nome') or '') | trim %}
+      {% if pname %}
+        {% if not (diretor_nome and pname | lower == diretor_nome | lower) and not (nome_responsavel and pname | lower == nome_responsavel | lower) %}
+          <div class="assinatura-campo">
+            <div class="linha-assinatura"></div>
+            <p>{{ pname | upper }}</p>
+            <div class="assinatura-cargo">{{ (p.get('cargo') or p.get('role') or '') }}</div>
+          </div>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% if nome_responsavel %}
+      {% if not (diretor_nome and diretor_nome | trim | lower == nome_responsavel | trim | lower) %}
+        <div class="assinatura-campo">
+          <div class="linha-assinatura"></div>
+          <p>{{ nome_responsavel | upper }}</p>
+          <div class="assinatura-cargo">Responsável</div>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</body>
+</html>
+

@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/disciplinar.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<style>
+    /* CSS inline para garantir que funcione */
+    .main-content-inner { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .rfo-id-display { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; }
+    .rfo-id-display h3 { margin: 0; color: #495057; font-size: 1.2em; }
+    .rfo-id-display span { font-weight: bold; color: #007bff; }
+    .form-section { margin-bottom: 30px; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; background: #fff; }
+    .section-title { margin: 0 0 20px 0; color: #343a40; font-size: 1.3em; display: flex; align-items: center; }
+    .section-title i { margin-right: 10px; color: #007bff; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #495057; }
+    .required { color: #dc3545; }
+    .form-control { width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; background: #f8f9fa; }
+    .form-control[readonly] { cursor: not-allowed; }
+    .radio-buttons { display: flex; gap: 15px; margin: 10px 0; }
+    .radio-buttons label { display: flex; align-items: center; padding: 8px 12px; border: 2px solid #dee2e6; border-radius: 6px; font-size: 14px; background: #f8f9fa; }
+    .radio-buttons input[type="radio"] { margin-right: 8px; }
+    .radio-buttons label.active { background: #007bff; color: white; border-color: #007bff; }
+    textarea.form-control { resize: vertical; min-height: 120px; }
+    .btn-cancel { background: #6c757d; color: white; padding: 8px 20px; border: none; border-radius: 4px; text-decoration: none; display: inline-block; margin-left: 10px; }
+    .btn-cancel:hover { background: #5a6268; color: white; text-decoration: none; }
+    .form-actions { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef; }
+    .alert-info { background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px; margin-bottom: 20px; color: #0c5460; }
+    .alert-info i { margin-right: 10px; }
+    .btn-primary { background: #28a745; color: white; padding: 12px 30px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; text-decoration: none; display: inline-block; }
+    .btn-primary:hover { background: #218838; color: white; text-decoration: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-content-inner">
+    <h2>Visualizar Relatório de Fato Observado (RFO)</h2>
+    
+    <div class="alert-info">
+        <i class="fas fa-info-circle"></i>
+        <strong>Modo Visualização:</strong> Este é o formulário original preenchido pelo usuário. Os campos estão bloqueados para visualização apenas.
+    </div>
+
+    <div class="rfo-id-display">
+        <h3>RFO ID: <span>{{ rfo.rfo_id }}</span></h3>
+        <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 0.9em;">
+            Status: <strong>{{ rfo.status }}</strong>
+        </p>
+    </div>
+
+    <form class="form-rfo">
+        <!-- ====================== Identificação do Aluno ====================== -->
+        <div class="form-section">
+            <h3 class="section-title"><i class="fas fa-user-graduate"></i> Identificação do Aluno</h3>
+            <div class="form-group">
+                <label for="aluno_info">Aluno (Matrícula e Nome)</label>
+                <input type="text" id="aluno_info" class="form-control"
+                       value="{{ rfo.matricula }} - {{ rfo.nome_aluno }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="serie_turma">Série/Turma</label>
+                <input type="text" id="serie_turma" class="form-control"
+                       value="{{ rfo.serie }} - {{ rfo.turma }}" readonly>
+            </div>
+        </div>
+
+        <!-- ====================== Dados da Ocorrência ====================== -->
+        <div class="form-section">
+            <h3 class="section-title"><i class="fas fa-clipboard-list"></i> Dados da Ocorrência</h3>
+            <div class="form-group">
+                <label for="tipo_ocorrencia">Tipo de Ocorrência</label>
+                <input type="text" id="tipo_ocorrencia" class="form-control"
+                       value="{{ rfo.tipo_ocorrencia_nome }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="data_ocorrencia">Data da Ocorrência</label>
+                <input type="text" id="data_ocorrencia" class="form-control"
+                       value="{{ rfo.data_ocorrencia | data_br }}" readonly>
+            </div>
+            <div class="form-group">
+                <label>Nome do Observador/Registrador</label>
+                <input type="text" class="form-control" value="{{ rfo.responsavel_registro_username }}" readonly>
+            </div>
+            <div class="form-group">
+                <label>Considerado como Advertência Oral?</label>
+                <div class="radio-buttons">
+                    <label {% if rfo.advertencia_oral == 'sim' %}class="active"{% endif %}>
+                        <input type="radio" disabled {% if rfo.advertencia_oral == 'sim' %}checked{% endif %}>
+                        <i class="fas fa-check-circle"></i> Sim
+                    </label>
+                    <label {% if rfo.advertencia_oral == 'nao' %}class="active"{% endif %}>
+                        <input type="radio" disabled {% if rfo.advertencia_oral == 'nao' %}checked{% endif %}>
+                        <i class="fas fa-times-circle"></i> Não
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====================== Relato Detalhado ====================== -->
+        <div class="form-section">
+            <h3 class="section-title"><i class="fas fa-file-alt"></i> Relato Detalhado</h3>
+            <div class="form-group">
+                <label for="relato_observador">Relato do Observador</label>
+                <textarea id="relato_observador" class="form-control" readonly>{{ rfo.relato_observador }}</textarea>
+            </div>
+            {% if rfo.material_recolhido %}
+            <div class="form-group">
+                <label for="material_recolhido">Material Recolhido</label>
+                <textarea id="material_recolhido" class="form-control" readonly>{{ rfo.material_recolhido }}</textarea>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ====================== Ações ====================== -->
+        <div class="form-actions">
+            <a href="{{ url_for('disciplinar_bp.tratar_rfo', ocorrencia_id=rfo.id) }}" class="btn-primary">
+                <i class="fas fa-edit"></i> Iniciar Tratamento
+            </a>
+            <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="btn-cancel">
+                <i class="fas fa-arrow-left"></i> Voltar para Lista
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% endblock %}

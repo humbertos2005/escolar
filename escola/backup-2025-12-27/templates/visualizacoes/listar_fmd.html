@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Fichas de Medida Disciplinar (FMD)</h2>
+
+<div class="toolbar" style="margin-bottom:12px;">
+    <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="button btn-primary">
+        <i class="fas fa-plus-circle"></i> Registrar Nova FMD
+    </a>
+
+    {% if is_admin %}
+      {% if show_baixados %}
+        <a href="{{ url_for('visualizacoes_bp.listar_fmds') }}" class="btn btn-outline-secondary" style="margin-left:8px;">Mostrar apenas ativos</a>
+      {% else %}
+        <a href="{{ url_for('visualizacoes_bp.listar_fmds', show_baixados=1) }}" class="btn btn-outline-secondary" style="margin-left:8px;">Mostrar também baixados</a>
+      {% endif %}
+    {% endif %}
+</div>
+
+{% if fmds %}
+    <div class="table-scroll-wrapper">
+        <table class="table table-fmd">
+            <thead>
+                <tr>
+                    <th>FMD ID</th>
+                    <th>Data</th>
+                    <th>Matrícula</th>
+                    <th>Aluno</th>
+                    <th>Série/Turma</th>
+                    <th>Tipo de Falta</th>
+                    <th>Medida Aplicada</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fmd in fmds %}
+                {# compute a safe label for confirmations #}
+                {% set fmd_label = (fmd.get('fmd_id') or fmd.get('id')) %}
+                <tr class="{% if fmd.get('baixa') %}table-secondary{% endif %}">
+                    <td><strong>{{ fmd.get('fmd_id') or fmd.get('id') }}</strong></td>
+                    <td>{{ fmd.get('data_fmd') | default(fmd.get('created_at')) | data_br }}</td>
+                    <td>{{ fmd.get('matricula') or fmd.get('aluno_matricula') }}</td>
+                    <td>{{ fmd.get('nome_aluno') or fmd.get('aluno_nome') }}</td>
+                    <td>{{ (fmd.get('serie') or '') }} {{ (fmd.get('turma') or '') }}</td>
+                    <td>
+                        <span class="badge-falta {{ (fmd.get('tipo_falta') or '').lower() }}">
+                            {{ fmd.get('tipo_falta') or '' }}
+                        </span>
+                    </td>
+                    <td>{{ fmd.get('medida_aplicada') or '' }}</td>
+                    <td>
+                        <span class="badge-status {{ (fmd.get('status') or '').lower() }}">
+                            {{ fmd.get('status') or '' }}
+                        </span>
+                    </td>
+                    <td class="actions">
+                        <a href="{{ url_for('formularios_bp.formulario_fmd', fmd_id=fmd.get('id')) }}" 
+                           class="btn btn-sm btn-info" title="Ver Formulário" target="_blank">
+                            <i class="fas fa-file-pdf"></i>
+                        </a>
+                        <a href="{{ url_for('disciplinar_bp.editar_fmd', fmd_id=fmd.get('id')) }}" 
+                           class="btn btn-sm btn-warning" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+
+                        {% if session.get('nivel') == 1 %}
+                            {% if not fmd.get('baixa') %}
+                                <form method="POST" action="{{ url_for('visualizacoes_bp.baixar_fmd', id=fmd.get('id')) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-warning" title="Baixar">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="{{ url_for('visualizacoes_bp.reativar_fmd', id=fmd.get('id')) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-success" title="Reativar">
+                                        <i class="fas fa-upload"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
+
+                            {# delete: use data-confirm attribute and attach handler via JS (avoids inline on* attributes) #}
+                            <form method="POST" action="{{ url_for('disciplinar_bp.excluir_fmd', fmd_id=fmd.get('id')) }}"
+                                  class="confirm-delete"
+                                  style="display:inline;"
+                                  data-confirm="Tem certeza que deseja excluir a FMD {{ fmd_label | e }}?">
+                                <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <i class="fas fa-file-medical"></i>
+        <p>Nenhuma FMD registrada.</p>
+        <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="button btn-primary">
+            <i class="fas fa-plus"></i> Registrar Primeira FMD
+        </a>
+    </div>
+{% endif %}
+
+<style>
+.toolbar {
+    margin-bottom: 20px;
+}
+
+.table-scroll-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.table-fmd {
+    width: 100%;
+    background: white;
+    border-collapse: collapse;
+    min-width: 1400px;
+}
+
+.table-fmd th,
+.table-fmd td {
+    border: 1px solid #e0e0e0;
+    padding: 12px;
+    text-align: left;
+}
+
+.table-fmd th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    text-transform: uppercase;
+    font-size: 0.85em;
+}
+
+.table-fmd tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.badge-falta {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.8em;
+    text-transform: uppercase;
+}
+
+.badge-falta.leve {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-falta.média {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.badge-falta.grave {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.badge-status {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.8em;
+    text-transform: uppercase;
+}
+
+.badge-status.ativa {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-status.cumprida {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.badge-status.cancelada {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.actions {
+    white-space: nowrap;
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.btn-info {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #138496;
+}
+
+.btn-warning {
+    background: #ffc107;
+    color: #000;
+}
+
+.btn-warning:hover {
+    background: #e0a800;
+}
+
+.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.empty-state i {
+    font-size: 4em;
+    color: #bdc3c7;
+    margin-bottom: 20px;
+}
+
+.empty-state p {
+    color: #7f8c8d;
+    font-size: 1.2em;
+    margin-bottom: 20px;
+}
+</style>
+
+{# attach confirm handlers via unobtrusive JS to avoid inline event attributes that confuse linters #}
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('form.confirm-delete').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      var msg = form.getAttribute('data-confirm') || 'Confirmar ação?';
+      if (!confirm(msg)) {
+        e.preventDefault();
+      }
+    });
+  });
+});
+</script>
+{% endblock %}
+
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2>Visualização de Usuários</h2>
+
+{% if usuarios %}
+    <div class="table-scroll-wrapper">
+        <table class="table table-users">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome de Usuário</th>
+                    <th>Nível de Acesso</th>
+                    <th>Data de Criação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in usuarios %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td>
+                            <strong>{{ user.username }}</strong>
+                            {% if user.id == session.get('user_id') %}
+                            <span class="badge-current">Você</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge-nivel nivel-{{ user.nivel }}">
+                                {{ nivel_map.get(user.nivel, 'Desconhecido') }}
+                            </span>
+                        </td>
+                        <td>{{ user.data_criacao if user.data_criacao else 'N/A' }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-info">
+        <p>Total de {{ usuarios|length }} usuário(s) cadastrado(s).</p>
+    </div>
+
+{% else %}
+    <div class="alert-info">
+        <i class="fas fa-info-circle"></i>
+        <p>Nenhum usuário encontrado no sistema.</p>
+    </div>
+{% endif %}
+
+<style>
+.table-users {
+    width: 100%;
+    margin-top: 20px;
+    background: white;
+    border-collapse: collapse;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table-users th,
+.table-users td {
+    border: 1px solid #e0e0e0;
+    padding: 12px;
+    text-align: left;
+}
+
+.table-users th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    text-transform: uppercase;
+    font-size: 0.85em;
+}
+
+.table-users tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.badge-current {
+    background: #3498db;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    margin-left: 8px;
+}
+
+.badge-nivel {
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.nivel-1 {
+    background: #e74c3c;
+    color: white;
+}
+
+.nivel-2 {
+    background: #f39c12;
+    color: white;
+}
+
+.nivel-3 {
+    background: #95a5a6;
+    color: white;
+}
+
+.table-scroll-wrapper {
+    overflow-x: auto;
+    margin-bottom: 25px;
+}
+
+.table-info {
+    margin-top: 15px;
+    color: #555;
+    font-style: italic;
+}
+</style>
+
+{% endblock %}

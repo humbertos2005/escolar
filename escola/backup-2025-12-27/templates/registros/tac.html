@@ -1,0 +1,420 @@
+{% extends 'base.html' %}
+{% block title %}TAC — Registros{% endblock %}
+
+{% block extra_styles %}
+<style>
+/* Estilos compatíveis e área de listagem full-width */
+.tac-wrapper { width: 100%; padding: 10px 18px; box-sizing: border-box; }
+.tac-header { margin: 6px 0 8px 0; font-size: 1.6rem; font-weight: 600; }
+.tac-btns { margin-bottom: 8px; }
+.tac-btns .btn { cursor: pointer; }
+.tac-listing { width: 100%; box-sizing: border-box; }
+.tac-listing .injected-container { width: 100%; }
+.tac-iframe { display:block; width:100%; border:0; min-height:640px; box-sizing:border-box; background:transparent; }
+.tac-iframe-container { padding:0; margin:0; }
+
+/* Forçar a injeção ocupar espaço disponível e tabela ficar responsiva */
+.injected-container { width: 100%; max-width: 100%; box-sizing: border-box; }
+.injected-container table { width: 100% !important; table-layout: auto; }
+
+/* Pequenas proteções visuais para evitar herança de margens laterais do conteúdo injetado */
+.injected-container > * { max-width: 100%; box-sizing: border-box; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid tac-wrapper">
+  <div class="tac-content">
+    <h2 class="tac-header">TAC — Registros</h2>
+
+    <div class="btn-group tac-btns" role="group" aria-label="abas tac">
+      <!-- Topo: botão Novo (abre formulário) -->
+      <button id="btn-novo" type="button" class="btn btn-outline-secondary active" data-tab="novo">Novo TAC</button>
+
+      <!-- Dois botões explícitos: Mostrar ativos e Mostrar excluídos -->
+      <button id="btn-mostrar-ativos" type="button" class="btn btn-outline-secondary" data-tab="mostrar-ativos">Mostrar ativos</button>
+      <button id="btn-mostrar-excluidos" type="button" class="btn btn-outline-secondary" data-tab="mostrar-excluidos">Mostrar excluídos</button>
+    </div>
+
+    <div id="tabs-container" class="tac-iframe-container">
+      <!-- Iframe do formulário de criação (mantido) -->
+      <div id="panel-novo" style="display:block;">
+        <iframe id="iframe-novo" class="tac-iframe"
+                src="/formularios/tac/novo?iframe=1"
+                loading="eager" title="Novo TAC"></iframe>
+      </div>
+
+      <!-- Painel da listagem: injeção AJAX (sem cabeçalho/sidebars duplicados) -->
+      <div id="panel-mostrar" style="display:none;">
+        <div id="panel-mostrar-content" class="tac-listing">
+          <!-- conteúdo injetado via JS -->
+          <div class="injected-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function(){
+  // URLs fixas conforme informado
+  const pathNovo = '/formularios/tac/novo?iframe=1';
+  const pathMostrarBase = '/formularios/tacs';
+
+  // elementos do topo
+  const btnNovo = document.getElementById('btn-novo');
+  const btnMostrarAtivos = document.getElementById('btn-mostrar-ativos');
+  const btnMostrarExcluidos = document.getElementById('btn-mostrar-excluidos');
+
+  // painéis
+  const panelNovo = document.getElementById('panel-novo');
+  const panelMostrar = document.getElementById('panel-mostrar');
+  const iframeNovo = document.getElementById('iframe-novo');
+  const panelMostrarContent = document.getElementById('panel-mostrar-content');
+  const injectedContainer = panelMostrarContent.querySelector('.injected-container');
+
+  // estado local: false = mostrando ativos (default), true = mostrando excluídos
+  let showDeleted = false;
+
+  function setActive(button) {
+    // Limpa active dos três botões superiores e define o ativo se fornecido
+    [btnNovo, btnMostrarAtivos, btnMostrarExcluidos].forEach(b => {
+      if (b) b.classList.remove('active');
+    });
+    if (button) button.classList.add('active');
+  }
+
+  function showPanel(name) {
+    if (name === 'novo') {
+      panelNovo.style.display = 'block';
+      panelMostrar.style.display = 'none';
+      setActive(btnNovo);
+      if (iframeNovo && iframeNovo.getAttribute('src') !== pathNovo) {
+        iframeNovo.setAttribute('src', pathNovo);
+      }
+    } else {
+      panelNovo.style.display = 'none';
+      panelMostrar.style.display = 'block';
+      // marca o botão ativo de acordo com showDeleted
+      setActive(showDeleted ? btnMostrarExcluidos : btnMostrarAtivos);
+      loadListing(showDeleted);
+    }
+    setTimeout(adjustHeights, 200);
+  }
+
+  function adjustHeights() {
+    try {
+      if (iframeNovo) {
+        const h = Math.max(iframeNovo.contentDocument.body.scrollHeight, iframeNovo.contentDocument.documentElement.scrollHeight);
+        if (h && h > 100) iframeNovo.style.height = (h + 40) + 'px';
+      }
+    } catch(e){}
+  }
+
+  function extractListingHtml(doc) {
+    const table = doc.querySelector('table');
+    if (table) {
+      let anc = table;
+      for (let i = 0; i < 8 && anc; i++) {
+        const cls = (anc.className || '').toString().toLowerCase();
+        if (cls.includes('table') || cls.includes('table-responsive') || cls.includes('card') || cls.includes('panel') || cls.includes('container') || cls.includes('injected-container') || cls.includes('card-body') || cls.includes('panel-body')) {
+          return anc.outerHTML;
+        }
+        anc = anc.parentElement;
+      }
+      return table.outerHTML;
+    }
+
+    const headings = Array.from(doc.querySelectorAll('h1,h2,h3,h4'));
+    const found = headings.find(h => /Termos\s+de\s+Adequação|Termos\s+de\s+Adequa/i.test(h.innerText || ''));
+    if (found) {
+      let el = found.nextElementSibling;
+      let accum = '';
+      let tries = 0;
+      while (el && tries < 8) {
+        if (el.querySelector && el.querySelector('table')) return el.outerHTML;
+        accum += el.outerHTML;
+        el = el.nextElementSibling;
+        tries++;
+      }
+      if (accum) return accum;
+    }
+
+    return doc.body ? doc.body.innerHTML : '';
+  }
+
+  // sanitizeAndInject agora detecta se a tabela injetada contém botões "Excluir" nas linhas
+  // e DEFINE APENAS a variável showDeleted (não altera rótulos superiores, pois agora temos 2 botões).
+  function sanitizeAndInject(html, deleted) {
+    // NOTA: esta versão NÃO altera a variável global `showDeleted`.
+    // Ela usa o parâmetro `deleted` para decidir qual botão marcar como ativo,
+    // evitando sobrescrever a escolha do usuário após o carregamento da listagem.
+
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    // remove cabeçalhos/elementos de localização indesejados
+    Array.from(tmp.querySelectorAll('[class]')).forEach(el => {
+      const cls = (el.className || '').toString().toLowerCase();
+      if (/navbar|header|top-bar|topbar|site-header|page-header|page-top/.test(cls)) {
+        try { el.parentNode && el.parentNode.removeChild(el); } catch(e){}
+      }
+    });
+
+    // esconder botão interno "Novo TAC" caso exista
+    try {
+      const candidates = Array.from(tmp.querySelectorAll('button, a, input'));
+      candidates.forEach(el => {
+        const txt = ((el.innerText || el.value || el.getAttribute('title') || '') + '').trim();
+        if (/^Novo\s+TAC$/i.test(txt)) {
+          el.style.display = 'none';
+        }
+      });
+    } catch(e){}
+
+    // injeta o HTML sanitizado
+    injectedContainer.innerHTML = tmp.innerHTML || '<div class="alert alert-warning">Nenhum conteúdo encontrado.</div>';
+    injectedContainer.style.width = '100%';
+    injectedContainer.querySelectorAll('table').forEach(t => t.style.width = '100%');
+
+    // HEURÍSTICA: detectar se a listagem injetada contém botões "Excluir" nas linhas
+    let hasExcluirInRows = false;
+    try {
+      const rowButtons = injectedContainer.querySelectorAll('tbody tr button, tbody tr a, tbody tr input');
+      rowButtons.forEach(el => {
+        const txt = ((el.innerText || el.value || el.getAttribute('title') || '') + '').trim();
+        if (/^Excluir$/i.test(txt)) hasExcluirInRows = true;
+      });
+    } catch(e){}
+
+    // OBS.: NÃO alterar `showDeleted` aqui.
+    // Em vez disso, atualizamos apenas os rótulos e o botão ativo com base no parâmetro `deleted`.
+    // Se houver necessidade de ajustar labels do botão único antigo (btnMostrar), faz-se condicionalmente.
+    try {
+      // Atualiza rótulos (compatibilidade com versão antiga que usava btnMostrar)
+      if (typeof btnMostrar !== 'undefined' && btnMostrar) {
+        // Se a listagem atual contém botões Excluir => é lista de ATIVOS (oferecer "Mostrar excluídos")
+        if (hasExcluirInRows) {
+          // mostra opção de ver excluídos
+          btnMostrar.innerText = 'Mostrar excluídos';
+        } else {
+          btnMostrar.innerText = 'Mostrar ativos';
+        }
+      }
+    } catch(e){}
+
+    // marca o botão superior correto de acordo com o sinal `deleted`
+    try {
+      setActive(deleted ? (typeof btnMostrarExcluidos !== 'undefined' ? btnMostrarExcluidos : btnMostrar)
+                        : (typeof btnMostrarAtivos !== 'undefined' ? btnMostrarAtivos : btnMostrar));
+    } catch(e){}
+
+    // opcional: se a tabela já foi injetada, acrescentar badges para linhas excluídas (apenas visual)
+    try {
+      const table = injectedContainer.querySelector('table');
+      if (table) {
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        rows.forEach(row => {
+          // heurística: linha sem botões de ação => sinal de "excluído"
+          const lastCells = Array.from(row.children);
+          const actionsCell = lastCells[lastCells.length - 1];
+          const hasAction = actionsCell && actionsCell.querySelector && actionsCell.querySelector('button, a, input');
+          if (!hasAction) {
+            if (!actionsCell.querySelector('.tac-excluido-badge')) {
+              const badge = document.createElement('span');
+              badge.className = 'tac-excluido-badge badge bg-danger';
+              badge.style.marginLeft = '6px';
+              badge.innerText = 'TAC excluído';
+              actionsCell.appendChild(badge);
+            }
+          } else {
+            const existing = actionsCell.querySelector('.tac-excluido-badge');
+            if (existing) existing.remove();
+          }
+        });
+      }
+    } catch(e){}
+
+    // Nota: postInjectAdjustments continuará sendo chamado por quem invocou sanitizeAndInject (loadListing).
+  }
+
+  async function loadListing(deleted) {
+    const url = pathMostrarBase + (deleted ? '?show_deleted=1&iframe=1' : '?iframe=1');
+    try {
+      // feedback
+      injectedContainer.innerHTML = '<div class="text-muted">Carregando listagem...</div>';
+      const res = await fetch(url, { method: 'GET', credentials: 'same-origin' });
+      if (!res.ok) {
+        injectedContainer.innerHTML = '<div class="alert alert-warning">Erro ao carregar listagem (' + res.status + ').</div>';
+        return;
+      }
+      const text = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const extracted = extractListingHtml(doc);
+      sanitizeAndInject(extracted, deleted);
+      postInjectAdjustments();
+    } catch(e) {
+      injectedContainer.innerHTML = '<div class="alert alert-warning">Erro ao carregar listagem (conexão).</div>';
+    } finally {
+      setTimeout(adjustHeights, 200);
+    }
+  }
+
+  function postInjectAdjustments() {
+    try {
+      // esconder botão "Novo TAC" interno se existir
+      try {
+        const internalNovo = Array.from(injectedContainer.querySelectorAll('button, a, input')).find(el => {
+          const txt = (el.innerText || el.value || el.getAttribute('title') || '').trim();
+          return /^Novo\s+TAC$/i.test(txt);
+        });
+        if (internalNovo) internalNovo.style.display = 'none';
+      } catch(e){}
+
+      // localizar a tabela injetada (se houver)
+      const table = injectedContainer.querySelector('table');
+      if (table) {
+        const thead = table.querySelector('thead');
+        const ths = thead ? Array.from(thead.querySelectorAll('th')) : [];
+        const editIdx = ths.findIndex(th => /EDITAR/i.test((th.innerText||'').trim()));
+        const delIdx  = ths.findIndex(th => /(EXCLUIR|REMOVER)/i.test((th.innerText||'').trim()));
+
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+        rows.forEach(row => {
+          const cells = Array.from(row.children);
+          const editCell = (editIdx >= 0 && cells[editIdx]) ? cells[editIdx] : null;
+          const delCell  = (delIdx  >= 0 && cells[delIdx])  ? cells[delIdx]  : null;
+
+          const hasEditButton = editCell && editCell.querySelector('button, a, input');
+          const hasDeleteButton = delCell && delCell.querySelector('button, a, input');
+
+          const editText = editCell ? (editCell.innerText || '').trim() : '';
+          const delText  = delCell  ? (delCell.innerText  || '').trim() : '';
+
+          const isDeletedRow = (!hasEditButton && !hasDeleteButton) || (editText === '-' && (delText === '-' || delText === ''));
+
+          row.dataset.tacDeleted = isDeletedRow ? '1' : '0';
+
+          if (isDeletedRow && delCell) {
+            if (!delCell.querySelector('.tac-excluido-badge')) {
+              const badge = document.createElement('span');
+              badge.className = 'tac-excluido-badge badge bg-danger';
+              badge.style.marginLeft = '6px';
+              badge.innerText = 'TAC excluído';
+              delCell.appendChild(badge);
+            }
+          } else {
+            const existing = delCell && delCell.querySelector('.tac-excluido-badge');
+            if (existing) existing.remove();
+          }
+        });
+
+        // aplicar filtro de visibilidade conforme showDeleted
+        rows.forEach(row => {
+          const isDeleted = row.dataset.tacDeleted === '1';
+          if (showDeleted) {
+            row.style.display = isDeleted ? '' : 'none';
+          } else {
+            row.style.display = isDeleted ? 'none' : '';
+          }
+        });
+      }
+
+      // --- GARANTIR QUE OS BOTÕES DE TOPO TEM HANDLERS ---
+      function bindTopButtons() {
+        // Se existirem botões explícitos
+        if (typeof btnMostrarAtivos !== 'undefined' && btnMostrarAtivos) {
+          btnMostrarAtivos.onclick = function(e){
+            e && e.preventDefault();
+            showDeleted = false;
+            setActive(btnMostrarAtivos);
+            // abre painel e carrega
+            showPanel('mostrar');
+          };
+        }
+        if (typeof btnMostrarExcluidos !== 'undefined' && btnMostrarExcluidos) {
+          btnMostrarExcluidos.onclick = function(e){
+            e && e.preventDefault();
+            showDeleted = true;
+            setActive(btnMostrarExcluidos);
+            showPanel('mostrar');
+          };
+        }
+        // suporte para caso haja apenas o btnMostrar (versão anterior)
+        if (typeof btnMostrar !== 'undefined' && btnMostrar && !btnMostrarAtivos && !btnMostrarExcluidos) {
+          btnMostrar.onclick = function(e){
+            e && e.preventDefault();
+            showDeleted = !showDeleted;
+            // se houver funções setActive que esperam os botões novos, evita erro
+            try { setActive(showDeleted ? btnMostrarExcluidos : btnMostrarAtivos); } catch(e){}
+            showPanel('mostrar');
+          };
+        }
+      }
+
+      bindTopButtons();
+
+      // garantir botão ativo correto (se setActive existir)
+      try {
+        if (typeof setActive === 'function') {
+          // preferir os botões explícitos; se não existirem, tentar btnMostrar
+          if (showDeleted) {
+            setActive(typeof btnMostrarExcluidos !== 'undefined' && btnMostrarExcluidos ? btnMostrarExcluidos : btnMostrar);
+          } else {
+            setActive(typeof btnMostrarAtivos !== 'undefined' && btnMostrarAtivos ? btnMostrarAtivos : btnMostrar);
+          }
+        }
+      } catch(e){}
+
+      // observar mudanças internas e reaplicar heurística caso o conteúdo seja atualizado dinamicamente
+      try {
+        if (window.__tacRowObserver) {
+          window.__tacRowObserver.disconnect();
+          window.__tacRowObserver = null;
+        }
+        const obs = new MutationObserver(() => {
+          clearTimeout(window.__tacRowDebounce);
+          window.__tacRowDebounce = setTimeout(postInjectAdjustments, 60);
+        });
+        window.__tacRowObserver = obs;
+        obs.observe(injectedContainer, { childList: true, subtree: true });
+      } catch(e){}
+
+    } catch(e){
+      console.warn('postInjectAdjustments erro:', e);
+    }
+  }
+
+  // eventos do topo
+  if (btnNovo) btnNovo.addEventListener('click', function(){ showPanel('novo'); });
+
+  if (btnMostrarAtivos) btnMostrarAtivos.addEventListener('click', function(e){
+    e.preventDefault();
+    showDeleted = false;
+    setActive(btnMostrarAtivos);
+    showPanel('mostrar');
+  });
+
+  if (btnMostrarExcluidos) btnMostrarExcluidos.addEventListener('click', function(e){
+    e.preventDefault();
+    showDeleted = true;
+    setActive(btnMostrarExcluidos);
+    showPanel('mostrar');
+  });
+
+  if (iframeNovo) iframeNovo.addEventListener('load', adjustHeights);
+
+  // inicial
+  document.addEventListener('DOMContentLoaded', function(){
+    if (iframeNovo && iframeNovo.getAttribute('src') !== pathNovo) iframeNovo.setAttribute('src', pathNovo);
+    showPanel('novo');
+  });
+
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}TACs Cadastrados{% endblock %}
+{% block content %}
+<h2>Termos de Adequação Cadastrados</h2>
+<hr style="border-top:2px solid #2b8cc4; margin-top:-8px; margin-bottom:18px;">
+
+<div class="d-flex mb-3">
+  <a href="{{ url_for('formularios_tac_bp.tac_novo') }}" class="btn btn-primary me-2">Novo TAC</a>
+
+  {% if is_admin %}
+    {% if show_baixados %}
+      <a href="{{ url_for('visualizacoes_bp.tac_command') }}" class="btn btn-outline-secondary me-2">Mostrar apenas ativos</a>
+    {% else %}
+      <a href="{{ url_for('visualizacoes_bp.tac_command', show_baixados=1) }}" class="btn btn-outline-secondary me-2">Mostrar também baixados</a>
+    {% endif %}
+  {% endif %}
+
+  {% if show_deleted %}
+    <a href="{{ url_for('visualizacoes_bp.tac_command') }}" class="btn btn-outline-secondary">Mostrar ativos</a>
+  {% else %}
+    <a href="{{ url_for('visualizacoes_bp.tac_command') }}?show_deleted=1" class="btn btn-outline-secondary">Mostrar excluídos</a>
+  {% endif %}
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>ALUNO</th>
+          <th>SÉRIE / TURMA</th>
+          <th>NÚMERO</th>
+          <th style="width:140px;text-align:center;">VISUALIZAR</th>
+          <th style="width:140px;text-align:center;">EDITAR</th>
+          <th style="width:160px;text-align:center;">AÇÕES</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if tacs %}
+          {% for t in tacs %}
+            <tr class="{% if t.get('baixa') %}table-secondary{% elif t.deleted %}text-muted bg-light{% endif %}">
+              <td>{{ t.aluno_nome or '-' }}</td>
+              <td>{{ t.serie_turma or '-' }}</td>
+              <td>{{ t.numero or '-' }}</td>
+              <td style="text-align:center;">
+                <a href="{{ url_for('formularios_tac_bp.tac_visualizar', id=t.id) }}" class="btn btn-sm btn-primary">Visualizar</a>
+              </td>
+              <td style="text-align:center;">
+                <a href="{{ url_for('formularios_tac_bp.tac_editar', id=t.id) }}" class="btn btn-sm btn-warning">Editar</a>
+              </td>
+              <td style="text-align:center;">
+                {% if not t.deleted %}
+                  {% if is_admin %}
+                    {% if not t.get('baixa') %}
+                      <form method="post" action="{{ url_for('visualizacoes_bp.baixar_tac', id=t.id) }}" onsubmit="return confirm('Confirmar baixar este TAC?');" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-warning">Baixar</button>
+                      </form>
+                    {% else %}
+                      <form method="post" action="{{ url_for('visualizacoes_bp.reativar_tac', id=t.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-success">Reativar</button>
+                      </form>
+                    {% endif %}
+                  {% endif %}
+                  <form method="post" action="{{ url_for('formularios_tac_bp.tac_excluir', id=t.id) }}" onsubmit="return confirm('Confirma exclusão deste TAC?');" style="display:inline;">
+                    <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+                  </form>
+                {% else %}
+                  <span class="text-muted small">Excluído</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="6"><em>Nenhum TAC encontrado.</em></td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
