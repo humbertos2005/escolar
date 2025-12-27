@@ -1,5 +1,5 @@
-﻿{% extends 'base.html' %}
-{% block title %}RFO &mdash; Registros{% endblock %}
+{% extends 'base.html' %}
+{% block title %}RFO — Registros{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -16,13 +16,12 @@
 {% block content %}
 <div class="container-fluid rfo-wrapper rfo-local-only">
   <div class="rfo-content">
-    <h2 class="rfo-header">RFO &mdash; Registros</h2>
-    <div id="rfo-local-alerts" style="margin-bottom:12px;"></div>
+    <h2 class="rfo-header">RFO — Registros</h2>
 
     <div class="btn-group rfo-btns" role="group" aria-label="abas rfo">
       <button type="button" class="btn btn-outline-secondary active" data-tab="registrar">Registrar</button>
-      <button type="button" class="btn btn-outline-secondary" data-tab="visualizar">Visualizar</button>
       <button type="button" class="btn btn-outline-secondary" data-tab="tratar">Tratar</button>
+      <button type="button" class="btn btn-outline-secondary" data-tab="visualizar">Visualizar</button>
     </div>
 
     <div id="tabs-container" class="rfo-iframe-container">
@@ -31,11 +30,11 @@
       </div>
 
       <div id="panel-tratar" style="display:none;">
-        <iframe id="iframe-tratar" class="rfo-iframe" src="/disciplinar/listar_rfo?iframe=1&focus=tratar" loading="lazy"></iframe>
+        <iframe id="iframe-tratar" class="rfo-iframe" data-src="/disciplinar/listar_rfo?iframe=1" loading="lazy"></iframe>
       </div>
 
       <div id="panel-visualizar" style="display:none;">
-        <iframe id="iframe-visualizar" class="rfo-iframe" src="/disciplinar/listar_rfo?iframe=1&view_only=1" loading="lazy"></iframe>
+        <iframe id="iframe-visualizar" class="rfo-iframe" data-src="/visualizacoes/rfos?iframe=1" loading="lazy"></iframe>
       </div>
     </div>
   </div>
@@ -76,7 +75,7 @@
         body { background: transparent !important; margin: 0 !important; padding: 0 !important; }
         /* garante containers ocupem largura total dentro do iframe */
         .container, .container-fluid { max-width: 100% !important; padding-left: 18px !important; padding-right: 18px !important; margin: 0 auto !important; }
-        /* reduz margem grande de tÃ­tulos */
+        /* reduz margem grande de títulos */
         .page-header, h1, h2 { margin-top: 6px !important; margin-bottom: 6px !important; }
         /* evita recuos laterais em painéis */
         .panel, .card, .box { margin-left: 0 !important; margin-right: 0 !important; padding-left: 10px !important; padding-right: 10px !important; }
@@ -85,7 +84,7 @@
       `));
       doc.head.appendChild(style);
 
-      // remove possÃ­veis wrappers que adicionam padding left (ex.: .content-wrapper)
+      // remove possíveis wrappers que adicionam padding left (ex.: .content-wrapper)
       try {
         const wrappers = doc.querySelectorAll('.content-wrapper, .main-content, .page-content');
         wrappers.forEach(el => {
@@ -95,7 +94,7 @@
         });
       } catch(e){}
     } catch(e){
-      // falha (provavelmente cross-origin) &mdash; nada a fazer
+      // falha (provavelmente cross-origin) — nada a fazer
       console.warn('Não foi possível injetar CSS no iframe (cross-origin?):', e);
     }
   }
@@ -134,48 +133,4 @@
   } catch(e){}
 })();
 </script>
-<script>
-// Listener para mensagens vindas do iframe de Registrar RFO
-window.addEventListener('message', function(ev) {
-  try {
-    var data = ev.data || {};
-    if (data && data.type === 'rfo-registered') {
-      var rfoId = data.rfo_id || '';
-      var alerts = document.getElementById('rfo-local-alerts');
-      if (!alerts) return;
-      var alert = document.createElement('div');
-      alert.className = 'alert alert-success alert-dismissible fade show';
-      alert.role = 'alert';
-      alert.style.marginBottom = '12px';
-      alert.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-                        '<div>RFO ' + (rfoId||'') + ' registrado com sucesso!</div>' +
-                        '<button type="button" class="btn-close" aria-label="Fechar"></button>' +
-                        '</div>';
-      alerts.appendChild(alert);
-      var btn = alert.querySelector('.btn-close');
-      if (btn) btn.addEventListener('click', function(){ alert.remove(); });
-
-      // atualizar iframe de tratar (se presente) sem trocar aba
-      var iframeTratar = document.getElementById('iframe-tratar');
-      if (iframeTratar) {
-        if (!iframeTratar.getAttribute('src')) {
-          var s = iframeTratar.getAttribute('data-src');
-          if (s) iframeTratar.setAttribute('src', s);
-        } else {
-          try { iframeTratar.contentWindow.location.reload(); } catch(e) { iframeTratar.src = iframeTratar.src; }
-        }
-      }
-
-      try { alert.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e){}
-    }
-  } catch(e){}
-});
-</script>
 {% endblock %}
-
-
-
-
-
-
-

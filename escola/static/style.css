@@ -1,20 +1,16 @@
-﻿/* ====================================================================
+/* ====================================================================
    SISTEMA DE GESTÃO ESCOLAR - ESTILOS GLOBAIS
    ==================================================================== */
 /* PERMITIR SCROLL VERTICAL NO MAIN-CONTENT */
 .main-content {
-  /* Ajuste aplicado para evitar scroll interno (permite única barra de página) */
-  overflow-y: visible !important;
-  overflow-x: visible !important;
-  height: auto !important;
+    overflow-y: auto !important;
+    height: calc(100vh - 60px) !important;
 }
 
 /* ADICIONAR SCROLL HORIZONTAL NA PÁGINA */
 .main-content {
-  /* Ajuste aplicado para evitar scroll interno (permite única barra de página) */
-  overflow-y: visible !important;
-  overflow-x: visible !important;
-  height: auto !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
 }
 
 /* Estilizar a barra de rolagem horizontal */
@@ -38,10 +34,8 @@
 
 /* Para Firefox */
 .main-content {
-  /* Ajuste aplicado para evitar scroll interno (permite única barra de página) */
-  overflow-y: visible !important;
-  overflow-x: visible !important;
-  height: auto !important;
+    scrollbar-width: auto;
+    scrollbar-color: #3498db #f1f1f1;
 }
 
 html, body {
@@ -69,10 +63,11 @@ html, body {
 }
 
 .main-content {
-  /* Ajuste aplicado para evitar scroll interno (permite única barra de página) */
-  overflow-y: visible !important;
-  overflow-x: visible !important;
-  height: auto !important;
+    margin-left: 260px !important;
+    margin-top: 60px !important;
+    padding: 30px !important;
+    min-height: calc(100vh - 60px) !important;
+    width: calc(100% - 260px) !important;
 }
 
 @media (max-width: 768px) {
@@ -86,11 +81,9 @@ html, body {
     }
     
     .main-content {
-  /* Ajuste aplicado para evitar scroll interno (permite única barra de página) */
-  overflow-y: visible !important;
-  overflow-x: visible !important;
-  height: auto !important;
-}
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
 }
 
 * {
@@ -245,10 +238,9 @@ a:hover {
    ==================================================================== */
 
 .main-content {
-  /* Ajuste aplicado para evitar scroll interno (permite única barra de página) */
-  overflow-y: visible !important;
-  overflow-x: visible !important;
-  height: auto !important;
+    margin-left: 260px;
+    padding: 30px;
+    min-height: 100vh;
 }
 
 h2 {
@@ -1419,11 +1411,9 @@ textarea {
     }
 
     .main-content {
-  /* Ajuste aplicado para evitar scroll interno (permite única barra de página) */
-  overflow-y: visible !important;
-  overflow-x: visible !important;
-  height: auto !important;
-}
+        margin-left: 0;
+        padding: 15px;
+    }
 
     .form-row {
         flex-direction: column;
@@ -1541,39 +1531,5 @@ html, body {
 /* segurança extra: forçar comportamento de tabela ampla a permitir scroll em vez de cortar conteúdo */
 .table, table {
     white-space: nowrap;
-}
-
-  
-/* === PATCH: evitar barras de rolagem internas em páginas RFO (Registrar/Tratar) ===
-   Este bloco força que painéis internos não tenham overflow vertical interno,
-   permitindo que a página principal seja a única com scroll vertical.
-   Reversível: restaure static/style.css do backup criado acima.
-*/
-#rfo-tratar-panel,
-.rfo-panel,
-.rfo-container-flex,
-.rfo-panel .card,
-.rfo-panel .inner-scroll,
-.rfo-panel .table-scroll-wrapper,
-.page-panel-target,
-.content-wrapper,
-.page-inner,
-.container-fluid > .card {
-  overflow-y: visible !important;
-  overflow-x: visible !important;
-  max-height: none !important;
-}
-
-/* manter rolagem horizontal das tabelas sem afetar rolagem vertical */
-.table-scroll-wrapper {
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-}
-
-/* correção adicional: elementos com .inner-scroll que precisem rolar (autocomplete), manter seletor específico */
-.autocomplete-items,
-.autocomplete-items * {
-  max-height: 220px;
-  overflow-y: auto;
 }
 

@@ -1,218 +1,245 @@
-﻿{% extends 'base.html' %}
-{% block title %}Termo de Adequação de Conduta &mdash; {{ tac.numero or '' }}{% endblock %}
-{% block extra_styles %}
-<style>
-  .doc-container { padding: 18px; background: #fff; border-radius: 6px; box-shadow: 0 1px 0 rgba(0,0,0,.05); }
-  .doc-header { border-bottom: 4px solid #2b8cc4; padding-bottom: 14px; margin-bottom: 18px; background:#f7f7f7; }
-  .doc-meta { font-size: 0.95rem; color: #333; }
-  .doc-row { padding: 18px; }
-  .doc-label { font-weight: 700; color:#222; }
-  .doc-section-title { font-weight:700; margin-top:18px; margin-bottom:8px; }
-  .assinaturas { margin-top:48px; }
-  .assinatura-line { border-top:1px solid #ddd; padding-top:10px; text-align:center; min-height:70px; display:flex; flex-direction:column; justify-content:center; max-width:320px; margin:0 auto; }
-  .doc-right { text-align:right; }
-  .pront-logo { width:180px; height:180px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-  .pront-logo-img { max-width:100%; max-height:100%; display:block; }
-  .pront-header-lines { font-weight:600; }
-  .pront-title { margin-top:6px; font-size:20px; font-weight:700; }
-  .cabecalho-topo { text-align:center; margin-bottom:8px; }
-  .cabecalho-topo img { max-width:320px; max-height:110px; display:inline-block; }
-  /* Intro layout: school logo left; intro text positioned center->right and justified */
-  .intro-row { display:flex; gap:18px; align-items:flex-start; }
-  .intro-logo-col { flex: 0 0 180px; }
-  .intro-content-col { flex: 1 1 auto; margin-left: 20px; }
-  .tac-intro { font-weight:700; margin:6px 0 8px 0; line-height:1.15; text-align:justify; text-justify:inter-word; }
-  .tac-intro .aluno { text-transform:uppercase; font-weight:700; }
-  /* Ensure tac-legal bottom gap equals section-title top spacing so visual gaps are consistent */
-  .tac-legal { margin:0 0 18px 0; text-align:justify; line-height:1.5; }
-  /* ensure the intro block sits visually centered-to-right on large screens */
-  @media (min-width: 992px) {
-    .intro-content-col { padding-left: 40%; box-sizing:border-box; }
-  }
-  /* signatures layout: center the block and limit two per row using col-md-6 */
-  .assinaturas .row { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; }
-  .assinaturas .col-md-6 { display:flex; justify-content:center; }
-  @media (max-width: 767px) {
-    .intro-row { flex-direction:column; }
-    .intro-logo-col { width:100%; order:0; }
-    .intro-content-col { order:1; padding-left:0; }
-    .tac-intro { text-align:center; }
-    .cabecalho-topo img { max-width:220px; }
-  }
-  @media print {
-    .navbar, .sidebar, .btn { display:none !important; }
-    .main-content { margin-left:0 !important; }
-  }
-</style>
-{% endblock %}
-{% block content %}
-<div class="doc-header">
-  {# Top centered single logo: use the registered logo_prefeitura (or fallback from blueprint) #}
-  <div class="cabecalho-topo">
-    {% if cabecalho and cabecalho.logo_prefeitura_url %}
-      <img src="{{ cabecalho.logo_prefeitura_url }}" alt="Logo Topo">
-    {% endif %}
-  </div>
-  <div class="d-flex justify-content-between align-items-start pront-header">
-    <div style="width:120px;"></div>
-    <div style="flex:1; text-align:center;">
-      <div class="pront-header-lines">
-        {% if cabecalho %}
-          {% if cabecalho.estado %}<div>{{ cabecalho.estado }}</div>{% endif %}
-          {% if cabecalho.secretaria %}<div>{{ cabecalho.secretaria }}</div>{% endif %}
-          {% if cabecalho.coordenacao %}<div>{{ cabecalho.coordenacao }}</div>{% endif %}
-          {% if cabecalho.escola %}<div>{{ cabecalho.escola }}</div>{% endif %}
-        {% else %}
-          <div>ESTADO DE MATO GROSSO</div>
-          <div>SECRETARIA DE ESTADO DE EDUCAÃ‡ÃƒO</div>
-          <div>COORDENADORIA DE ESCOLAS MILITARES</div>
-          <div>ESCOLA ESTADUAL CÃVICO-MILITAR</div>
-        {% endif %}
-      </div>
-      <div class="pront-title">TERMO DE ADEQUAÃ‡ÃƒO DE CONDUTA (TAC)</div>
-    </div>
-    <div style="width:160px; text-align:center;"></div>
-  </div>
-</div>
-<div class="doc-container">
-  {# Intro row: school logo left; intro text right #}
-  <div class="doc-row">
-    <div class="intro-row">
-      <div class="intro-logo-col">
-        {% if cabecalho and cabecalho.logo_escola_url %}
-          <div class="pront-logo">
-            <img src="{{ cabecalho.logo_escola_url }}" alt="Logo Escola" class="pront-logo-img">
-          </div>
-        {% endif %}
-      </div>
-      <div class="intro-content-col">
-        <div class="tac-intro">
-          TERMO DE ADEQUAÃ‡ÃƒO DE CONDUTA (TAC) NÂº{{ tac.numero or '' }}, CELEBRADO ENTRE A {{ (tac.escola_text or (cabecalho.escola if cabecalho else '')) | upper }} E OS RESPONSÃVEIS PELO ESTUDANTE <span class="aluno">{{ ((tac.aluno and tac.aluno.get('nome')) or tac.aluno_nome) | default('') | upper }}</span> OBJETIVANDO O CUMPRIMENTO DE OBRIGAÃ‡Ã•ES.
-        </div>
-      </div>
-    </div>
-  </div>
-  {# IMPORTANT: put legal paragraph and "Do Fato" in the same doc-row to avoid doubled padding gaps #}
-  <div class="doc-row" style="padding-top:6px;">
-    <div class="tac-legal">
-      Pelo presente instrumento particular, a {{ (tac.escola_text or (cabecalho.escola if cabecalho else '')) | e }}, com personalidade jurÃ­dica de direito privado, com sede e foro em
-      {{ (cabecalho.dados_escola.cidade if cabecalho and cabecalho.dados_escola else (cabecalho.estado if cabecalho else '')) | e }} - {{ (cabecalho.dados_escola.estado if cabecalho and cabecalho.dados_escola else '') | e }},
-      inscrita no CNPJ nÂº {{ (cabecalho.dados_escola.cnpj if cabecalho and cabecalho.dados_escola else '') | e }}, representada, neste ato, pelo(a) Diretor(a) Escolar Sr(a). {{ (tac.diretor_nome or (cabecalho.dados_escola.diretor_nome if cabecalho and cabecalho.dados_escola else '')) | e }},
-      celebra com o(a) Sr(a). {{ (tac.responsavel or (tac.aluno and tac.aluno.get('responsavel')) or '') | e }}, responsáveis pelo Sr(a). {{ ((tac.aluno and tac.aluno.get('nome')) or tac.aluno_nome) | e }}, matriculado no(a)
-      {% set serie_turma = (tac.serie_turma_full if tac.get('serie_turma_full') else ( (tac.serie ~ ' / ' ~ tac.turma) if tac.turma else (tac.serie or tac.serie_turma) )) %}
-      {{ serie_turma | e }}, o presente Termo de Adequação de Conduta (TAC), sob as seguintes condições:
-    </div>
-    <div class="doc-section-title">Do Fato</div>
-    <div>
-      <div>{{ (tac.fato or '-') | e | replace('\r\n', '\n') | replace('\r', '\n') | replace('\n', '<br>\n') | safe }}</div>
-    </div>
-    <div class="doc-section-title">Das Obrigações e Prazo</div>
-    {% if tac.obrigacoes %}
-      <ol>
-        {% for ob in tac.obrigacoes %}
-          <li>{{ ob | e }}</li>
-        {% endfor %}
-        <li>
-          <strong>Prazo para cumprimento:</strong>
-          {% if tac.prazo %}
-            {{ tac.prazo | e }}
-          {% else %}
-            Não informado.
-          {% endif %}
-        </li>
-      </ol>
-    {% else %}
-      <p><em>Sem obrigações registradas.</em></p>
-      <p><strong>Prazo para cumprimento:</strong> {{ tac.prazo or 'Não informado.' }}</p>
-    {% endif %}
-  </div>
-  {% set ns = namespace(coord=None, others=[]) %}
-  {% for p in tac.participantes %}
-    {% if p.cargo and ('coorden' in p.cargo|lower) %}
-      {% set ns.coord = p %}
-    {% else %}
-      {% set ns.others = ns.others + [p] %}
-    {% endif %}
-  {% endfor %}
-  <div class="assinaturas row" style="margin-top:22px;">
-    <div class="col-md-4 text-center">
-      <div class="assinatura-line">
-        <div><strong>{{ (tac.diretor_nome or (cabecalho.dados_escola.diretor_nome if cabecalho and cabecalho.dados_escola else 'Diretor(a)')) | e }}</strong></div>
-        <div style="margin-top:6px;"><small class="text-muted">Diretor(a)</small></div>
-      </div>
-      {% if ns.coord %}
-      <div style="height:18px;"></div>
-      <div class="assinatura-line" style="margin-top:12px;">
-        <div><strong>{{ ns.coord.get('nome') | e }}</strong></div>
-        <div style="margin-top:6px;"><small class="text-muted">{{ ns.coord.get('cargo') | e }}</small></div>
-      </div>
-      {% endif %}
-    </div>
-    <div class="col-md-8">
-      <div class="row">
-        {% for p in ns.others %}
-          {% if (p.get('nome') or p.get('cargo')) %}
-            <div class="col-md-6 text-center" style="margin-bottom:18px;">
-              <div class="assinatura-line">
-                <div><strong>{{ p.get('nome') | e }}</strong></div>
-                <div style="margin-top:6px;"><small class="text-muted">{{ p.get('cargo') | e }}</small></div>
-              </div>
-            </div>
-          {% endif %}
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-  <div class="mt-3">
-    <a href="{{ url_for('formularios_tac_bp.tac_editar', id=tac.id) }}" class="btn btn-warning">Editar</a>
-    <form method="post" action="{{ url_for('formularios_tac_bp.tac_excluir', id=tac.id) }}" style="display:inline;" onsubmit="return confirm('Confirma exclusão deste TAC?');">
-      <button type="submit" class="btn btn-danger">Excluir</button>
-    </form>
-    <a href="{{ url_for('formularios_tac_bp.tac_novo') }}" class="btn btn-primary ms-2">Novo TAC</a>
-    <a href="{{ url_for('formularios_tac_bp.export_docx_template_docxtpl', id=tac.id) }}" class="btn btn-outline-primary ms-2">Baixar DOCX</a>
-    <button class="btn btn-outline-secondary ms-2" onclick="window.print()">Imprimir</button>
-  </div>
-</div>
-{% endblock %}
-{# Padding to preserve original file length and ensure no reduction in file size #}
-{# padding-line 1 #}
-{# padding-line 2 #}
-{# padding-line 3 #}
-{# padding-line 4 #}
-{# padding-line 5 #}
-{# padding-line 6 #}
-{# padding-line 7 #}
-{# padding-line 8 #}
-{# padding-line 9 #}
-{# padding-line 10 #}
-{# padding-line 11 #}
-{# padding-line 12 #}
-{# padding-line 13 #}
-{# padding-line 14 #}
-{# padding-line 15 #}
-{# padding-line 16 #}
-{# padding-line 17 #}
-{# padding-line 18 #}
-{# padding-line 19 #}
-{# padding-line 20 #}
-{# padding-line 21 #}
-{# padding-line 22 #}
-{# padding-line 23 #}
-{# padding-line 24 #}
-{# padding-line 25 #}
-{# padding-line 26 #}
-{# padding-line 27 #}
-{# padding-line 28 #}
-{# padding-line 29 #}
-{# padding-line 30 #}
-{# padding-line 31 #}
-{# padding-line 32 #}
-{# padding-line 33 #}
-{# padding-line 34 #}
-{# padding-line 35 #}
-{# padding-line 36 #}
-{# padding-line 37 #}
-{# padding-line 38 #}
-{# padding-line 39 #}
+{% extends 'base.html' %}
+{% block title %}Termo de Adequação de Conduta — {{ tac.numero or '' }}{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .doc-container { padding: 18px; background: #fff; border-radius: 6px; box-shadow: 0 1px 0 rgba(0,0,0,.05); }
+  .doc-header { border-bottom: 4px solid #2b8cc4; padding-bottom: 14px; margin-bottom: 18px; background:#f7f7f7; }
+  .doc-meta { font-size: 0.95rem; color: #333; }
+  .doc-row { padding: 18px; }
+  .doc-label { font-weight: 700; color:#222; }
+  .doc-section-title { font-weight:700; margin-top:18px; margin-bottom:8px; }
+  .assinaturas { margin-top:48px; }
+  .assinatura-line { border-top:1px solid #ddd; padding-top:10px; text-align:center; min-height:70px; display:flex; flex-direction:column; justify-content:center; max-width:320px; margin:0 auto; }
+  .doc-right { text-align:right; }
+  .pront-logo { width:180px; height:180px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .pront-logo-img { max-width:100%; max-height:100%; display:block; }
+  .pront-header-lines { font-weight:600; }
+  .pront-title { margin-top:6px; font-size:20px; font-weight:700; }
+  .cabecalho-topo { text-align:center; margin-bottom:8px; }
+  .cabecalho-topo img { max-width:320px; max-height:110px; display:inline-block; }
+
+  /* Intro layout: school logo left; intro text positioned center->right and justified */
+  .intro-row { display:flex; gap:18px; align-items:flex-start; }
+  .intro-logo-col { flex: 0 0 180px; }
+  .intro-content-col { flex: 1 1 auto; margin-left: 20px; }
+  .tac-intro { font-weight:700; margin:6px 0 8px 0; line-height:1.15; text-align:justify; text-justify:inter-word; }
+  .tac-intro .aluno { text-transform:uppercase; font-weight:700; }
+
+  /* Ensure tac-legal bottom gap equals section-title top spacing so visual gaps are consistent */
+  .tac-legal { margin:0 0 18px 0; text-align:justify; line-height:1.5; }
+
+  /* ensure the intro block sits visually centered-to-right on large screens */
+  @media (min-width: 992px) {
+    .intro-content-col { padding-left: 40%; box-sizing:border-box; }
+  }
+
+  /* signatures layout: center the block and limit two per row using col-md-6 */
+  .assinaturas .row { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; }
+  .assinaturas .col-md-6 { display:flex; justify-content:center; }
+
+  @media (max-width: 767px) {
+    .intro-row { flex-direction:column; }
+    .intro-logo-col { width:100%; order:0; }
+    .intro-content-col { order:1; padding-left:0; }
+    .tac-intro { text-align:center; }
+    .cabecalho-topo img { max-width:220px; }
+  }
+
+  @media print {
+    .navbar, .sidebar, .btn { display:none !important; }
+    .main-content { margin-left:0 !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="doc-header">
+
+  {# Top centered single logo: use the registered logo_prefeitura (or fallback from blueprint) #}
+  <div class="cabecalho-topo">
+    {% if cabecalho and cabecalho.logo_prefeitura_url %}
+      <img src="{{ cabecalho.logo_prefeitura_url }}" alt="Logo Topo">
+    {% endif %}
+  </div>
+
+  <div class="d-flex justify-content-between align-items-start pront-header">
+    <div style="width:120px;"></div>
+
+    <div style="flex:1; text-align:center;">
+      <div class="pront-header-lines">
+        {% if cabecalho %}
+          {% if cabecalho.estado %}<div>{{ cabecalho.estado }}</div>{% endif %}
+          {% if cabecalho.secretaria %}<div>{{ cabecalho.secretaria }}</div>{% endif %}
+          {% if cabecalho.coordenacao %}<div>{{ cabecalho.coordenacao }}</div>{% endif %}
+          {% if cabecalho.escola %}<div>{{ cabecalho.escola }}</div>{% endif %}
+        {% else %}
+          <div>ESTADO DE MATO GROSSO</div>
+          <div>SECRETARIA DE ESTADO DE EDUCAÇÃO</div>
+          <div>COORDENADORIA DE ESCOLAS MILITARES</div>
+          <div>ESCOLA ESTADUAL CÍVICO-MILITAR</div>
+        {% endif %}
+      </div>
+
+      <div class="pront-title">TERMO DE ADEQUAÇÃO DE CONDUTA (TAC)</div>
+    </div>
+
+    <div style="width:160px; text-align:center;"></div>
+  </div>
+</div>
+
+<div class="doc-container">
+
+  {# Intro row: school logo left; intro text right #}
+  <div class="doc-row">
+    <div class="intro-row">
+      <div class="intro-logo-col">
+        {% if cabecalho and cabecalho.logo_escola_url %}
+          <div class="pront-logo">
+            <img src="{{ cabecalho.logo_escola_url }}" alt="Logo Escola" class="pront-logo-img">
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="intro-content-col">
+        <div class="tac-intro">
+          TERMO DE ADEQUAÇÃO DE CONDUTA (TAC) Nº{{ tac.numero or '' }}, CELEBRADO ENTRE A {{ (tac.escola_text or (cabecalho.escola if cabecalho else '')) | upper }} E OS RESPONSÁVEIS PELO ESTUDANTE <span class="aluno">{{ ((tac.aluno and tac.aluno.get('nome')) or tac.aluno_nome) | default('') | upper }}</span> OBJETIVANDO O CUMPRIMENTO DE OBRIGAÇÕES.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# IMPORTANT: put legal paragraph and "Do Fato" in the same doc-row to avoid doubled padding gaps #}
+  <div class="doc-row" style="padding-top:6px;">
+    <div class="tac-legal">
+      Pelo presente instrumento particular, a {{ (tac.escola_text or (cabecalho.escola if cabecalho else '')) | e }}, com personalidade jurídica de direito privado, com sede e foro em
+      {{ (cabecalho.dados_escola.cidade if cabecalho and cabecalho.dados_escola else (cabecalho.estado if cabecalho else '')) | e }} - {{ (cabecalho.dados_escola.estado if cabecalho and cabecalho.dados_escola else '') | e }},
+      inscrita no CNPJ nº {{ (cabecalho.dados_escola.cnpj if cabecalho and cabecalho.dados_escola else '') | e }}, representada, neste ato, pelo(a) Diretor(a) Escolar Sr(a). {{ (tac.diretor_nome or (cabecalho.dados_escola.diretor_nome if cabecalho and cabecalho.dados_escola else '')) | e }},
+      celebra com o(a) Sr(a). {{ (tac.responsavel or (tac.aluno and tac.aluno.get('responsavel')) or '') | e }}, responsáveis pelo Sr(a). {{ ((tac.aluno and tac.aluno.get('nome')) or tac.aluno_nome) | e }}, matriculado no(a)
+      {% set serie_turma = (tac.serie_turma_full if tac.get('serie_turma_full') else ( (tac.serie ~ ' / ' ~ tac.turma) if tac.turma else (tac.serie or tac.serie_turma) )) %}
+      {{ serie_turma | e }}, o presente Termo de Adequação de Conduta (TAC), sob as seguintes condições:
+    </div>
+
+    <div class="doc-section-title">Do Fato</div>
+    <div>
+      <div>{{ (tac.fato or '-') | e | replace('\r\n', '\n') | replace('\r', '\n') | replace('\n', '<br>\n') | safe }}</div>
+    </div>
+
+    <div class="doc-section-title">Das Obrigações e Prazo</div>
+
+    {% if tac.obrigacoes %}
+      <ol>
+        {% for ob in tac.obrigacoes %}
+          <li>{{ ob | e }}</li>
+        {% endfor %}
+        <li>
+          <strong>Prazo para cumprimento:</strong>
+          {% if tac.prazo %}
+            {{ tac.prazo | e }}
+          {% else %}
+            Não informado.
+          {% endif %}
+        </li>
+      </ol>
+    {% else %}
+      <p><em>Sem obrigações registradas.</em></p>
+      <p><strong>Prazo para cumprimento:</strong> {{ tac.prazo or 'Não informado.' }}</p>
+    {% endif %}
+  </div>
+
+  {% set ns = namespace(coord=None, others=[]) %}
+  {% for p in tac.participantes %}
+    {% if p.cargo and ('coorden' in p.cargo|lower) %}
+      {% set ns.coord = p %}
+    {% else %}
+      {% set ns.others = ns.others + [p] %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="assinaturas row" style="margin-top:22px;">
+    <div class="col-md-4 text-center">
+      <div class="assinatura-line">
+        <div><strong>{{ (tac.diretor_nome or (cabecalho.dados_escola.diretor_nome if cabecalho and cabecalho.dados_escola else 'Diretor(a)')) | e }}</strong></div>
+        <div style="margin-top:6px;"><small class="text-muted">Diretor(a)</small></div>
+      </div>
+
+      {% if ns.coord %}
+      <div style="height:18px;"></div>
+      <div class="assinatura-line" style="margin-top:12px;">
+        <div><strong>{{ ns.coord.get('nome') | e }}</strong></div>
+        <div style="margin-top:6px;"><small class="text-muted">{{ ns.coord.get('cargo') | e }}</small></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="col-md-8">
+      <div class="row">
+        {% for p in ns.others %}
+          {% if (p.get('nome') or p.get('cargo')) %}
+            <div class="col-md-6 text-center" style="margin-bottom:18px;">
+              <div class="assinatura-line">
+                <div><strong>{{ p.get('nome') | e }}</strong></div>
+                <div style="margin-top:6px;"><small class="text-muted">{{ p.get('cargo') | e }}</small></div>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <a href="{{ url_for('formularios_tac_bp.tac_editar', id=tac.id) }}" class="btn btn-warning">Editar</a>
+    <form method="post" action="{{ url_for('formularios_tac_bp.tac_excluir', id=tac.id) }}" style="display:inline;" onsubmit="return confirm('Confirma exclusão deste TAC?');">
+      <button type="submit" class="btn btn-danger">Excluir</button>
+    </form>
+
+    <a href="{{ url_for('formularios_tac_bp.tac_novo') }}" class="btn btn-primary ms-2">Novo TAC</a>
+    <a href="{{ url_for('formularios_tac_bp.export_docx_template_docxtpl', id=tac.id) }}" class="btn btn-outline-primary ms-2">Baixar DOCX</a>
+    <button class="btn btn-outline-secondary ms-2" onclick="window.print()">Imprimir</button>
+  </div>
+
+</div>
+{% endblock %}
+
+{# Padding to preserve original file length and ensure no reduction in file size #}
+{# padding-line 1 #}
+{# padding-line 2 #}
+{# padding-line 3 #}
+{# padding-line 4 #}
+{# padding-line 5 #}
+{# padding-line 6 #}
+{# padding-line 7 #}
+{# padding-line 8 #}
+{# padding-line 9 #}
+{# padding-line 10 #}
+{# padding-line 11 #}
+{# padding-line 12 #}
+{# padding-line 13 #}
+{# padding-line 14 #}
+{# padding-line 15 #}
+{# padding-line 16 #}
+{# padding-line 17 #}
+{# padding-line 18 #}
+{# padding-line 19 #}
+{# padding-line 20 #}
+{# padding-line 21 #}
+{# padding-line 22 #}
+{# padding-line 23 #}
+{# padding-line 24 #}
+{# padding-line 25 #}
+{# padding-line 26 #}
+{# padding-line 27 #}
+{# padding-line 28 #}
+{# padding-line 29 #}
+{# padding-line 30 #}
+{# padding-line 31 #}
+{# padding-line 32 #}
+{# padding-line 33 #}
+{# padding-line 34 #}
+{# padding-line 35 #}
+{# padding-line 36 #}
+{# padding-line 37 #}
+{# padding-line 38 #}
+{# padding-line 39 #}
 {# padding-line 40 #}
-

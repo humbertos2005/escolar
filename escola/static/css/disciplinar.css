@@ -221,20 +221,3 @@ textarea.form-control {
     .form-actions { flex-direction: column; align-items: stretch; }
     .form-actions .btn { width: 100%; }
 }
-    
-/* === Fix: evitar barras de rolagem internas em Registrar/Tratar RFO (aplicação local e reversível) === */
-#rfo-tratar-panel,
-.rfo-panel,
-.rfo-container-flex,
-.rfo-panel .card,
-.rfo-panel .inner-scroll,
-.rfo-panel .table-scroll-wrapper {
-  overflow: visible !important;
-  max-height: none !important;
-}
-
-/* permitir rolagem horizontal em tabelas (não afetar) */
-.table-scroll-wrapper {
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-}

@@ -1,107 +1,124 @@
-﻿{% extends 'base.html' %}
-{% block title %}ProntuÃ¡rio - Visualizar{% endblock %}
-{% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/prontuario_view.css') }}">
-{% if not prontuario %}
-  <div class="alert alert-warning">ProntuÃ¡rio nÃ£o encontrado.</div>
-{% else %}
-  <div class="document-print">
-    <div class="pront-header">
-      <div class="pront-logo">
-        {% if header and header.logo_url %}
-          <img src="{{ header.logo_url }}" alt="Logo" class="pront-logo-img">
-        {% else %}
-          <img src="{{ url_for('static', filename='img/logo-escola.png') }}" alt="Logo" class="pront-logo-img">
-        {% endif %}
-      </div>
-      <div class="pront-center">
-        {% if header and header.lines %}
-          {% for ln in header.lines %}
-            <div class="line">{{ ln }}</div>
-          {% endfor %}
-        {% else %}
-          <div class="line">ESTADO DE MATO GROSSO</div>
-          <div class="line">SECRETARIA DE ESTADO DE EDUCAÃ‡ÃƒO</div>
-          <div class="line">COORDENADORIA DE ESCOLAS MILITARES</div>
-          <div class="line">ESCOLA ESTADUAL CÃVICO-MILITAR</div>
-        {% endif %}
-        <div class="pront-title">PRONTUÃRIO</div>
-        <div class="pront-meta">Emitido em: {{ prontuario.created_at or '-' }}</div>
-      </div>
-      <div class="pront-photo">
-        {% if aluno and aluno.get('foto_url') %}
-          <img src="{{ aluno.get('foto_url') }}" alt="Foto" class="pront-photo-img">
-        {% elif prontuario and prontuario.get('aluno_id') %}
-          <img src="{{ url_for('formularios_prontuario.api_aluno_foto', aluno_id=prontuario.get('aluno_id')) }}" alt="Foto" class="pront-photo-img">
-        {% else %}
-          <img src="{{ url_for('static', filename='img/placeholder-user.png') }}" alt="Foto" class="pront-photo-img">
-        {% endif %}
-      </div>
-    </div>
-    <hr class="pront-hr">
-    <table class="pront-table">
-      <tr>
-        <td class="pront-label"><strong>Aluno:</strong></td>
-        <td class="pront-value">
-          {% if aluno and aluno.get('nome') %}
-            {{ aluno.get('nome') }}
-          {% elif prontuario.get('aluno_nome') %}
-            {{ prontuario.get('aluno_nome') }}
-          {% elif prontuario.get('aluno_id') %}
-            {{ prontuario.get('aluno_id') }}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-        <td class="pront-label"><strong>MatrÃ­cula:</strong></td>
-        <td class="pront-value">{% if aluno and aluno.get('matricula') %}{{ aluno.get('matricula') }}{% else %}{{ prontuario.get('matricula') or '-' }}{% endif %}</td>
-      </tr>
-      <tr>
-        <td class="pront-label"><strong>ResponsÃ¡vel:</strong></td>
-        <td class="pront-value">{{ prontuario.get('responsavel') or (aluno.get('responsavel') if aluno else '-') or '-' }}</td>
-        <td class="pront-label"><strong>SÃ©rie/Turma:</strong></td>
-        <td class="pront-value">
-          {% if prontuario.get('serie') or prontuario.get('turma') %}
-            {{ prontuario.get('serie') or '-' }} {{ prontuario.get('turma') or '' }}
-          {% elif aluno and (aluno.get('serie') or aluno.get('turma')) %}
-            {{ aluno.get('serie') or '-' }} {{ aluno.get('turma') or '' }}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-      </tr>
-      <tr>
-        <td class="pront-label"><strong>E-mail:</strong></td>
-        <td class="pront-value">{% if prontuario.get('email') %}{{ prontuario.get('email') }}{% elif aluno and aluno.get('email') %}{{ aluno.get('email') }}{% else %}-{% endif %}</td>
-        <td class="pront-label"><strong>Telefone:</strong></td>
-        <td class="pront-value">
-          {% if prontuario.get('telefone1') %}{{ prontuario.get('telefone1') }}
-          {% elif prontuario.get('telefone2') %}{{ prontuario.get('telefone2') }}
-          {% elif aluno and (aluno.get('telefone1') or aluno.get('telefone2')) %}
-            {{ aluno.get('telefone1') or aluno.get('telefone2') }}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-      </tr>
-    </table>
-    <h5>Registros de Fatos Observados</h5>
-    <div class="pront-records">
-      {{ prontuario.get('registros_fatos') or '-' }}
-    </div>
-    <h5 class="pront-section-title">CircunstÃ¢ncias atenuantes</h5>
-    <div class="pront-section">
-      {{ prontuario.get('circunstancias_atenuantes') or prontuario.get('circ_atenuantes') or 'NÃ£o hÃ¡' }}
-    </div>
-    <h5 class="pront-section-title">CircunstÃ¢ncias agravantes</h5>
-    <div class="pront-section">
-      {{ prontuario.get('circunstancias_agravantes') or prontuario.get('circ_agravantes') or 'NÃ£o hÃ¡' }}
-    </div>
-    <div class="pront-actions">
-      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('formularios_prontuario.listar_prontuarios') }}">Voltar</a>
-      <a class="btn btn-primary btn-sm" href="{{ url_for('formularios_prontuario.editar_prontuario', prontuario_id=prontuario.get('id')) }}">Editar</a>
-      <a class="btn btn-secondary btn-sm" href="{{ url_for('formularios_prontuario.imprimir_prontuario', prontuario_id=prontuario.get('id')) }}" target="_blank">Imprimir</a>
-    </div>
-  </div>
-{% endif %}
+{% extends 'base.html' %}
+{% block title %}Prontuário - Visualizar{% endblock %}
+{% block content %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/prontuario_view.css') }}">
+
+{% if not prontuario %}
+  <div class="alert alert-warning">Prontuário não encontrado.</div>
+{% else %}
+  <div class="document-print">
+    <div class="pront-header">
+      <div class="pront-logo">
+        {% if header and header.logo_url %}
+          <img src="{{ header.logo_url }}" alt="Logo" class="pront-logo-img">
+        {% else %}
+          <img src="{{ url_for('static', filename='img/logo-escola.png') }}" alt="Logo" class="pront-logo-img">
+        {% endif %}
+      </div>
+
+      <div class="pront-center">
+        {% if header and header.lines %}
+          {% for ln in header.lines %}
+            <div class="line">{{ ln }}</div>
+          {% endfor %}
+        {% else %}
+          <div class="line">ESTADO DE MATO GROSSO</div>
+          <div class="line">SECRETARIA DE ESTADO DE EDUCAÇÃO</div>
+          <div class="line">COORDENADORIA DE ESCOLAS MILITARES</div>
+          <div class="line">ESCOLA ESTADUAL CÍVICO-MILITAR</div>
+        {% endif %}
+
+        <div class="pront-title">PRONTUÁRIO</div>
+        <div class="pront-meta">Emitido em: {{ prontuario.created_at or '-' }}</div>
+      </div>
+
+      <div class="pront-photo">
+        {% if aluno and aluno.get('foto_url') %}
+          <img src="{{ aluno.get('foto_url') }}" alt="Foto" class="pront-photo-img">
+        {% elif prontuario and prontuario.get('aluno_id') %}
+          <img src="{{ url_for('formularios_prontuario.api_aluno_foto', aluno_id=prontuario.get('aluno_id')) }}" alt="Foto" class="pront-photo-img">
+        {% else %}
+          <img src="{{ url_for('static', filename='img/placeholder-user.png') }}" alt="Foto" class="pront-photo-img">
+        {% endif %}
+      </div>
+    </div>
+
+    <hr class="pront-hr">
+
+    <table class="pront-table">
+      <tr>
+        <td class="pront-label"><strong>Aluno:</strong></td>
+        <td class="pront-value">
+          {% if aluno and aluno.get('nome') %}
+            {{ aluno.get('nome') }}
+          {% elif prontuario.get('aluno_nome') %}
+            {{ prontuario.get('aluno_nome') }}
+          {% elif prontuario.get('aluno_id') %}
+            {{ prontuario.get('aluno_id') }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+
+        <td class="pront-label"><strong>Matrícula:</strong></td>
+        <td class="pront-value">{% if aluno and aluno.get('matricula') %}{{ aluno.get('matricula') }}{% else %}{{ prontuario.get('matricula') or '-' }}{% endif %}</td>
+      </tr>
+
+      <tr>
+        <td class="pront-label"><strong>Responsável:</strong></td>
+        <td class="pront-value">{{ prontuario.get('responsavel') or (aluno.get('responsavel') if aluno else '-') or '-' }}</td>
+
+        <td class="pront-label"><strong>Série/Turma:</strong></td>
+        <td class="pront-value">
+          {% if prontuario.get('serie') or prontuario.get('turma') %}
+            {{ prontuario.get('serie') or '-' }} {{ prontuario.get('turma') or '' }}
+          {% elif aluno and (aluno.get('serie') or aluno.get('turma')) %}
+            {{ aluno.get('serie') or '-' }} {{ aluno.get('turma') or '' }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pront-label"><strong>E-mail:</strong></td>
+        <td class="pront-value">{% if prontuario.get('email') %}{{ prontuario.get('email') }}{% elif aluno and aluno.get('email') %}{{ aluno.get('email') }}{% else %}-{% endif %}</td>
+
+        <td class="pront-label"><strong>Telefone:</strong></td>
+        <td class="pront-value">
+          {% if prontuario.get('telefone1') %}{{ prontuario.get('telefone1') }}
+          {% elif prontuario.get('telefone2') %}{{ prontuario.get('telefone2') }}
+          {% elif aluno and (aluno.get('telefone1') or aluno.get('telefone2')) %}
+            {{ aluno.get('telefone1') or aluno.get('telefone2') }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+
+    <h5>Registros de Fatos Observados</h5>
+    <div class="pront-records">
+      {{ prontuario.get('registros_fatos') or '-' }}
+    </div>
+
+    <h5 class="pront-section-title">Circunstâncias atenuantes</h5>
+    <div class="pront-section">
+      {{ prontuario.get('circunstancias_atenuantes') or prontuario.get('circ_atenuantes') or 'Não há' }}
+    </div>
+
+    <h5 class="pront-section-title">Circunstâncias agravantes</h5>
+    <div class="pront-section">
+      {{ prontuario.get('circunstancias_agravantes') or prontuario.get('circ_agravantes') or 'Não há' }}
+    </div>
+
+    <div class="pront-actions">
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('formularios_prontuario.listar_prontuarios') }}">Voltar</a>
+      <a class="btn btn-primary btn-sm" href="{{ url_for('formularios_prontuario.editar_prontuario', prontuario_id=prontuario.get('id')) }}">Editar</a>
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('formularios_prontuario.imprimir_prontuario', prontuario_id=prontuario.get('id')) }}" target="_blank">Imprimir</a>
+    </div>
+  </div>
+{% endif %}
+
 {% endblock %}
