@@ -32,7 +32,11 @@ except:
             print("   [AVISO] NÃ£o foi possÃ­vel configurar localizaÃ§Ã£o PT-BR")
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave-secreta-gestao-escolar-2025-v2")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not app.secret_key:
+    import secrets
+    app.secret_key = secrets.token_urlsafe(32)
+    print("[AVISO] FLASK_SECRET_KEY não definido — chave temporária gerada. Defina FLASK_SECRET_KEY em produção.")
 app.config['DATABASE'] = DATABASE
 
 # Configurar Flask-Moment com localizaÃ§Ã£o brasileira
