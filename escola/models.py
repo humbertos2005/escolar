@@ -1,4 +1,4 @@
-Ôªøimport sqlite3
+import sqlite3
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 from flask import current_app, g
@@ -77,15 +77,15 @@ def get_proximo_fmd_id(incrementar=False):
 
 def criar_tabelas():
     """
-    Cria todas as tabelas necess√°rias e executa migra√ß√µes simples.
-    Esta fun√ß√£o usa uma conex√£o local (sqlite3.connect) e fecha no final.
+    Cria todas as tabelas necess·rias e executa migraÁıes simples.
+    Esta funÁ„o usa uma conex„o local (sqlite3.connect) e fecha no final.
     """
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA foreign_keys = ON')
 
     try:
-        # Usu√°rios
+        # Usu·rios
         conn.execute('''
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,15 +96,15 @@ def criar_tabelas():
             );
         ''')
 
-        # Migra√ß√£o segura: adicionar coluna data_criacao se n√£o existir
+        # MigraÁ„o segura: adicionar coluna data_criacao se n„o existir
         try:
             c = conn.execute("PRAGMA table_info(usuarios);")
             colunas = [col[1] for col in c.fetchall()]
             if 'data_criacao' not in colunas:
                 conn.execute("ALTER TABLE usuarios ADD COLUMN data_criacao TEXT DEFAULT CURRENT_TIMESTAMP;")
-                print("   [MIGRA√á√ÉO] Coluna 'data_criacao' adicionada √† tabela 'usuarios'.")
+                print("   [MIGRA«√O] Coluna 'data_criacao' adicionada ‡ tabela 'usuarios'.")
         except sqlite3.OperationalError:
-            # Se pragma falhar por algum motivo, n√£o interrompe todo processo
+            # Se pragma falhar por algum motivo, n„o interrompe todo processo
             pass
 
         # Alunos
@@ -133,14 +133,14 @@ def criar_tabelas():
             );
         ''')
 
-        # Migra√ß√£o: coluna telefone se necess√°rio
+        # MigraÁ„o: coluna telefone se necess·rio
         try:
             c = conn.execute("PRAGMA table_info(alunos);")
             colunas = [col[1] for col in c.fetchall()]
             if 'telefone' not in colunas:
                 conn.execute("ALTER TABLE alunos ADD COLUMN telefone TEXT DEFAULT '';")
                 conn.commit()
-                print("   [MIGRA√á√ÉO] Coluna 'telefone' adicionada √† tabela 'alunos'.")
+                print("   [MIGRA«√O] Coluna 'telefone' adicionada ‡ tabela 'alunos'.")
         except sqlite3.OperationalError:
             pass
 
@@ -155,7 +155,7 @@ def criar_tabelas():
             );
         ''')
 
-        # Sequ√™ncias
+        # SequÍncias
         conn.execute('''
             CREATE TABLE IF NOT EXISTS rfo_sequencia (
                 ano TEXT PRIMARY KEY,
@@ -170,7 +170,7 @@ def criar_tabelas():
             );
         ''')
 
-        # Tipos de ocorr√™ncia
+        # Tipos de ocorrÍncia
         conn.execute('''
             CREATE TABLE IF NOT EXISTS tipos_ocorrencia (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,18 +182,18 @@ def criar_tabelas():
         cursor.execute("SELECT COUNT(*) FROM tipos_ocorrencia")
         if cursor.fetchone()[0] == 0:
             tipos_padrao = [
-                ('Agress√£o F√≠sica',),
-                ('Agress√£o Verbal',),
+                ('Agress„o FÌsica',),
+                ('Agress„o Verbal',),
                 ('Atraso',),
                 ('Comportamento Inadequado',),
-                ('Dano ao Patrim√¥nio',),
+                ('Dano ao PatrimÙnio',),
                 ('Desrespeito',),
                 ('Uso Indevido de Celular',),
                 ('Uniforme Inadequado',),
                 ('Outros',),
             ]
             conn.executemany("INSERT INTO tipos_ocorrencia (nome) VALUES (?)", tipos_padrao)
-            print("   [INFO] Tipos de ocorr√™ncia padr√£o inseridos na tabela 'tipos_ocorrencia'.")
+            print("   [INFO] Tipos de ocorrÍncia padr„o inseridos na tabela 'tipos_ocorrencia'.")
 
         # Faltas disciplinares
         conn.execute('''
@@ -211,98 +211,98 @@ def criar_tabelas():
             faltas_padrao = [
                 ('LEVE', 'Apresentar-se com uniforme diferente do estabelecido pelo regulamento do uniforme;'),
                 ('LEVE', 'Apresentar-se com barba ou bigode sem fazer;'),
-                ('LEVE', 'Comparecer √† EECM com cabelo em desalinho ou fora do padr√£o estabelecido pelas diretrizes dos Uniformes;'),
-                ('LEVE', 'Chegar atrasado a EECM para o in√≠cio das aulas, instru√ß√£o, treinamento, formatura ou atividade escolar;'),
-                ('LEVE', 'Comparecer a EECM sem levar o material necess√°rio;'),
-                ('LEVE', 'Adentrar ou permanecer em qualquer depend√™ncia da EECM, sem autoriza√ß√£o;'),
-                ('LEVE', 'Consumir alimentos, balas, doces l√≠quidos ou mascar chicletes durante a aula, instru√ß√£o, treinamento, formatura, atividade escolar, e nas depend√™ncias da EECM, salvo quando devidamente autorizado;'),
+                ('LEVE', 'Comparecer ‡ EECM com cabelo em desalinho ou fora do padr„o estabelecido pelas diretrizes dos Uniformes;'),
+                ('LEVE', 'Chegar atrasado a EECM para o inÌcio das aulas, instruÁ„o, treinamento, formatura ou atividade escolar;'),
+                ('LEVE', 'Comparecer a EECM sem levar o material necess·rio;'),
+                ('LEVE', 'Adentrar ou permanecer em qualquer dependÍncia da EECM, sem autorizaÁ„o;'),
+                ('LEVE', 'Consumir alimentos, balas, doces lÌquidos ou mascar chicletes durante a aula, instruÁ„o, treinamento, formatura, atividade escolar, e nas dependÍncias da EECM, salvo quando devidamente autorizado;'),
                 ('LEVE', 'Conversar ou se mexer quando estiver em forma;'),
-                ('LEVE', 'Deixar de entregar √† Monitoria, Secretaria ou a Coordena√ß√£o, qualquer objeto que n√£o lhe perten√ßa que tenha encontrado na EECM.'),
+                ('LEVE', 'Deixar de entregar ‡ Monitoria, Secretaria ou a CoordenaÁ„o, qualquer objeto que n„o lhe pertenÁa que tenha encontrado na EECM.'),
                 ('LEVE', 'Deixar de retribuir cumprimentos ou de prestar sinais de respeito regulamentares, previstos no Manual do Aluno.'),
-                ('LEVE', 'Deixar material escolar, objetos ou pe√ßas de uniforme em locais inapropriados dentro ou fora da unidade escolar;'),
-                ('LEVE', 'Descartar pap√©is, restos de comida, embalagens ou qualquer objeto no ch√£o ou fora de locais apropriados.'),
-                ('LEVE', 'Dobrar qualquer pe√ßa de uniforme para diminuir seu tamanho, desfigurando sua originalidade.'),
-                ('LEVE', 'Debru√ßar-se sobre a carteira e dormir durante o hor√°rio das aulas ou instru√ß√µes.'),
+                ('LEVE', 'Deixar material escolar, objetos ou peÁas de uniforme em locais inapropriados dentro ou fora da unidade escolar;'),
+                ('LEVE', 'Descartar papÈis, restos de comida, embalagens ou qualquer objeto no ch„o ou fora de locais apropriados.'),
+                ('LEVE', 'Dobrar qualquer peÁa de uniforme para diminuir seu tamanho, desfigurando sua originalidade.'),
+                ('LEVE', 'DebruÁar-se sobre a carteira e dormir durante o hor·rio das aulas ou instruÁıes.'),
                 ('LEVE', 'Executar movimentos de ordem unida de forma displicente ou desatenciosa.'),
-                ('LEVE', 'Fazer ou provocar excessivo barulho em qualquer depend√™ncia da EECM, durante o hor√°rio de aula.'),
-                ('LEVE', 'N√£o levar ao conhecimento de autoridade competente falta ou irregularidade que presenciar ou de que tiver ci√™ncia.'),
-                ('LEVE', 'Perturbar o estudo do(s) colega(s), com ru√≠dos ou brincadeiras.'),
-                ('LEVE', 'Utilizar-se, na sala, de qualquer publica√ß√£o estranha a sua atividade escolar, salvo quando autorizado.'),
-                ('LEVE', 'Retardar ou contribuir para o atraso da execu√ß√£o de qualquer atividade sem justo motivo.'),
-                ('LEVE', 'Sentar-se no ch√£o, atentando contra a postura e compostura, estando uniformizado, exceto quando em aula de educa√ß√£o F√≠sica'),
-                ('LEVE', 'Utilizar qualquer tipo de jogo, brinquedo, figurinhas, cole√ß√µes no interior da EECM.'),
-                ('LEVE', 'Usar, a aluna, piercings, brinco fora do padr√£o estabelecido, mais de um brinco em cada orelha, alargador ou similares, quando uniformizado, durante a aula, instru√ß√£o, treinamento, formatura ou atividade escolar.'),
-                ('LEVE', 'Usar, o aluno, piercings, brinco, alargador ou similares, quando uniformizado, durante a aula, instru√ß√£o, treinamento, formatura ou atividade escolar.'),
-                ('LEVE', 'Usar, quando uniformizado, bon√©, capuz ou outros adornos, durante a atividade escolar.'),
-                ('LEVE', 'Ficar na sala de aula durante os intervalos e as formaturas di√°rias.'),
-                ('M√âDIA', 'Atrasar ou deixar de atender ao chamado da Diretoria, coordena√ß√£o, Oficial de Gest√£o Educacional-Militar, o Oficial de Gest√£o C√≠vico-Militar, Monitores, professores ou servidores no exerc√≠cio de sua fun√ß√£o.'),
-                ('M√âDIA', 'Deixar de comparecer a qualquer atividade extraclasse para a qual tenha sido designado, exceto quando devidamente justificado.'),
-                ('M√âDIA', 'Deixar de comparecer √†s atividades escolares, formaturas, ou delas se ausentar, sem autoriza√ß√£o.'),
-                ('M√âDIA', 'Deixar de cumprir ou esquivar-se de medidas disciplinares impostas pelo Gestor Educacional-Militar.'),
-                ('M√âDIA', 'Deixar de devolver √† EECM, dentro do prazo estipulado, documentos devidamente assinados pelo seu respons√°vel.'),
-                ('M√âDIA', 'Deixar de devolver, no prazo fixado, livros da biblioteca ou outros materiais pertencentes √†s EECM;'),
-                ('M√âDIA', 'Deixar de entregar ao pai ou respons√°vel, documento que lhe foi encaminhado pela EECM.'),
-                ('M√âDIA', 'Deixar de executar tarefas atribu√≠das da Diretoria, coordena√ß√£o, Oficial de Gest√£o Educacional-Militar, o Oficial de Gest√£o C√≠vico-Militar, Monitores, professores ou servidores no exerc√≠cio de sua fun√ß√£o.'),
-                ('M√âDIA', 'Deixar de zelar por sua apresenta√ß√£o pessoal.'),
-                ('M√âDIA', 'Dirigir memoriais ou peti√ß√µes a qualquer autoridade, sobre assuntos da al√ßada da Diretoria e do Oficial de Gest√£o Educacional-Militar.'),
-                ('M√âDIA', 'Entrar ou sair da EECM por locais n√£o permitidos.'),
-                ('M√âDIA', 'Espalhar boatos ou not√≠cias tendenciosas por qualquer meio.'),
-                ('M√âDIA', 'Tocar a sirene, sem ordem para tal.'),
-                ('M√âDIA', 'Fumar dentro ou nas imedia√ß√µes da EECM ou quando uniformizado.'),
-                ('M√âDIA', 'Ingressar ou sair da EECM sem estar com o uniforme regulamentar, bem como trocar de roupa (trajes civis) dentro da EECM ou em suas media√ß√µes.'),
-                ('M√âDIA', 'Ler ou distribuir, dentro da EECM, publica√ß√µes estampas ou jornais que atentem contra a disciplina, a moral e a ordem p√∫blica.'),
-                ('M√âDIA', 'Manter contato f√≠sico que denote envolvimento de cunho amoroso (namoro, beijos, etc.) quando devidamente uniformizado, dentro da EECM ou fora dele.'),
-                ('M√âDIA', 'N√£o zelar pelo nome da Institui√ß√£o que representa, deixando de portar-se adequadamente em qualquer ambiente, quando uniformizado ou em atividades relacionadas a EECM.'),
-                ('M√âDIA', 'Negar-se a colaborar ou participar nos eventos, formaturas, solenidades, desfiles oficiais da EECM.'),
-                ('M√âDIA', 'Ofender o moral de colegas ou de qualquer membro da Comunidade Escolar por atos, gestos ou palavras.'),
-                ('M√âDIA', 'Portar-se de forma inconveniente em sala de aula ou outro local de instru√ß√£o/recrea√ß√£o, bem como transportes de uso coletivo.'),
-                ('M√âDIA', 'Portar-se de maneira desrespeitosa ou inconveniente nos eventos sociais ou esportivos, promovidos ou com a participa√ß√£o da EECM ou fora dela.'),
-                ('M√âDIA', 'Proferir palavras de baixo cal√£o, incompat√≠veis com as normas da boa educa√ß√£o, ou graf√°-las em qualquer lugar.'),
-                ('M√âDIA', 'Propor ou aceitar transa√ß√£o pecuni√°ria de qualquer natureza, no interior da EECM, sem a devida autoriza√ß√£o.'),
-                ('M√âDIA', 'Provocar ou disseminar a disc√≥rdia entre colegas.'),
-                ('M√âDIA', 'Publicar ou contribuir para que sejam publicadas mensagens, fotos, v√≠deos ou qualquer outro documento, na Internet ou qualquer outro meio de comunica√ß√£o, que possam expor a integrante da EECM.'),
-                ('M√âDIA', 'Retirar ou tentar retirar objeto, de qualquer depend√™ncia da EECM, ou mesmo deles servir-se, sem ordem do respons√°vel e/ou do propriet√°rio.'),
-                ('M√âDIA', 'Sair de forma sem autoriza√ß√£o.'),
-                ('M√âDIA', 'Sair, entrar ou permanecer na sala de aula sem permiss√£o.'),
-                ('M√âDIA', 'Ser retirado, por mau comportamento, de sala de aula ou qualquer ambiente em que esteja sendo realizada atividade.'),
-                ('M√âDIA', 'Simular doen√ßa para esquivar-se ao atendimento de obriga√ß√µes e de atividades escolares.'),
-                ('M√âDIA', 'Tomar parte em jogos de azar ou em apostas na unidade escolar ou fora dela, uniformizados ou n√£o.'),
-                ('M√âDIA', 'Usar as instala√ß√µes ou equipamentos esportivos do EECM, sem uniformes adequados, ou sem autoriza√ß√£o.'),
-                ('M√âDIA', 'Usar o uniforme ou o nome do EECM em ambiente inapropriado'),
-                ('M√âDIA', 'Utilizar, sem autoriza√ß√£o, telefones celulares ou quaisquer aparelhos eletr√¥nicos ou n√£o, durante as atividades escolares.'),
-                ('M√âDIA', 'Usar indevidamente distintivos ou ins√≠gnias.'),
-                ('GRAVE', 'Assinar pelo respons√°vel, documento que deva ser entregue √† unidade escolar.'),
-                ('GRAVE', 'Causar danos ao patrim√¥nio da unidade escolar.'),
-                ('GRAVE', 'Causar ou contribuir para a ocorr√™ncia de acidentes de qualquer natureza.'),
-                ('GRAVE', 'Comunicar-se com outro aluno ou utilizar-se de qualquer meio n√£o permitido durante qualquer instrumento de avalia√ß√£o.'),
-                ('GRAVE', 'Denegrir o nome da EECM e/ou de qualquer de seus membros atrav√©s de procedimentos desrespeitosos, seja por palavras, gestos, meio virtual ou outros.'),
-                ('GRAVE', 'Desrespeitar, desobedecer ou desafiar a Diretoria, coordena√ß√£o, Oficial de gest√£o Educacional-Militar, o Oficial de Gest√£o C√≠vico-Militar, Monitores, professores ou servidores unidade escolar.'),
-                ('GRAVE', 'Divulgar, ou concorrer para que isso aconte√ßa, qualquer imagem ou mat√©ria que induza a apologia √†s drogas, √† viol√™ncia e/ou pornografia.'),
-                ('GRAVE', 'Entrar na unidade escolar, ou dela se ausentar, sem autoriza√ß√£o.'),
+                ('LEVE', 'Fazer ou provocar excessivo barulho em qualquer dependÍncia da EECM, durante o hor·rio de aula.'),
+                ('LEVE', 'N„o levar ao conhecimento de autoridade competente falta ou irregularidade que presenciar ou de que tiver ciÍncia.'),
+                ('LEVE', 'Perturbar o estudo do(s) colega(s), com ruÌdos ou brincadeiras.'),
+                ('LEVE', 'Utilizar-se, na sala, de qualquer publicaÁ„o estranha a sua atividade escolar, salvo quando autorizado.'),
+                ('LEVE', 'Retardar ou contribuir para o atraso da execuÁ„o de qualquer atividade sem justo motivo.'),
+                ('LEVE', 'Sentar-se no ch„o, atentando contra a postura e compostura, estando uniformizado, exceto quando em aula de educaÁ„o FÌsica'),
+                ('LEVE', 'Utilizar qualquer tipo de jogo, brinquedo, figurinhas, coleÁıes no interior da EECM.'),
+                ('LEVE', 'Usar, a aluna, piercings, brinco fora do padr„o estabelecido, mais de um brinco em cada orelha, alargador ou similares, quando uniformizado, durante a aula, instruÁ„o, treinamento, formatura ou atividade escolar.'),
+                ('LEVE', 'Usar, o aluno, piercings, brinco, alargador ou similares, quando uniformizado, durante a aula, instruÁ„o, treinamento, formatura ou atividade escolar.'),
+                ('LEVE', 'Usar, quando uniformizado, bonÈ, capuz ou outros adornos, durante a atividade escolar.'),
+                ('LEVE', 'Ficar na sala de aula durante os intervalos e as formaturas di·rias.'),
+                ('M…DIA', 'Atrasar ou deixar de atender ao chamado da Diretoria, coordenaÁ„o, Oficial de Gest„o Educacional-Militar, o Oficial de Gest„o CÌvico-Militar, Monitores, professores ou servidores no exercÌcio de sua funÁ„o.'),
+                ('M…DIA', 'Deixar de comparecer a qualquer atividade extraclasse para a qual tenha sido designado, exceto quando devidamente justificado.'),
+                ('M…DIA', 'Deixar de comparecer ‡s atividades escolares, formaturas, ou delas se ausentar, sem autorizaÁ„o.'),
+                ('M…DIA', 'Deixar de cumprir ou esquivar-se de medidas disciplinares impostas pelo Gestor Educacional-Militar.'),
+                ('M…DIA', 'Deixar de devolver ‡ EECM, dentro do prazo estipulado, documentos devidamente assinados pelo seu respons·vel.'),
+                ('M…DIA', 'Deixar de devolver, no prazo fixado, livros da biblioteca ou outros materiais pertencentes ‡s EECM;'),
+                ('M…DIA', 'Deixar de entregar ao pai ou respons·vel, documento que lhe foi encaminhado pela EECM.'),
+                ('M…DIA', 'Deixar de executar tarefas atribuÌdas da Diretoria, coordenaÁ„o, Oficial de Gest„o Educacional-Militar, o Oficial de Gest„o CÌvico-Militar, Monitores, professores ou servidores no exercÌcio de sua funÁ„o.'),
+                ('M…DIA', 'Deixar de zelar por sua apresentaÁ„o pessoal.'),
+                ('M…DIA', 'Dirigir memoriais ou petiÁıes a qualquer autoridade, sobre assuntos da alÁada da Diretoria e do Oficial de Gest„o Educacional-Militar.'),
+                ('M…DIA', 'Entrar ou sair da EECM por locais n„o permitidos.'),
+                ('M…DIA', 'Espalhar boatos ou notÌcias tendenciosas por qualquer meio.'),
+                ('M…DIA', 'Tocar a sirene, sem ordem para tal.'),
+                ('M…DIA', 'Fumar dentro ou nas imediaÁıes da EECM ou quando uniformizado.'),
+                ('M…DIA', 'Ingressar ou sair da EECM sem estar com o uniforme regulamentar, bem como trocar de roupa (trajes civis) dentro da EECM ou em suas mediaÁıes.'),
+                ('M…DIA', 'Ler ou distribuir, dentro da EECM, publicaÁıes estampas ou jornais que atentem contra a disciplina, a moral e a ordem p˙blica.'),
+                ('M…DIA', 'Manter contato fÌsico que denote envolvimento de cunho amoroso (namoro, beijos, etc.) quando devidamente uniformizado, dentro da EECM ou fora dele.'),
+                ('M…DIA', 'N„o zelar pelo nome da InstituiÁ„o que representa, deixando de portar-se adequadamente em qualquer ambiente, quando uniformizado ou em atividades relacionadas a EECM.'),
+                ('M…DIA', 'Negar-se a colaborar ou participar nos eventos, formaturas, solenidades, desfiles oficiais da EECM.'),
+                ('M…DIA', 'Ofender o moral de colegas ou de qualquer membro da Comunidade Escolar por atos, gestos ou palavras.'),
+                ('M…DIA', 'Portar-se de forma inconveniente em sala de aula ou outro local de instruÁ„o/recreaÁ„o, bem como transportes de uso coletivo.'),
+                ('M…DIA', 'Portar-se de maneira desrespeitosa ou inconveniente nos eventos sociais ou esportivos, promovidos ou com a participaÁ„o da EECM ou fora dela.'),
+                ('M…DIA', 'Proferir palavras de baixo cal„o, incompatÌveis com as normas da boa educaÁ„o, ou graf·-las em qualquer lugar.'),
+                ('M…DIA', 'Propor ou aceitar transaÁ„o pecuni·ria de qualquer natureza, no interior da EECM, sem a devida autorizaÁ„o.'),
+                ('M…DIA', 'Provocar ou disseminar a discÛrdia entre colegas.'),
+                ('M…DIA', 'Publicar ou contribuir para que sejam publicadas mensagens, fotos, vÌdeos ou qualquer outro documento, na Internet ou qualquer outro meio de comunicaÁ„o, que possam expor a integrante da EECM.'),
+                ('M…DIA', 'Retirar ou tentar retirar objeto, de qualquer dependÍncia da EECM, ou mesmo deles servir-se, sem ordem do respons·vel e/ou do propriet·rio.'),
+                ('M…DIA', 'Sair de forma sem autorizaÁ„o.'),
+                ('M…DIA', 'Sair, entrar ou permanecer na sala de aula sem permiss„o.'),
+                ('M…DIA', 'Ser retirado, por mau comportamento, de sala de aula ou qualquer ambiente em que esteja sendo realizada atividade.'),
+                ('M…DIA', 'Simular doenÁa para esquivar-se ao atendimento de obrigaÁıes e de atividades escolares.'),
+                ('M…DIA', 'Tomar parte em jogos de azar ou em apostas na unidade escolar ou fora dela, uniformizados ou n„o.'),
+                ('M…DIA', 'Usar as instalaÁıes ou equipamentos esportivos do EECM, sem uniformes adequados, ou sem autorizaÁ„o.'),
+                ('M…DIA', 'Usar o uniforme ou o nome do EECM em ambiente inapropriado'),
+                ('M…DIA', 'Utilizar, sem autorizaÁ„o, telefones celulares ou quaisquer aparelhos eletrÙnicos ou n„o, durante as atividades escolares.'),
+                ('M…DIA', 'Usar indevidamente distintivos ou insÌgnias.'),
+                ('GRAVE', 'Assinar pelo respons·vel, documento que deva ser entregue ‡ unidade escolar.'),
+                ('GRAVE', 'Causar danos ao patrimÙnio da unidade escolar.'),
+                ('GRAVE', 'Causar ou contribuir para a ocorrÍncia de acidentes de qualquer natureza.'),
+                ('GRAVE', 'Comunicar-se com outro aluno ou utilizar-se de qualquer meio n„o permitido durante qualquer instrumento de avaliaÁ„o.'),
+                ('GRAVE', 'Denegrir o nome da EECM e/ou de qualquer de seus membros atravÈs de procedimentos desrespeitosos, seja por palavras, gestos, meio virtual ou outros.'),
+                ('GRAVE', 'Desrespeitar, desobedecer ou desafiar a Diretoria, coordenaÁ„o, Oficial de gest„o Educacional-Militar, o Oficial de Gest„o CÌvico-Militar, Monitores, professores ou servidores unidade escolar.'),
+                ('GRAVE', 'Divulgar, ou concorrer para que isso aconteÁa, qualquer imagem ou matÈria que induza a apologia ‡s drogas, ‡ violÍncia e/ou pornografia.'),
+                ('GRAVE', 'Entrar na unidade escolar, ou dela se ausentar, sem autorizaÁ„o.'),
                 ('GRAVE', 'Extraviar documentos que estejam sob sua responsabilidade.'),
-                ('GRAVE', 'Faltar com a verdade e/ou utilizar-se do anonimato para a pr√°tica de qualquer falta disciplinar.'),
-                ('GRAVE', 'Fazer uso, portar, distribuir, estar sob a√ß√£o ou induzir outrem ao uso de bebida alco√≥lica, entorpecentes, t√≥xicos ou produtos alucin√≥genos, no interior da EECM, em suas imedia√ß√µes estando ou n√£o uniformizado.'),
-                ('GRAVE', 'Hastear ou arriar bandeiras e estandartes, sem autoriza√ß√£o.'),
-                ('GRAVE', 'Instigar colegas a cometer faltas disciplinares e/ou a√ß√µes delituosas que comprometam o bom nome da EECM.'),
-                ('GRAVE', 'Manter contato f√≠sico com denota√ß√£o libidinosa no ambiente da EECM ou fora dela.'),
-                ('GRAVE', 'Obter ou fazer uso de imagens, v√≠deos, √°udios ou de qualquer tipo de publica√ß√£o difamat√≥ria contra qualquer membro da Comunidade Escolar.'),
-                ('GRAVE', 'Ofender membros da Comunidade Escolar com a pr√°tica de Bullying e Cyberbullying.'),
-                ('GRAVE', 'Pichar ou causar qualquer polui√ß√£o visual ou sonora dentro e nas proximidades da EECM.'),
-                ('GRAVE', 'Portar objetos que ameacem a seguran√ßa individual e/ou da coletividade.'),
-                ('GRAVE', 'Praticar atos contr√°rios ao culto e ao respeito aos s√≠mbolos nacionais;'),
-                ('GRAVE', 'Promover ou tomar parte de qualquer manifesta√ß√£o coletiva que venha a macular o nome da EECM e/ou que prejudique o bom andamento das aulas e/ou avalia√ß√µes;'),
+                ('GRAVE', 'Faltar com a verdade e/ou utilizar-se do anonimato para a pr·tica de qualquer falta disciplinar.'),
+                ('GRAVE', 'Fazer uso, portar, distribuir, estar sob aÁ„o ou induzir outrem ao uso de bebida alcoÛlica, entorpecentes, tÛxicos ou produtos alucinÛgenos, no interior da EECM, em suas imediaÁıes estando ou n„o uniformizado.'),
+                ('GRAVE', 'Hastear ou arriar bandeiras e estandartes, sem autorizaÁ„o.'),
+                ('GRAVE', 'Instigar colegas a cometer faltas disciplinares e/ou aÁıes delituosas que comprometam o bom nome da EECM.'),
+                ('GRAVE', 'Manter contato fÌsico com denotaÁ„o libidinosa no ambiente da EECM ou fora dela.'),
+                ('GRAVE', 'Obter ou fazer uso de imagens, vÌdeos, ·udios ou de qualquer tipo de publicaÁ„o difamatÛria contra qualquer membro da Comunidade Escolar.'),
+                ('GRAVE', 'Ofender membros da Comunidade Escolar com a pr·tica de Bullying e Cyberbullying.'),
+                ('GRAVE', 'Pichar ou causar qualquer poluiÁ„o visual ou sonora dentro e nas proximidades da EECM.'),
+                ('GRAVE', 'Portar objetos que ameacem a seguranÁa individual e/ou da coletividade.'),
+                ('GRAVE', 'Praticar atos contr·rios ao culto e ao respeito aos sÌmbolos nacionais;'),
+                ('GRAVE', 'Promover ou tomar parte de qualquer manifestaÁ„o coletiva que venha a macular o nome da EECM e/ou que prejudique o bom andamento das aulas e/ou avaliaÁıes;'),
                 ('GRAVE', 'Promover trote de qualquer natureza.'),
-                ('GRAVE', 'Promover, incitar ou envolver-se em rixa, inclusive luta corporal, dentro ou fora da EECM, estando ou n√£o uniformizado;'),
-                ('GRAVE', 'Provocar ou tomar parte, uniformizado ou estando na EECM, em manifesta√ß√µes de natureza pol√≠tica.'),
-                ('GRAVE', 'Rasurar, violar ou alterar documento ou o conte√∫do dos mesmos.'),
+                ('GRAVE', 'Promover, incitar ou envolver-se em rixa, inclusive luta corporal, dentro ou fora da EECM, estando ou n„o uniformizado;'),
+                ('GRAVE', 'Provocar ou tomar parte, uniformizado ou estando na EECM, em manifestaÁıes de natureza polÌtica.'),
+                ('GRAVE', 'Rasurar, violar ou alterar documento ou o conte˙do dos mesmos.'),
                 ('GRAVE', 'Representar a EECM e/ou por ela tomar compromisso, sem estar para isso autorizado.'),
-                ('GRAVE', 'Ter em seu poder, introduzir, ler ou distribuir, dentro da EECM, cartazes, jornais ou publica√ß√µes que atentem contra a disciplina e/ou o moral ou de cunho pol√≠tico-partid√°rio.'),
+                ('GRAVE', 'Ter em seu poder, introduzir, ler ou distribuir, dentro da EECM, cartazes, jornais ou publicaÁıes que atentem contra a disciplina e/ou o moral ou de cunho polÌtico-partid·rio.'),
                 ('GRAVE', 'Utilizar ou subtrair indevidamente objetos ou valores alheios.'),
-                ('GRAVE', 'Utilizar-se de processos fraudulentos na realiza√ß√£o de trabalhos pedag√≥gicos.'),
-                ('GRAVE', 'Utilizar-se indevidamente e/ou causar avariar e/ou destrui√ß√£o do patrim√¥nio pertencente a EECM.'),
+                ('GRAVE', 'Utilizar-se de processos fraudulentos na realizaÁ„o de trabalhos pedagÛgicos.'),
+                ('GRAVE', 'Utilizar-se indevidamente e/ou causar avariar e/ou destruiÁ„o do patrimÙnio pertencente a EECM.'),
             ]
             conn.executemany("INSERT INTO faltas_disciplinares (natureza, descricao) VALUES (?, ?)", faltas_padrao)
-            print("   [INFO] Faltas disciplinares padr√£o inseridas.")
+            print("   [INFO] Faltas disciplinares padr„o inseridas.")
 
         # Elogios
         conn.execute('''
@@ -318,16 +318,16 @@ def criar_tabelas():
         if cursor.fetchone()[0] == 0:
             elogios_padrao = [
                 ('INDIVIDUAL', 'Comportamento exemplar em sala'),
-                ('INDIVIDUAL', 'Destaque em desempenho acad√™mico'),
-                ('INDIVIDUAL', 'Atitude solid√°ria com colegas'),
-                ('COLETIVO', 'Melhor turma em organiza√ß√£o'),
+                ('INDIVIDUAL', 'Destaque em desempenho acadÍmico'),
+                ('INDIVIDUAL', 'Atitude solid·ria com colegas'),
+                ('COLETIVO', 'Melhor turma em organizaÁ„o'),
                 ('COLETIVO', 'Turma destaque em atividades culturais'),
                 ('COLETIVO', 'Engajamento coletivo em projetos'),
             ]
             conn.executemany("INSERT INTO elogios (tipo, descricao) VALUES (?, ?)", elogios_padrao)
-            print("   [INFO] Elogios padr√£o inseridos.")
+            print("   [INFO] Elogios padr„o inseridos.")
 
-        # Ocorr√™ncias
+        # OcorrÍncias
         conn.execute('''
             CREATE TABLE IF NOT EXISTS ocorrencias (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -364,30 +364,30 @@ def criar_tabelas():
             );
         ''')
 
-        # MIGRA√á√ÉO: colunas novas na tabela ocorrencias
+        # MIGRA«√O: colunas novas na tabela ocorrencias
         try:
             c = conn.execute("PRAGMA table_info(ocorrencias);")
             colunas = [col[1] for col in c.fetchall()]
 
             if 'falta_disciplinar_id' not in colunas:
                 conn.execute("ALTER TABLE ocorrencias ADD COLUMN falta_disciplinar_id INTEGER REFERENCES faltas_disciplinares(id);")
-                print("   [MIGRA√á√ÉO] Coluna 'falta_disciplinar_id' adicionada √† tabela 'ocorrencias'.")
+                print("   [MIGRA«√O] Coluna 'falta_disciplinar_id' adicionada ‡ tabela 'ocorrencias'.")
 
             if 'relato_estudante' not in colunas:
                 conn.execute("ALTER TABLE ocorrencias ADD COLUMN relato_estudante TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'relato_estudante' adicionada √† tabela 'ocorrencias'.")
+                print("   [MIGRA«√O] Coluna 'relato_estudante' adicionada ‡ tabela 'ocorrencias'.")
 
             if 'despacho_gestor' not in colunas:
                 conn.execute("ALTER TABLE ocorrencias ADD COLUMN despacho_gestor TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'despacho_gestor' adicionada √† tabela 'ocorrencias'.")
+                print("   [MIGRA«√O] Coluna 'despacho_gestor' adicionada ‡ tabela 'ocorrencias'.")
 
             if 'data_despacho' not in colunas:
                 conn.execute("ALTER TABLE ocorrencias ADD COLUMN data_despacho TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'data_despacho' adicionada √† tabela 'ocorrencias'.")
+                print("   [MIGRA«√O] Coluna 'data_despacho' adicionada ‡ tabela 'ocorrencias'.")
 
             conn.commit()
         except sqlite3.OperationalError as e:
-            print(f"   [AVISO] Tentativa de migra√ß√£o de colunas de tratamento falhou: {e}")
+            print(f"   [AVISO] Tentativa de migraÁ„o de colunas de tratamento falhou: {e}")
             try:
                 conn.rollback()
             except Exception:
@@ -413,55 +413,55 @@ def criar_tabelas():
             );
         ''')
 
-        # Criar tabelas auxiliares (comportamentos/circunst√¢ncias)
+        # Criar tabelas auxiliares (comportamentos/circunst‚ncias)
         criar_tabela_comportamento()
         criar_tabela_circunstancias()
 
-        # Atualizar estrutura da FMD - migra√ß√µes adicionais (colunas opcionais)
+        # Atualizar estrutura da FMD - migraÁıes adicionais (colunas opcionais)
         try:
             c = conn.execute("PRAGMA table_info(ficha_medida_disciplinar);")
             colunas = [col[1] for col in c.fetchall()]
 
             if 'nmd_id' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN nmd_id TEXT UNIQUE;")
-                print("   [MIGRA√á√ÉO] Coluna 'nmd_id' adicionada √† tabela 'ficha_medida_disciplinar'.")
+                print("   [MIGRA«√O] Coluna 'nmd_id' adicionada ‡ tabela 'ficha_medida_disciplinar'.")
 
             if 'data_falta' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN data_falta TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'data_falta' adicionada.")
+                print("   [MIGRA«√O] Coluna 'data_falta' adicionada.")
 
             if 'comportamento_id' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN comportamento_id INTEGER;")
-                print("   [MIGRA√á√ÉO] Coluna 'comportamento_id' adicionada.")
+                print("   [MIGRA«√O] Coluna 'comportamento_id' adicionada.")
 
             if 'pontuacao' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN pontuacao INTEGER;")
-                print("   [MIGRA√á√ÉO] Coluna 'pontuacao' adicionada.")
+                print("   [MIGRA«√O] Coluna 'pontuacao' adicionada.")
 
             if 'responsavel_comparecimento' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN responsavel_comparecimento TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'responsavel_comparecimento' adicionada.")
+                print("   [MIGRA«√O] Coluna 'responsavel_comparecimento' adicionada.")
 
             if 'prazo_comparecimento' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN prazo_comparecimento TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'prazo_comparecimento' adicionada.")
+                print("   [MIGRA«√O] Coluna 'prazo_comparecimento' adicionada.")
 
             if 'circunstancias_atenuantes' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN circunstancias_atenuantes TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'circunstancias_atenuantes' adicionada.")
+                print("   [MIGRA«√O] Coluna 'circunstancias_atenuantes' adicionada.")
 
             if 'circunstancias_agravantes' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN circunstancias_agravantes TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'circunstancias_agravantes' adicionada.")
+                print("   [MIGRA«√O] Coluna 'circunstancias_agravantes' adicionada.")
 
             if 'faltas_ids' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN faltas_ids TEXT;")
-                print("   [MIGRA√á√ÉO] Coluna 'faltas_ids' adicionada (para m√∫ltiplas faltas).")
+                print("   [MIGRA«√O] Coluna 'faltas_ids' adicionada (para m˙ltiplas faltas).")
 
             conn.commit()
-            print("   ‚úì Migra√ß√£o/atualiza√ß√£o da estrutura FMD conclu√≠da com sucesso.")
+            print("   ? MigraÁ„o/atualizaÁ„o da estrutura FMD concluÌda com sucesso.")
         except sqlite3.OperationalError as e:
-            print(f"   [AVISO] Tentativa de migra√ß√£o de FMD falhou (operational): {e}")
+            print(f"   [AVISO] Tentativa de migraÁ„o de FMD falhou (operational): {e}")
             try:
                 conn.rollback()
             except Exception:
@@ -473,7 +473,7 @@ def criar_tabelas():
             except Exception:
                 pass
 
-        # confirma tabelas e altera√ß√µes principais
+        # confirma tabelas e alteraÁıes principais
         conn.commit()
 
     except sqlite3.Error as e:
@@ -490,8 +490,13 @@ def criar_tabelas():
 
 
 def criar_admin_inicial(db_conn):
-    admin_username = 'admin_ti'
-    admin_password = generate_password_hash('admin123')
+    admin_username = os.environ.get('ADMIN_USERNAME')
+    admin_password_env = os.environ.get('ADMIN_PASSWORD')
+    if admin_username and admin_password_env:
+        admin_password = generate_password_hash(admin_password_env)
+    else:
+        admin_username = None
+        admin_password = None
     admin_nivel = 1
     user = db_conn.execute(
         'SELECT id FROM usuarios WHERE nivel = ?', (admin_nivel,)
@@ -503,9 +508,9 @@ def criar_admin_inicial(db_conn):
                 VALUES (?, ?, ?, ?)
             ''', (admin_username, admin_password, admin_nivel, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
             db_conn.commit()
-            print(f"   [INFO] Usu√°rio administrador inicial '{admin_username}' criado com sucesso!")
+            print(f"   [INFO] Usu·rio administrador inicial '{admin_username}' criado com sucesso!")
         except sqlite3.Error as e:
-            print(f"   ‚úó Erro ao criar usu√°rio administrador: {e}")
+            print(f"   ? Erro ao criar usu·rio administrador: {e}")
             db_conn.rollback()
 
 
@@ -525,7 +530,7 @@ def migrar_estrutura_antiga_ocorrencias():
             conn.execute("ALTER TABLE ocorrencias ADD COLUMN observador_nome TEXT;")
             conn.execute("ALTER TABLE ocorrencias ADD COLUMN rfo_id TEXT;")
             conn.commit()
-            print("   [MIGRA√á√ÉO] Colunas de tratamento adicionadas √† tabela 'ocorrencias'.")
+            print("   [MIGRA«√O] Colunas de tratamento adicionadas ‡ tabela 'ocorrencias'.")
         except sqlite3.OperationalError:
             pass
 
@@ -551,7 +556,7 @@ def migrar_estrutura_antiga_ocorrencias():
                 'SELECT username FROM usuarios WHERE id = ?',
                 (ocorrencia['responsavel_registro_id'],)
             ).fetchone()
-            observador_nome = user['username'] if user else 'USU√ÅRIO EXCLU√çDO'
+            observador_nome = user['username'] if user else 'USU¡RIO EXCLUÕDO'
             status_novo = 'TRATADO' if ocorrencia['tipo_falta'] else 'AGUARDANDO TRATAMENTO'
 
             conn.execute('''
@@ -579,7 +584,7 @@ def migrar_estrutura_antiga_ocorrencias():
 
         conn.commit()
     except sqlite3.Error as e:
-        print(f"   ‚úó Erro durante a migra√ß√£o: {e}")
+        print(f"   ? Erro durante a migraÁ„o: {e}")
         try:
             conn.rollback()
         except Exception:
@@ -614,7 +619,7 @@ def get_elogios():
 
 
 def get_faltas_por_natureza(natureza):
-    """Retorna faltas de uma natureza espec√≠fica com ID e descri√ß√£o"""
+    """Retorna faltas de uma natureza especÌfica com ID e descriÁ„o"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
@@ -627,7 +632,7 @@ def get_faltas_por_natureza(natureza):
 
 
 def criar_tabela_comportamento():
-    """Cria tabela de comportamentos se n√£o existir"""
+    """Cria tabela de comportamentos se n„o existir"""
     conn = sqlite3.connect(DB_NAME)
     try:
         conn.execute('''
@@ -639,16 +644,16 @@ def criar_tabela_comportamento():
             );
         ''')
 
-        # Inserir comportamentos padr√£o
+        # Inserir comportamentos padr„o
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM comportamentos")
         if cursor.fetchone()[0] == 0:
             comportamentos_padrao = [
                 ('Excelente', 5),
-                ('√ìtimo', 4),
+                ('”timo', 4),
                 ('Bom', 3),
                 ('Regular', 2),
-                ('Insatisfat√≥rio', 1),
+                ('InsatisfatÛrio', 1),
             ]
             conn.executemany(
                 "INSERT INTO comportamentos (descricao, pontuacao) VALUES (?, ?)",
@@ -670,7 +675,7 @@ def criar_tabela_comportamento():
 
 
 def criar_tabela_circunstancias():
-    """Cria tabela de circunst√¢ncias atenuantes/agravantes"""
+    """Cria tabela de circunst‚ncias atenuantes/agravantes"""
     conn = sqlite3.connect(DB_NAME)
     try:
         conn.execute('''
@@ -682,18 +687,18 @@ def criar_tabela_circunstancias():
             );
         ''')
 
-        # Inserir circunst√¢ncias padr√£o
+        # Inserir circunst‚ncias padr„o
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM circunstancias")
         if cursor.fetchone()[0] == 0:
             circunstancias_padrao = [
                 ('ATENUANTE', 'Primeiro registro de falta'),
-                ('ATENUANTE', 'Bom hist√≥rico de comportamento'),
-                ('ATENUANTE', 'Colabora√ß√£o durante apura√ß√£o'),
-                ('ATENUANTE', 'Confiss√£o espont√¢nea'),
-                ('AGRAVANTE', 'Reincid√™ncia'),
+                ('ATENUANTE', 'Bom histÛrico de comportamento'),
+                ('ATENUANTE', 'ColaboraÁ„o durante apuraÁ„o'),
+                ('ATENUANTE', 'Confiss„o espont‚nea'),
+                ('AGRAVANTE', 'ReincidÍncia'),
                 ('AGRAVANTE', 'Falta cometida em grupo'),
-                ('AGRAVANTE', 'Desrespeito durante apura√ß√£o'),
+                ('AGRAVANTE', 'Desrespeito durante apuraÁ„o'),
                 ('AGRAVANTE', 'Tentativa de ocultar fatos'),
             ]
             conn.executemany(
@@ -724,7 +729,7 @@ def get_comportamentos():
 
 
 def get_circunstancias(tipo):
-    """Retorna circunst√¢ncias por tipo"""
+    """Retorna circunst‚ncias por tipo"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
@@ -737,14 +742,14 @@ def get_circunstancias(tipo):
 
 
 def get_proximo_nmd_id(incrementar=False):
-    """Gera o pr√≥ximo ID de Notifica√ß√£o de Medida Disciplinar"""
+    """Gera o prÛximo ID de NotificaÁ„o de Medida Disciplinar"""
     ano_atual = str(datetime.now().year)
     conn = None
     try:
         conn = get_db()
         c = conn.cursor()
 
-        # Verificar se existe sequ√™ncia para NMD
+        # Verificar se existe sequÍncia para NMD
         c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='nmd_sequencia'")
         if not c.fetchone():
             c.execute('''
@@ -780,12 +785,12 @@ def get_proximo_nmd_id(incrementar=False):
             conn.rollback()
         return f"NMD-{ano_atual}-ERRO"
     
-# Nota: este √© um patch/adi√ß√£o ao seu m√≥dulo models.py existente.
-# Inserir as fun√ß√µes abaixo em models.py (ou mesclar com as existentes).
-# Objetivo: garantir migra√ß√µes seguras para o m√≥dulo disciplinar (ocorrencias_alunos + colunas novas).
+# Nota: este È um patch/adiÁ„o ao seu mÛdulo models.py existente.
+# Inserir as funÁıes abaixo em models.py (ou mesclar com as existentes).
+# Objetivo: garantir migraÁıes seguras para o mÛdulo disciplinar (ocorrencias_alunos + colunas novas).
 #
-# N√ÉO sobrescreva outras fun√ß√µes j√° presentes no seu models.py sem revisar.
-# A fun√ß√£o ensure_disciplinar_migrations(db_conn) √© idempotente e pode ser chamada
+# N√O sobrescreva outras funÁıes j· presentes no seu models.py sem revisar.
+# A funÁ„o ensure_disciplinar_migrations(db_conn) È idempotente e pode ser chamada
 # durante o registro do blueprint disciplinar.
 
 import sqlite3
@@ -807,29 +812,29 @@ def _table_has_column(db_conn, table, column):
 
 def column_exists(db_conn, table, column):
     """
-    Retorna True se a coluna j√° existe na tabela (usando PRAGMA table_info).
+    Retorna True se a coluna j· existe na tabela (usando PRAGMA table_info).
     """
     try:
         cur = db_conn.execute(f"PRAGMA table_info({table});")
         rows = cur.fetchall()
         for row in rows:
-            # row[1] √© o nome da coluna retornado pelo PRAGMA table_info
+            # row[1] È o nome da coluna retornado pelo PRAGMA table_info
             if row[1] == column:
                 return True
     except Exception:
         try:
             import logging
-            logging.getLogger('disciplinar').warning("N√£o foi poss√≠vel verificar exist√™ncia da coluna %s.%s", table, column)
+            logging.getLogger('disciplinar').warning("N„o foi possÌvel verificar existÍncia da coluna %s.%s", table, column)
         except Exception:
             pass
     return False
 def ensure_disciplinar_migrations(db_conn):
     """
-    Cria/atualiza objetos do banco necess√°rios para o m√≥dulo disciplinar (RFO/FMD).
+    Cria/atualiza objetos do banco necess·rios para o mÛdulo disciplinar (RFO/FMD).
     - Cria tabela ocorrencias_alunos (m:n entre ocorrencias e alunos)
     - Garante colunas adicionais na tabela ocorrencias de forma segura (ALTER TABLE ADD COLUMN)
     - Cria tabela fmd_sequencia se ausente (usada para gerar FMD-XXXX/ANO)
-    Idempotente: pode ser chamada em cada inicializa√ß√£o sem efeitos colaterais.
+    Idempotente: pode ser chamada em cada inicializaÁ„o sem efeitos colaterais.
     """
     try:
         # 1) criar tabela ocorrencias_alunos (muitos-para-muitos)
@@ -848,7 +853,7 @@ def ensure_disciplinar_migrations(db_conn):
             # tentativa robusta - ignorar falha mas logar
             logger.exception("Falha criando ocorrencias_alunos (ignorando)")
 
-        # 2) adicionar colunas em ocorrencias se n√£o existirem
+        # 2) adicionar colunas em ocorrencias se n„o existirem
         extra_cols = {
             'tipo_ocorrencia_text': "TEXT",
             'subtipo_elogio': "TEXT",
@@ -882,12 +887,12 @@ def ensure_disciplinar_migrations(db_conn):
                         else:
                             try:
                                 import logging
-                                logging.getLogger('disciplinar').info("Coluna %s j√° existe em ocorrencias ‚Äî pulando.", col)
+                                logging.getLogger('disciplinar').info("Coluna %s j· existe em ocorrencias ó pulando.", col)
                             except Exception:
                                 pass
             else:
-                # tabela ocorrencias n√£o existe ‚Äî pular tentativa de migra√ß√£o de colunas
-                logging.getLogger('disciplinar').info("Tabela ocorrencias n√£o existe; pulando migra√ß√µes de coluna.")
+                # tabela ocorrencias n„o existe ó pular tentativa de migraÁ„o de colunas
+                logging.getLogger('disciplinar').info("Tabela ocorrencias n„o existe; pulando migraÁıes de coluna.")
         except Exception:
             logger.exception("Falha ao verificar/executar ALTER TABLE ocorrencias")
         try:
@@ -945,7 +950,7 @@ def ensure_disciplinar_migrations(db_conn):
 
 def next_fmd_seq_and_year(db_conn):
     """
-    Retorna (seq, ano) pr√≥ximo baseado em fmd_sequencia; cria entrada se faltante.
+    Retorna (seq, ano) prÛximo baseado em fmd_sequencia; cria entrada se faltante.
     """
     ano = datetime.now().year
     try:
@@ -984,6 +989,7 @@ def next_fmd_seq_and_year(db_conn):
     return seq, ano
 
 # End of additions for disciplinar migrations    
+
 
 
 
