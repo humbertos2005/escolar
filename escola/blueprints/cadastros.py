@@ -6,29 +6,6 @@ import re
 
 cadastros_bp = Blueprint('cadastros_bp', __name__)
 
-# adicionar isto ao arquivo do blueprint cadastros (onde está cadastros_bp)
-@cadastros_bp.route('/cadastros/registros/fmd')
-def registros_fmd():
-    return render_template('registros/fmd.html')
-
-# adicionar isto ao arquivo do blueprint cadastros (onde está cadastros_bp)
-@cadastros_bp.route('/cadastros/registros/tac')
-def registros_tac():
-    return render_template('registros/tac.html')
-
-# Rota para o novo módulo "Registros -> RFO"
-@cadastros_bp.route('/registros/rfo')
-@admin_secundario_required
-def registros_rfo():
-    """
-    Página unificada de RFO (Registros) com 3 abas:
-      - Registrar  -> carrega /disciplinar/registrar_rfo
-      - Tratar     -> carrega /disciplinar/listar_rfo
-      - Visualizar -> carrega /visualizacoes/rfos
-    (O template real será criado no próximo passo.)
-    """
-    return render_template('registros/rfo.html')
-
 # Rota unificada: Dados Disciplinares (apenas renderiza o template com abas)
 @cadastros_bp.route('/dados_disciplinares')
 @admin_secundario_required

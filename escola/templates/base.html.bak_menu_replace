@@ -34,34 +34,54 @@
     {% block extra_styles %}{% endblock %}
 
 
-    {% if request.args.get('iframe') %}
     <style>
-        /* Modo iframe: esconder navbar/sidebar e usar toda a largura para o conteúdo interno */
-        .navbar, .sidebar { display: none !important; }
-        .main-content { margin-left: 0 !important; margin-top: 60px !important; width: 100% !important; }
-        .container, .container-fluid { max-width: 100% !important; padding-left: 18px !important; padding-right: 18px !important; }
-        </style>
-        {% else %}
-        <style>
-        /* Comportamento normal (mantém seu CSS original) */
+
+
+        /* Correção crítica inline */
+
+
         .navbar { position: fixed !important; top: 0 !important; z-index: 1000 !important; height: 60px !important; }
+
+
         .sidebar { position: fixed !important; padding-top: 80px !important; z-index: 900 !important; }
+
+
         .main-content { margin-left: 260px !important; margin-top: 60px !important; }
+
+
         @media (max-width: 768px) {
+
+
             .main-content { margin-left: 0 !important; width: 100% !important; }
+
+
         }
+
+
     </style>
-    {% endif %}
+
 
 </head>
 
+
 <body>
-    {% if not request.args.get('iframe') %}
+
+
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-primary">
+
+
         <div class="container-fluid">
+
+
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard') }}">
+
+
                 <i class="fas fa-graduation-cap me-2"></i>
+
+
                 <span class="fw-bold">Gestão Escolar</span>
+
+
             </a>
 
 
@@ -135,50 +155,138 @@
 
 
     </nav>
-    {% endif %}
 
 
 
-    {% if not request.args.get('iframe') %}
+
+
     <div class="sidebar" id="sidebar">
+
+
         <div class="sidebar-header">
+
+
             <h6 class="mb-0"><i class="fas fa-bars me-2"></i>Menu Principal</h6>
+
+
         </div>
 
+
+
+
+
         <div class="sidebar-body p-0">
+
+
             {% if session.get('logged_in') %}
+
+
                 <div class="user-greeting">
+
+
                     <div class="d-flex align-items-center">
+
+
                         <i class="fas fa-user me-2"></i>
+
+
                         <div>
+
+
                             <small>Olá, <span class="username fw-bold">{{ session.get('username') }}</span>!</small><br>
+
+
                             <span class="badge bg-primary">{{ session.get('nivel_nome') }}</span>
+
+
                         </div>
+
+
                     </div>
+
+
                 </div>
 
+
+
+
+
                 <div class="menu-section">
+
+
                     <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+
+
                         <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
+
+
                     </a>
+
+
                 </div>
+
+
+
+
 
                 {% if session.get('nivel') in [1, 2] %}
+
+
                 <div class="menu-section">
+
+
                     <div class="nav-link menu-title"><i class="fas fa-folder-plus"></i><span>Cadastros</span></div>
+
+
                     {% if session.get('nivel') == 1 %}
+
+
                     <a href="{{ url_for('auth_bp.gerenciar_usuarios') }}" class="nav-link ps-4">
+
+
                         <i class="fas fa-users-cog"></i><span>Usuários</span>
+
+
                     </a>
+
+
                     {% endif %}
+
 
                     <a href="{{ url_for('alunos_bp.gerenciar_alunos') }}" class="nav-link ps-4 {% if request.endpoint == 'alunos_bp.gerenciar_alunos' %}active{% endif %}">
                         <i class="fas fa-user-graduate"></i><span>Gerenciar Alunos</span>
                     </a>
 
-                    <a href="{{ url_for('cadastros_bp.dados_disciplinares') }}" class="nav-link ps-4 {% if request.endpoint in ['cadastros_bp.dados_disciplinares','cadastros_bp.listar_faltas','cadastros_bp.listar_elogios','bimestres_bp.listar_bimestres'] %}active{% endif %}">
-                        <i class="fas fa-folder-open"></i><span>Dados Disciplinares</span>
+
+                    <a href="{{ url_for('bimestres_bp.listar_bimestres') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-calendar-alt"></i><span>Bimestres</span>
+
+
                     </a>
+
+
+                    <a href="{{ url_for('cadastros_bp.listar_faltas') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-exclamation-triangle"></i><span>Faltas Disciplinares</span>
+
+
+                    </a>
+
+
+                    <a href="{{ url_for('cadastros_bp.listar_elogios') }}" class="nav-link ps-4">
+
+
+                        <i class="fas fa-award"></i><span>Elogios</span>
+
+
+                    </a>
+
+
+
+
 
                     {# NOVOS LINKS: Cabeçalho Documentos #}
 
@@ -435,7 +543,7 @@
 
 
     </div>
-    {% endif %}
+
 
 
 

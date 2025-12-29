@@ -1,177 +1,0 @@
-﻿{% extends 'base.html' %}
-
-{% block head %}
-{{ super() }}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/disciplinar.css') }}">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-<style>
-    /* CSS inline para garantir que funcione */
-    .main-content-inner { max-width: 800px; margin: 0 auto; padding: 20px; }
-    .rfo-id-display { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; }
-    .rfo-id-display h3 { margin: 0; color: #495057; font-size: 1.2em; }
-    .rfo-id-display span { font-weight: bold; color: #007bff; }
-    .form-section { margin-bottom: 30px; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; background: #fff; }
-    .section-title { margin: 0 0 20px 0; color: #343a40; font-size: 1.3em; display: flex; align-items: center; }
-    .section-title i { margin-right: 10px; color: #007bff; }
-    .form-group { margin-bottom: 20px; }
-    .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #495057; }
-    .required { color: #dc3545; }
-    .form-control { width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; background: #f8f9fa; }
-    .form-control[readonly] { cursor: not-allowed; }
-    .radio-buttons { display: flex; gap: 15px; margin: 10px 0; }
-    .radio-buttons label { display: flex; align-items: center; padding: 8px 12px; border: 2px solid #dee2e6; border-radius: 6px; font-size: 14px; background: #f8f9fa; }
-    .radio-buttons input[type="radio"] { margin-right: 8px; }
-    .radio-buttons label.active { background: #007bff; color: white; border-color: #007bff; }
-    textarea.form-control { resize: vertical; min-height: 120px; }
-    .btn-cancel { background: #6c757d; color: white; padding: 8px 20px; border: none; border-radius: 4px; text-decoration: none; display: inline-block; margin-left: 10px; }
-    .btn-cancel:hover { background: #5a6268; color: white; text-decoration: none; }
-    .form-actions { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef; }
-    .alert-info { background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 15px; margin-bottom: 20px; color: #0c5460; }
-    .alert-info i { margin-right: 10px; }
-    .btn-primary { background: #28a745; color: white; padding: 12px 30px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; text-decoration: none; display: inline-block; }
-    .btn-primary:hover { background: #218838; color: white; text-decoration: none; }
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="main-content-inner">
-    <h2>Visualizar Relatório de Fato Observado (RFO)</h2>
-    
-    <div class="alert-info">
-        <i class="fas fa-info-circle"></i>
-        <strong>Modo Visualização:</strong> Este é o formulário original preenchido pelo usuário. Os campos estão bloqueados para visualização apenas.
-    </div>
-
-    <div class="rfo-id-display">
-        <h3>RFO ID: <span>{{ rfo.rfo_id }}</span></h3>
-        <p style="margin: 5px 0 0 0; color: #6c757d; font-size: 0.9em;">
-            Status: <strong>{{ rfo.status }}</strong>
-        </p>
-    </div>
-
-    <form class="form-rfo">
-        <!-- ====================== Identificação do Aluno ====================== -->
-        <div class="form-section">
-            <h3 class="section-title"><i class="fas fa-user-graduate"></i> Identificação do Aluno</h3>
-            <div class="form-group">
-                <label for="aluno_info">Aluno (Matrícula e Nome)</label>
-                <input type="text" id="aluno_info" class="form-control"
-                       value="{{ rfo.alunos or (rfo.matricula ~ ' - ' ~ rfo.nome_aluno) }}" readonly>
-            </div>
-            <div class="form-group">
-                <label for="serie_turma">Série/Turma</label>
-                <input type="text" id="serie_turma" class="form-control"
-                       value="{{ rfo.series_turmas or (rfo.serie ~ ' - ' ~ rfo.turma) }}" readonly>
-            </div>
-        </div>
-
-        <!-- ====================== Dados da Ocorrência ====================== -->
-        <div class="form-section">
-            <h3 class="section-title"><i class="fas fa-clipboard-list"></i> Dados da Ocorrência</h3>
-            <div class="form-group">
-                <label for="tipo_ocorrencia">Tipo de Ocorrência</label>
-                <input type="text" id="tipo_ocorrencia" class="form-control"
-                       value="{{ rfo.tipo_ocorrencia_nome }}" readonly>
-            </div>
-            <div class="form-group">
-                <label for="data_ocorrencia">Data da Ocorrência</label>
-                <input type="text" id="data_ocorrencia" class="form-control"
-                       value="{{ rfo.data_ocorrencia | data_br }}" readonly>
-            </div>
-            <div class="form-group">
-                <label>Nome do Observador/Registrador</label>
-                <input type="text" class="form-control" value="{{ rfo.responsavel_registro_username }}" readonly>
-            </div>
-            <div class="form-group">
-{# InÃ­cio: exibiÃ§Ã£o tipo RFO + detalhe em botÃµes somente-leitura #}
-{% set tipo_val = (rfo.tratamento_tipo or rfo.tipo_rfo or rfo.tipo_ocorrencia_nome or '')|lower %}
-
-<div class="form-group">
-    <label>Trata-se de um RFO de?</label>
-    <div class="radio-buttons" id="tipo-rfo-display">
-        <label class="{{ 'active' if (tipo_val and ('falta disciplinar' in tipo_val or 'falta' in tipo_val)) else '' }}">
-            <input type="radio" disabled {{ 'checked' if (tipo_val and ('falta disciplinar' in tipo_val or 'falta' in tipo_val)) else '' }}> Falta Disciplinar
-        </label>
-        <label class="{{ 'active' if (tipo_val == 'elogio') else '' }}">
-            <input type="radio" disabled {{ 'checked' if (tipo_val == 'elogio') else '' }}> Elogio
-        </label>
-    </div>
-</div>
-
-<div class="form-group" id="subtipo-display" style="{{ 'display:block;' if tipo_val == 'elogio' else 'display:none;' }}">
-    <label>Tipo de Elogio</label>
-    <div class="radio-buttons">
-        <label class="{{ 'active' if (rfo.subtipo_elogio|default('')|lower == 'individual') else '' }}">
-            <input type="radio" disabled {{ 'checked' if (rfo.subtipo_elogio|default('')|lower == 'individual') else '' }}> Individual
-        </label>
-        <label class="{{ 'active' if (rfo.subtipo_elogio|default('')|lower == 'coletivo') else '' }}">
-            <input type="radio" disabled {{ 'checked' if (rfo.subtipo_elogio|default('')|lower == 'coletivo') else '' }}> Coletivo
-        </label>
-    </div>
-</div>
-
-<div class="form-group" id="advertencia-display" style="{{ 'display:block;' if tipo_val != 'elogio' else 'display:none;' }}">
-    <label>Considerado como Advertência Oral?</label>
-    <div class="radio-buttons">
-        <label class="{{ 'active' if (rfo.advertencia_oral|default('') == 'sim') else '' }}">
-            <input type="radio" disabled {{ 'checked' if (rfo.advertencia_oral|default('') == 'sim') else '' }}> Sim
-        </label>
-        <label class="{{ 'active' if (rfo.advertencia_oral|default('') == 'nao') else '' }}">
-            <input type="radio" disabled {{ 'checked' if (rfo.advertencia_oral|default('') == 'nao') else '' }}> Não
-        </label>
-    </div>
-</div>
-{# Fim snippet #}
-        <div class="form-section">
-            <h3 class="section-title"><i class="fas fa-file-alt"></i> Relato Detalhado</h3>
-            <div class="form-group">
-                <label for="relato_observador">Relato do Observador</label>
-                <textarea id="relato_observador" class="form-control" readonly>{{ rfo.relato_observador }}</textarea>
-            </div>
-            {% if rfo.material_recolhido_info %}
-{% set tipo_val = (rfo.tratamento_tipo or rfo.tipo_rfo or rfo.tipo_ocorrencia_nome or '')|lower %}
-{% set material = (rfo.material_recolhido or '') %}
-
-<div class="form-group">
-    <label for="material_recolhido">Material Recolhido</label>
-    {% if material and (material|trim != '') and (material|lower != tipo_val) %}
-        <textarea id="material_recolhido" class="form-control" readonly>{{ material }}</textarea>
-    {% else %}
-        <textarea id="material_recolhido" class="form-control" readonly></textarea>
-    {% endif %}
-</div>
-            {% endif %}
-        </div>
-
-        <!-- ====================== Ações ====================== -->
-<div class="form-actions d-flex flex-wrap align-items-center gap-2">
-    {% set ocorr_id = (rfo.get('ocorrencia_id') or rfo.get('id') or rfo.get('ocorrenciaId') or None) %}
-    {% set ocorr_id_str = (ocorr_id|string) if ocorr_id is not none else '' %}
-
-    {% if ocorr_id_str and ocorr_id_str.isdigit() %}
-        <a href="{{ url_for('disciplinar_bp.tratar_rfo', ocorrencia_id=ocorr_id_str|int) }}" class="btn btn-primary btn-lg">
-            <i class="fas fa-edit me-2"></i> Iniciar Tratamento
-        </a>
-    {% else %}
-        <a class="btn btn-secondary btn-lg disabled" role="button" aria-disabled="true" title="ID inválido para iniciar tratamento">
-            <i class="fas fa-edit me-2"></i> Iniciar Tratamento
-        </a>
-    {% endif %}
-
-    <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="btn btn-outline-secondary btn-lg ms-2">
-        <i class="fas fa-arrow-left me-2"></i> Voltar para Lista
-    </a>
-</div>
-    </form>
-</div>
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
-{% endblock %}
-
-
-
-
-
-

@@ -1,0 +1,182 @@
+﻿{% set resp = (ata.responsavel or '') | trim %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>ATA {{ ata.numero }}/{{ ata.ano }}</title>
+  <style>
+    /* Ajustes para impressão e posicionamento */
+    body { font-family: Arial, sans-serif; color: #111; margin: 18px; } /* margin reduzida para subir conteúdo */
+    .cabecalho { text-align: center; margin-bottom: 4px; }
+    .logo { max-height: 110px; display:block; margin: 0 auto 6px; }
+    .cabecalho .linha { font-size: 16px; margin: 1px 0; font-weight: 600; letter-spacing: 0.2px; }
+    .cabecalho .escola { font-weight: 600; font-size: 16px; margin: 1px 0; }
+    h3.title { text-align:center; margin-top: 8px; margin-bottom: 6px; }
+
+    /* Espaçador entre título e parágrafo principal (reduzido para aproximar o corpo) */
+    .espacador-apos-titulo { height: 20px; }
+
+    /* Conteúdo principal */
+    .conteudo { text-align: justify; text-justify: inter-word; margin-top: 6px; line-height: 1.45; }
+    .conteudo p { margin: 0 0 12px 0; }
+
+    /* Assinaturas */
+    .assinaturas { display:flex; justify-content:space-around; margin-top:28mm; flex-wrap:wrap; gap:18px; }
+    .assinatura-campo { width:30%; min-width:180px; text-align:center; box-sizing:border-box; }
+    .linha-assinatura { border-top:1px solid #111; height: 1px; margin-bottom:8px; }
+    .assinatura-campo p { font-weight:bold; margin:0; font-size: 12pt; }
+    .assinatura-cargo { font-weight:normal; font-size:0.9em; color:#666; margin-top:4px; }
+
+    @media print {
+      body { margin: 12mm; }
+      .assinaturas { gap: 12px; margin-top: 24mm; }
+      .espacador-apos-titulo { height: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="cabecalho">
+    {# Seleção do logotipo: aceita cabecalho ou cabecalhos e usa logo_data quando for passado pelo backend #}
+    {% set raw_logo = None %}
+    {% if cabecalho %}
+      {% set raw_logo = cabecalho.get('logo_file') %}
+    {% elif cabecalhos %}
+      {% set raw_logo = cabecalhos.get('logo_file') if cabecalhos is mapping else (cabecalhos[0].get('logo_file') if cabecalhos and cabecalhos[0] is mapping else None) %}
+    {% endif %}
+
+    {% if raw_logo %}
+      {% if raw_logo.startswith('http') %}
+        {% set logo_url = raw_logo %}
+      {% elif raw_logo.startswith('/') %}
+        {% set logo_url = request.url_root.rstrip('/') + raw_logo %}
+      {% else %}
+        {% set logo_url = url_for('static', filename=raw_logo, _external=True) %}
+      {% endif %}
+    {% else %}
+      {# fallback para a pasta plural 'cabecalhos' #}
+      {% set logo_url = url_for('static', filename='uploads/cabecalhos/logo_topo.png', _external=True) %}
+    {% endif %}
+
+    <div style="text-align:center; margin-bottom:6px;">
+      <img class="logo" src="{{ logo_data or logo_url }}" alt="Logotipo" style="max-width:220px; height:auto; display:block; margin:0 auto;">
+    </div>
+
+    <div class="linha">{{ cabecalho.get('estado') if cabecalho else 'ESTADO DO MATO GROSSO' }}</div>
+    <div class="linha">{{ cabecalho.get('secretaria') if cabecalho else 'SECRETARIA DE ESTADO DO MATO GROSSO' }}</div>
+    <div class="linha">{{ cabecalho.get('coordenacao') if cabecalho else 'COORDENADORIA DE ESCOLAS MILITARES' }}</div>
+    <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
+  </div>
+
+  <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
+
+  <div class="espacador-apos-titulo"></div>
+
+  <p class="conteudo">
+    {% set data_text = ata.data_extenso if ata.get('data_extenso') else (ata.created_at if ata.get('created_at') else '') %}
+    Aos {{ data_text }}, compareceu na {{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}
+    {% set nome_responsavel = resp
+      or ata.get('responsavel')
+      or ata.get('responsavel_nome')
+      or ata.get('nome_responsavel')
+      or ata.get('resp_nome') %}
+    {% if (not nome_responsavel) and ata.get('aluno') %}
+      {% set nome_responsavel = (ata.aluno.get('responsavel') if (ata.aluno is mapping and ata.aluno.get('responsavel')) else (getattr(ata.aluno, 'responsavel', None) if getattr(ata.aluno, 'responsavel', None) else None)) %}
+    {% endif %}
+    {% if not nome_responsavel %}
+      {% set nome_responsavel = (ata.aluno.nome if ata.get('aluno') and getattr(ata.aluno, 'nome', None) else (ata.aluno_nome or '')) %}
+    {% endif %}
+    o(a) Sr.(a) <strong>{{ nome_responsavel }}</strong>,
+    responsável pelo(a) aluno(a) <strong>{{ ata.aluno_nome }}</strong>,
+    matriculado(a) na(s) {{ ata.serie_turma if ata.get('serie_turma') else '' }},
+    para tratar do(s) seguinte(s) assunto(s): {{ ata.conteudo or '' }}.
+  </p>
+
+  {# --- montar lista 'parts' a partir de participants_json (compatível com string/json/lista) --- #}
+  {% set parts = [] %}
+  {% if ata.participants_json %}
+    {% if ata.participants_json is iterable and ata.participants_json is not string %}
+      {% set parts = ata.participants_json %}
+    {% else %}
+      {% set parts = (ata.participants_json | from_json) %}
+    {% endif %}
+  {% endif %}
+
+  {# --- tentar obter nome do diretor a partir de cabecalho / cabecalhos (sem usar break) --- #}
+  {% set diretor_nome = None %}
+  {% if cabecalho %}
+    {% for k in ['diretor', 'nome_diretor', 'diretor_nome', 'nome_do_diretor'] %}
+      {% if cabecalho.get(k) and not diretor_nome %}
+        {% set diretor_nome = cabecalho.get(k) %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  {% if not diretor_nome and cabecalhos %}
+    {% if cabecalhos is mapping and cabecalhos.get('diretor') %}
+      {% set diretor_nome = cabecalhos.get('diretor') %}
+    {% elif cabecalhos and cabecalhos[0] is mapping %}
+      {% for k in ['diretor', 'nome_diretor', 'diretor_nome', 'nome_do_diretor'] %}
+        {% if cabecalhos[0].get(k) and not diretor_nome %}
+          {% set diretor_nome = cabecalhos[0].get(k) %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+  {# também aceitar variável passada explicitamente: diretor_nome (se definida) #}
+  {% if diretor_nome is none and (diretor_nome is defined and diretor_nome) %}
+    {% set diretor_nome = diretor_nome %}
+  {% endif %}
+
+  {# --- macro auxiliar para verificar existência (não muda parts) --- #}
+  {% macro exists_in_parts(name, parts_list) -%}
+    {%- set found = False -%}
+    {%- if name and parts_list -%}
+      {%- for pp in parts_list -%}
+        {%- set candidate = (pp.get('name') or pp.get('nome') or '') | trim -%}
+        {%- if candidate and candidate | lower == name | lower -%}
+          {%- set found = True -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+    {{- found -}}
+  {%- endmacro %}
+
+  <div class="assinaturas" aria-label="Assinaturas">
+    {# 1) participantes informados #}
+    {% for p in parts %}
+      {% set pname = (p.get('name') or p.get('nome') or '') | trim %}
+      {% if pname %}
+        <div class="assinatura-campo">
+          <div class="linha-assinatura"></div>
+          <p>{{ pname | upper }}</p>
+          <div class="assinatura-cargo">{{ (p.get('cargo') or p.get('role') or '') }}</div>
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    {# 2) Diretor (se disponível e não duplicado) #}
+    {% if diretor_nome %}
+      {% if not (exists_in_parts(diretor_nome, parts) | string in ['True','true','1']) %}
+        <div class="assinatura-campo">
+          <div class="linha-assinatura"></div>
+          <p>{{ diretor_nome | upper }}</p>
+          <div class="assinatura-cargo">Diretor</div>
+        </div>
+      {% endif %}
+    {% endif %}
+
+    {# 3) Responsável pelo aluno (se disponível e não duplicado) #}
+    {% if nome_responsavel %}
+      {% if not (exists_in_parts(nome_responsavel, parts) | string in ['True','true','1']) %}
+        {% if not (diretor_nome and diretor_nome | trim | lower == nome_responsavel | trim | lower) %}
+          <div class="assinatura-campo">
+            <div class="linha-assinatura"></div>
+            <p>{{ nome_responsavel | upper }}</p>
+            <div class="assinatura-cargo">Responsável</div>
+          </div>
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  </div>
+
+</body>
+</html>
