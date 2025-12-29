@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from flask import Flask, render_template, g, session, redirect, url_for, flash, jsonify, request
 from database import init_db, close_db, get_db, DATABASE
 import sqlite3
@@ -12,14 +12,14 @@ from blueprints.alunos import alunos_bp
 from blueprints.disciplinar import disciplinar_bp
 from blueprints.cadastros import cadastros_bp
 from blueprints.formularios import formularios_bp
-# novo blueprint de ProntuÃ¡rios (adicionado)
+# novo blueprint de Prontuários (adicionado)
 from blueprints.formularios_prontuario import formularios_prontuario_bp
-# novo blueprint de TACS (Termos de AdequaÃ§Ã£o de Conduta)
+# novo blueprint de TACS (Termos de Adequação de Conduta)
 from blueprints.formularios_tac import formularios_tac_bp
 from blueprints.visualizacoes import visualizacoes_bp
 from blueprints import utils
 
-# Configurar localizaÃ§Ã£o brasileira
+# Configurar localização brasileira
 try:
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 except:
@@ -29,13 +29,13 @@ except:
         try:
             locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil')
         except:
-            print("   [AVISO] NÃ£o foi possÃ­vel configurar localizaÃ§Ã£o PT-BR")
+            print("   [AVISO] Não foi possível configurar localização PT-BR")
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave-secreta-gestao-escolar-2025-v2")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")`nif not app.secret_key:`n    import secrets`n    app.secret_key = secrets.token_urlsafe(32)`n    print("[AVISO] FLASK_SECRET_KEY n�o definido � chave tempor�ria gerada. Defina FLASK_SECRET_KEY em produ��o.")
 app.config['DATABASE'] = DATABASE
 
-# Configurar Flask-Moment com localizaÃ§Ã£o brasileira
+# Configurar Flask-Moment com localização brasileira
 moment = Moment(app)
 app.config['MOMENT_DEFAULT_FORMAT'] = 'DD/MM/YYYY'
 
@@ -48,16 +48,16 @@ app.register_blueprint(alunos_bp, url_prefix='/alunos')
 app.register_blueprint(disciplinar_bp, url_prefix='/disciplinar')
 app.register_blueprint(cadastros_bp, url_prefix='/cadastros')
 
-# Registramos primeiro o blueprint especÃ­fico de ProntuÃ¡rios para evitar
-# colisÃµes de rota com formularios_bp (ambos usavam '/prontuario/...').
-# Assim, as rotas de visualizar/editar do blueprint de prontuÃ¡rios sÃ£o
+# Registramos primeiro o blueprint específico de Prontuários para evitar
+# colisões de rota com formularios_bp (ambos usavam '/prontuario/...').
+# Assim, as rotas de visualizar/editar do blueprint de prontuários são
 # resolvidas corretamente pelo Flask.
 app.register_blueprint(formularios_prontuario_bp, url_prefix='/formularios')
 
-# Registrar blueprint dos TACS (Termos de AdequaÃ§Ã£o de Conduta)
+# Registrar blueprint dos TACS (Termos de Adequação de Conduta)
 app.register_blueprint(formularios_tac_bp, url_prefix='/formularios')
 
-# Mantemos o blueprint genÃ©rico de formulÃ¡rios em seguida
+# Mantemos o blueprint genérico de formulários em seguida
 app.register_blueprint(formularios_bp, url_prefix='/formularios')
 
 app.register_blueprint(visualizacoes_bp, url_prefix='/visualizacoes')
@@ -79,7 +79,7 @@ def teardown_db(e=None):
 
 @app.context_processor
 def inject_globals():
-    """Injeta variÃ¡veis globais em todos os templates"""
+    """Injeta variáveis globais em todos os templates"""
     from datetime import datetime
     return dict(
         NIVEL_MAP=utils.NIVEL_MAP,
@@ -89,14 +89,14 @@ def inject_globals():
 
 @app.template_filter('data_br')
 def formatar_data_br(data_str):
-    """Filtro personalizado para formatar datas no padrÃ£o brasileiro"""
+    """Filtro personalizado para formatar datas no padrão brasileiro"""
     if not data_str:
         return '-'
 
     from datetime import datetime
 
     try:
-        # Tentar vÃ¡rios formatos de entrada
+        # Tentar vários formatos de entrada
         formatos = [
             '%Y-%m-%d',           # 2025-01-24
             '%Y-%m-%d %H:%M:%S',  # 2025-01-24 14:30:00
@@ -130,7 +130,7 @@ def nl2br_filter(value):
 
 @app.template_filter('datetime_br')
 def formatar_datetime_br(data_str):
-    """Filtro para formatar data e hora no padrÃ£o brasileiro"""
+    """Filtro para formatar data e hora no padrão brasileiro"""
     if not data_str:
         return '-'
 
@@ -145,7 +145,7 @@ def formatar_datetime_br(data_str):
         for formato in formatos:
             try:
                 data_obj = datetime.strptime(str(data_str).strip(), formato)
-                return data_obj.strftime('%d/%m/%Y Ã s %H:%M')
+                return data_obj.strftime('%d/%m/%Y às %H:%M')
             except ValueError:
                 continue
 
@@ -215,14 +215,14 @@ def page_not_found(error):
 
 def inicializar_e_migrar():
     print("="*60)
-    print("INICIANDO SISTEMA DE GESTÃƒO ESCOLAR")
+    print("INICIANDO SISTEMA DE GESTÃO ESCOLAR")
     print("="*60)
     print("1. Criando/verificando estrutura do banco de dados...")
     with app.app_context():
         criar_tabelas()
-        print("   âœ“ Tabelas verificadas/criadas com sucesso!")
+        print("   ✓ Tabelas verificadas/criadas com sucesso!")
 
-        print("1.1. Verificando/adicionando colunas de RFO Ã  tabela 'ocorrencias'...")
+        print("1.1. Verificando/adicionando colunas de RFO à tabela 'ocorrencias'...")
         db = get_db()
         cursor = db.cursor()
         try:
@@ -231,47 +231,47 @@ def inicializar_e_migrar():
 
             if 'relato_observador' not in colunas:
                 cursor.execute("ALTER TABLE ocorrencias ADD COLUMN relato_observador TEXT NOT NULL DEFAULT '';")
-                print("   [MIGRAÃ‡ÃƒO] Coluna 'relato_observador' adicionada Ã  tabela 'ocorrencias'.")
+                print("   [MIGRAÇÃO] Coluna 'relato_observador' adicionada à tabela 'ocorrencias'.")
 
             if 'advertencia_oral' not in colunas:
                 cursor.execute("ALTER TABLE ocorrencias ADD COLUMN advertencia_oral TEXT NOT NULL DEFAULT 'nao';")
-                print("   [MIGRAÃ‡ÃƒO] Coluna 'advertencia_oral' adicionada Ã  tabela 'ocorrencias'.")
+                print("   [MIGRAÇÃO] Coluna 'advertencia_oral' adicionada à tabela 'ocorrencias'.")
 
             if 'material_recolhido' not in colunas:
                 cursor.execute("ALTER TABLE ocorrencias ADD COLUMN material_recolhido TEXT;")
-                print("   [MIGRAÃ‡ÃƒO] Coluna 'material_recolhido' adicionada Ã  tabela 'ocorrencias'.")
+                print("   [MIGRAÇÃO] Coluna 'material_recolhido' adicionada à tabela 'ocorrencias'.")
 
             if 'infracao_id' in colunas and 'tipo_ocorrencia_id' not in colunas:
                 print("   [AVISO] Coluna 'infracao_id' detectada. Considere migrar para 'tipo_ocorrencia_id'.")
                 cursor.execute("ALTER TABLE ocorrencias ADD COLUMN tipo_ocorrencia_id INTEGER;")
-                print("   [MIGRAÃ‡ÃƒO] Coluna 'tipo_ocorrencia_id' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'tipo_ocorrencia_id' adicionada.")
             elif 'tipo_ocorrencia_id' not in colunas:
                 cursor.execute("ALTER TABLE ocorrencias ADD COLUMN tipo_ocorrencia_id INTEGER;")
-                print("   [MIGRAÃ‡ÃƒO] Coluna 'tipo_ocorrencia_id' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'tipo_ocorrencia_id' adicionada.")
 
             db.commit()
-            print("   âœ“ Colunas de RFO verificadas/adicionadas com sucesso!")
+            print("   ✓ Colunas de RFO verificadas/adicionadas com sucesso!")
         except sqlite3.OperationalError as e:
-            print(f"   [AVISO] Falha ao verificar/adicionar colunas Ã  'ocorrencias': {e}")
+            print(f"   [AVISO] Falha ao verificar/adicionar colunas à 'ocorrencias': {e}")
             db.rollback()
 
-    print("2. Verificando usuÃ¡rio administrador inicial...")
+    print("2. Verificando usuário administrador inicial...")
     db_conn = sqlite3.connect(DATABASE)
     db_conn.row_factory = sqlite3.Row
     try:
         criar_admin_inicial(db_conn)
-        print("   âœ“ UsuÃ¡rio administrador verificado!")
+        print("   ✓ Usuário administrador verificado!")
     except Exception as e:
-        print(f"   âœ— Erro ao criar admin inicial: {e}")
+        print(f"   ✗ Erro ao criar admin inicial: {e}")
     finally:
         db_conn.close()
 
-    print("3. Verificando necessidade de migraÃ§Ã£o de dados...")
+    print("3. Verificando necessidade de migração de dados...")
     migracao_info = migrar_estrutura_antiga_ocorrencias()
     if migracao_info['ocorrencias_migradas'] > 0:
-        print(f"   âœ“ {migracao_info['ocorrencias_migradas']} ocorrÃªncias migradas!")
+        print(f"   ✓ {migracao_info['ocorrencias_migradas']} ocorrências migradas!")
     else:
-        print("   âœ“ Nenhuma migraÃ§Ã£o necessÃ¡ria!")
+        print("   ✓ Nenhuma migração necessária!")
     print("="*60)
 
 
@@ -287,7 +287,7 @@ if __name__ == '__main__':
     inicializar_e_migrar()
     app.run(debug=True)
 
-# Registrar normalização automática de campos de alunos
+# Registrar normaliza��o autom�tica de campos de alunos
 
 
 
