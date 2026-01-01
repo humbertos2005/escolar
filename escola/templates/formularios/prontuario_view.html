@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 
 {% block title %}Prontuário - Visualizar{% endblock %}
@@ -327,8 +327,7 @@
             </div>
           </div>
         {% endfor %}
-      {% else %}
-        {% else %}
+{% else %}
           {# Tratamento compatível para registros legados que vêm como string concatenada #}
           {% set raw = prontuario.get('registros_fatos') or '' %}
           {% for rec in raw|split('---') %}
@@ -397,10 +396,10 @@
   </div>
 
 
-{% endif %}
 
 
 
 
 
 {% endblock %}
+
