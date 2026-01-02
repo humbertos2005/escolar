@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 
 
 <html lang="pt-br">
@@ -53,6 +53,13 @@
     </style>
     {% endif %}
 
+<!-- FP FIX: garantir que o calendário do flatpickr fique abaixo da navbar fixa -->
+<style>
+/* reduzimos z-index do calendário e usamos !important para vencer inline styles */
+.flatpickr-calendar {
+  z-index: 999 !important;
+}
+</style>
 </head>
 
 <body>
@@ -617,6 +624,9 @@
     {% block scripts %}{% endblock %}
 
 
+<script src="/static/js/matricula.js"></script>
+
+    <script src="/static/js/fp-fix.js"></script>
 </body>
 
 
@@ -717,5 +727,7 @@
 
 
 <!-- padding line 30 -->
+
+
 
 
