@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Prontuário - {{ rfo.nome_aluno or rfo.alunos or 'Aluno' }}</title>
+  <style>
+    /* Estilos simples otimizados para geração via wkhtmltopdf */
+    body { font-family: "Helvetica", Arial, sans-serif; color: #222; margin: 0; padding: 12mm; }
+    .container { width: 100%; box-sizing: border-box; }
+    header { text-align: center; margin-bottom: 8px; }
+    header h1 { margin: 0; font-size: 18pt; letter-spacing: 0.5px; }
+    .meta { margin-top: 6px; font-size: 10pt; color:#333; }
+    .section { border: 1px solid #ddd; padding: 10px; margin-top: 10px; page-break-inside: avoid; }
+    .section h2 { margin: 0 0 8px 0; font-size: 12pt; }
+    .kv { margin: 4px 0; font-size: 11pt; }
+    .small { font-size: 10pt; color: #444; white-space: pre-wrap; }
+    .footer { margin-top: 14px; font-size: 9pt; color:#666; text-align: right; }
+    @page { size: A4; margin: 10mm; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>PRONTUÁRIO — REGISTRO DISCIPLINAR</h1>
+      <div class="meta">{{ rfo.series_turmas or '' }}</div>
+    </header>
+
+    <div class="section">
+      <h2>Dados do(s) aluno(s)</h2>
+      <div class="kv"><strong>Aluno (principal):</strong> {{ rfo.nome_aluno or '' }}</div>
+      <div class="kv"><strong>Matrícula:</strong> {{ rfo.matricula or '' }}</div>
+      <div class="kv"><strong>Alunos relacionados:</strong> {{ rfo.alunos or '' }}</div>
+    </div>
+
+    <div class="section">
+      <h2>Ocorrência</h2>
+      <div class="kv"><strong>Data da ocorrência:</strong> {{ rfo.data_ocorrencia or rfo.data_registro or '' }}</div>
+      <div class="kv"><strong>Tipo / Tratamento:</strong> {{ rfo.tipo_ocorrencia_nome or rfo.tratamento_tipo or '' }}</div>
+      <div class="kv"><strong>Medida aplicada:</strong> {{ rfo.medida_aplicada or '' }}</div>
+      <div class="kv"><strong>Relato do observador:</strong></div>
+      <div class="small">{{ rfo.relato_observador or rfo.relato_estudante or '' }}</div>
+    </div>
+
+    <div class="section">
+      <h2>Despacho / Tratamento</h2>
+      <div class="kv"><strong>Despacho do gestor:</strong> {{ rfo.despacho_gestor or '' }}</div>
+      <div class="kv"><strong>Data de tratamento:</strong> {{ rfo.data_tratamento or '' }}</div>
+      <div class="kv"><strong>Responsável pelo registro:</strong> {{ rfo.responsavel_registro_username or '' }}</div>
+    </div>
+
+    <div class="footer">
+      Gerado em: {{ gerado_em if 'gerado_em' in globals() else '' }}
+    </div>
+  </div>
+</body>
+</html>

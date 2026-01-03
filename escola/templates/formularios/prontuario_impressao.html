@@ -1,0 +1,220 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  {# Usar suggested_filename quando presente (já setado pela rota) #}
+  <title>{% if suggested_filename is defined and suggested_filename %}{{ suggested_filename }}{% else %}Prontuário - Visualizar{% endif %}</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/prontuario_view.css') }}">
+  <style>
+    /* Forçar visual de impressão limpo e igual ao da view */
+    body { background: #fff; color: #222; }
+    /* Esconder elementos da aplicação que não pertencem ao documento impresso */
+    .navbar, .sidebar, .site-footer, .topbar, .page-header { display: none !important; }
+    /* Garantir que ações/controles não apareçam no PDF */
+    .pront-actions, .btn { display: none !important; }
+    /* Ajustes finos para impressão */
+    .document-print { background: #fff; padding: 0; margin: 0 auto; box-shadow: none; max-width: 800px; }
+    .pront-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .pront-logo-img { max-width: 110px; max-height: 70px; display:block; }
+    .pront-photo-img { width: 84px; height: 84px; object-fit: cover; border: 1px solid #ddd; padding:2px; background:#fff;}
+    .pront-center { text-align: center; flex: 1 1 auto; margin: 0 12px; }
+    .pront-title { font-weight: 700; font-size: 18px; margin-top:6px; }
+    .pront-meta { font-size: 12px; color: #444; margin-top:4px; }
+    .pront-hr { border: 0; border-top: 1px solid #e0e0e0; margin: 12px 0; }
+    .pront-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    .pront-label { width: 20%; padding: 6px 8px; vertical-align: top; font-weight: 600; }
+    .pront-value { width: 30%; padding: 6px 8px; vertical-align: top; }
+    .pront-records { margin-top: 6px; margin-bottom: 10px; }
+    .rfo-block { border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; background: #fff; }
+    .pront-section { border: 1px solid #ddd; padding: 8px; margin-bottom: 8px; background: #fff; }
+    @page { size: A4; margin: 12mm; }
+    .document-print { padding: 12px 18px; }
+  </style>
+</head>
+
+{# Se a rota passou auto_print, colocamos data-auto-print no body (Jinja apenas no atributo). #}
+<body{% if auto_print %} data-auto-print="1"{% endif %}>
+{% if not prontuario %}
+  <div class="alert alert-warning">Prontuário não encontrado.</div>
+{% else %}
+  <div class="document-print">
+
+    <div class="pront-header">
+      <div class="pront-logo">
+        {% if header and header.logo_url %}
+          <img src="{{ header.logo_url }}" alt="Logo" class="pront-logo-img">
+        {% else %}
+          <img src="{{ url_for('static', filename='img/logo-escola.png') }}" alt="Logo" class="pront-logo-img">
+        {% endif %}
+      </div>
+
+      <div class="pront-center">
+        {% if header and header.lines %}
+          {% for ln in header.lines %}
+            <div class="line" style="font-weight:600;">{{ ln }}</div>
+          {% endfor %}
+        {% else %}
+          <div class="line" style="font-weight:600;">ESTADO DE MATO GROSSO</div>
+          <div class="line" style="font-weight:600;">SECRETARIA DE ESTADO DE EDUCAÇÃO</div>
+          <div class="line" style="font-weight:600;">COORDENADORIA DE ESCOLAS MILITARES</div>
+          <div class="line" style="font-weight:600;">ESCOLA ESTADUAL CÍVICO-MILITAR</div>
+        {% endif %}
+
+        <div class="pront-title">PRONTUÁRIO</div>
+
+        <div class="pront-meta">
+          Emitido em:
+          {% if created_date %}
+            {{ created_date }}{% if created_time %} às {{ created_time }}{% endif %}
+          {% else %}
+            {{ prontuario.get('created_at') or '-' }}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="pront-photo">
+        {% if aluno and aluno.get('foto_url') %}
+          <img src="{{ aluno.get('foto_url') }}" alt="Foto" class="pront-photo-img">
+        {% elif prontuario and prontuario.get('aluno_id') %}
+          <img src="{{ url_for('formularios_prontuario.api_aluno_foto', aluno_id=prontuario.get('aluno_id')) }}" alt="Foto" class="pront-photo-img">
+        {% else %}
+          <img src="{{ url_for('static', filename='img/placeholder-user.png') }}" alt="Foto" class="pront-photo-img">
+        {% endif %}
+      </div>
+    </div>
+
+    <hr class="pront-hr">
+
+    <table class="pront-table" role="presentation" aria-hidden="true">
+      <tr>
+        <td class="pront-label">Aluno:</td>
+        <td class="pront-value">
+          {% if aluno and aluno.get('nome') %}
+            {{ aluno.get('nome') }}
+          {% else %}
+            {{ prontuario.get('aluno_nome') or prontuario.get('aluno_id') or '-' }}
+          {% endif %}
+        </td>
+
+        <td class="pront-label">Matrícula:</td>
+        <td class="pront-value">{{ aluno.get('matricula') if aluno and aluno.get('matricula') else (prontuario.get('matricula') or '-') }}</td>
+      </tr>
+
+      <tr>
+        <td class="pront-label">Responsável:</td>
+        <td class="pront-value">{{ prontuario.get('responsavel') or (aluno.get('responsavel') if aluno else '-') or '-' }}</td>
+
+        <td class="pront-label">Série/Turma:</td>
+        <td class="pront-value">
+          {% if prontuario.get('serie') or prontuario.get('turma') %}
+            {{ prontuario.get('serie') or '-' }} {{ prontuario.get('turma') or '' }}
+          {% elif aluno and (aluno.get('serie') or aluno.get('turma')) %}
+            {{ aluno.get('serie') or '-' }} {{ aluno.get('turma') or '' }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="pront-label">E-mail:</td>
+        <td class="pront-value">{{ prontuario.get('email') or (aluno.get('email') if aluno else '-') or '-' }}</td>
+
+        <td class="pront-label">Telefone:</td>
+        <td class="pront-value">
+          {{ prontuario.get('telefone1') or prontuario.get('telefone2') or (aluno.get('telefone1') if aluno else '') or '-' }}
+        </td>
+      </tr>
+    </table>
+
+    <h5 style="margin-top:6px;">Registros de Fatos Observados</h5>
+    <div class="pront-records">
+      {% if prontuario_rfos is defined and prontuario_rfos %}
+        {% for r in prontuario_rfos %}
+          <div class="rfo-block">
+            <div style="margin-bottom:6px;">
+              <strong>Adicionado em</strong>
+              {% if r.added_date_br %}{{ r.added_date_br }}{% endif %}
+              {% if r.added_time %} às {{ r.added_time }}{% endif %}
+              {% if r.author_name %} por {{ r.author_name }}{% endif %}
+            </div>
+            <div><strong>RFO:</strong> {{ r.rfo_formatted or (r.get('rfo_formatted') if r is mapping else '') }}</div>
+            <div><strong>Data do RFO:</strong> {{ r.data_rfo_br or r.get('data_rfo_br') or '-' }}</div>
+            <div><strong>Relato:</strong> {{ r.relato or r.get('relato') or '-' }}</div>
+            <div><strong>Medida Aplicada:</strong> {{ r.medida_aplicada or r.get('medida_aplicada') or '-' }} {% if r.gestor_username %}por {{ r.gestor_username }}{% endif %}</div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="pront-section">{{ prontuario.get('registros_fatos') or '-' }}</div>
+      {% endif %}
+    </div>
+
+    <h5 class="pront-section-title">Circunstâncias atenuantes</h5>
+    <div class="pront-section">{{ prontuario.get('circunstancias_atenuantes') or prontuario.get('circ_atenuantes') or 'Não há' }}</div>
+
+    <h5 class="pront-section-title">Circunstâncias agravantes</h5>
+    <div class="pront-section">{{ prontuario.get('circunstancias_agravantes') or prontuario.get('circ_agravantes') or 'Não há' }}</div>
+
+    <div class="pront-section">
+      <p><strong>Comportamento:</strong> {{ comportamento or prontuario.get('comportamento') or prontuario.get('comportamento_atual') or '-' }}</p>
+      <p><strong>Pontuação:</strong> {{ pontuacao or prontuario.get('pontuacao') or prontuario.get('pontuacao_total') or '-' }}</p>
+    </div>
+
+    <!-- intentionally no action buttons here -->
+  </div>
+{% endif %}
+
+<script>
+  (function(){
+    try {
+      var auto = document.body.getAttribute('data-auto-print');
+      if (auto && auto !== '') {
+
+        // Handler cross-browser: onafterprint (principal), matchMedia fallback e timer fallback.
+        var closed = false;
+
+        function tryCloseWindow() {
+          if (closed) return;
+          closed = true;
+          try {
+            // fecha a janela atual (funciona se a janela foi aberta por script)
+            window.close();
+          } catch (e) {
+            // não podemos forçar nada além disto
+            console.debug('window.close falhou', e);
+          }
+        }
+
+        // onafterprint padrão
+        try {
+          window.onafterprint = function() {
+            setTimeout(tryCloseWindow, 300);
+          };
+        } catch (e) {}
+
+        // matchMedia listener
+        try {
+          var mql = window.matchMedia('print');
+          if (mql && mql.addListener) {
+            mql.addListener(function(m) {
+              if (!m.matches) {
+                setTimeout(tryCloseWindow, 300);
+              }
+            });
+          }
+        } catch (e) {}
+
+        // fallback absoluto (20s)
+        setTimeout(function(){ tryCloseWindow(); }, 20000);
+
+        // dispara print
+        setTimeout(function(){ try { window.print(); } catch(e) { console.error('print failed', e); } }, 250);
+      }
+    } catch (e) {
+      console.debug('auto-print script error', e);
+    }
+  })();
+</script>
+</body>
+</html>

@@ -314,10 +314,16 @@ def visualizar_aluno(aluno_id):
     return jsonify({'aluno': aluno_d})
 
 
+# --- substituir a função upload_foto por esta versão ---
 @visualizacoes_bp.route('/upload_foto/<int:aluno_id>', methods=['POST'])
 @login_required
 def upload_foto(aluno_id):
-    """Recebe upload de foto, salva em static/uploads/alunos e atualiza coluna alunos.photo (cria coluna se necessário)."""
+    """
+    Recebe upload de foto, salva em static/uploads/alunos e atualiza coluna
+    alunos.photo (cria coluna se necessário).
+    Agora salva com padrão: <matricula>_<slug_nome>.<ext>
+    Ex.: 20231234_humberto_moura.jpg
+    """
     if 'photo' not in request.files:
         return jsonify({'success': False, 'error': 'Nenhum arquivo enviado.'}), 400
     file = request.files['photo']
@@ -326,23 +332,72 @@ def upload_foto(aluno_id):
     if not _allowed_file(file.filename):
         return jsonify({'success': False, 'error': 'Formato de arquivo não permitido.'}), 400
 
-    filename_raw = secure_filename(file.filename)
-    ext = filename_raw.rsplit('.', 1)[1].lower()
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    filename = f'{aluno_id}_{timestamp}.{ext}'
+    # utilitários locais para gerar slug/nome seguro
+    import unicodedata, re
 
+    def slugify(text, max_len=80):
+        if not text:
+            return 'aluno'
+        text = unicodedata.normalize('NFKD', text)
+        text = text.encode('ascii', 'ignore').decode('ascii')
+        text = text.lower()
+        text = re.sub(r'[^a-z0-9]+', '_', text).strip('_')
+        if len(text) > max_len:
+            text = text[:max_len].rstrip('_')
+        return text or 'aluno'
+
+    def gerar_nome_foto(matricula_or_id, nome, original_filename):
+        import os
+        from werkzeug.utils import secure_filename as _secure
+        ext = os.path.splitext(original_filename)[1].lower() or '.jpg'
+        slug = slugify(nome)
+        base = f"{matricula_or_id}_{slug}"
+        filename = f"{base}{ext}"
+        return _secure(filename)
+
+    # puxar matrícula e nome do aluno para compor o nome do arquivo
+    db = get_db()
+    try:
+        row = db.execute("SELECT matricula, nome FROM alunos WHERE id = ?", (aluno_id,)).fetchone()
+    except Exception:
+        row = None
+
+    matricula = None
+    nome_aluno = None
+    if row:
+        try:
+            # row pode ser Row object ou tuple; tentamos acessar com chaves e por índice
+            matricula = row['matricula'] if 'matricula' in row.keys() else (row[0] if len(row) > 0 else None)
+            nome_aluno = row['nome'] if 'nome' in row.keys() else (row[1] if len(row) > 1 else None)
+        except Exception:
+            # fallback simples
+            try:
+                matricula = row[0]
+                nome_aluno = row[1]
+            except Exception:
+                matricula = None
+                nome_aluno = None
+
+    # fallback: se matrícula não existir, usar ID do aluno
+    matricula_or_id = str(matricula) if matricula else str(aluno_id)
+    nome_para_slug = nome_aluno or ''
+
+    # gerar novo filename padronizado
+    filename = gerar_nome_foto(matricula_or_id, nome_para_slug, file.filename)
+
+    # local de upload
     upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'alunos')
     os.makedirs(upload_dir, exist_ok=True)
     save_path = os.path.join(upload_dir, filename)
+
     try:
         file.save(save_path)
-    except Exception as e:
+    except Exception:
         current_app.logger.exception('Falha ao salvar arquivo de foto')
         return jsonify({'success': False, 'error': 'Falha ao salvar arquivo.'}), 500
 
-    db = get_db()
     try:
-        # tentar atualizar; se a coluna não existir, criá-la
+        # atualizar DB; se a coluna não existir, criá-la (mesma lógica anterior)
         try:
             db.execute('UPDATE alunos SET photo = ? WHERE id = ?', (filename, aluno_id))
         except Exception:
@@ -358,6 +413,7 @@ def upload_foto(aluno_id):
         db.rollback()
         current_app.logger.exception('Erro ao salvar referência de foto no banco')
         return jsonify({'success': False, 'error': 'Erro ao atualizar banco.'}), 500
+# --- fim da substituição ---
 
 
 @visualizacoes_bp.route('/excluir_aluno/<int:aluno_id>', methods=['POST'])

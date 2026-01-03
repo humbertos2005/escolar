@@ -1533,3 +1533,25 @@ html, body {
     white-space: nowrap;
 }
 
+/* FIX: alinhar Data da Matrícula e Turno (aplicação permanente) */
+.row:has(#data_matricula),
+.row.align-items-start { 
+  align-items: flex-start !important; 
+}
+
+label[for="turno"] {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 25.6px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+#turno {
+  box-sizing: border-box;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  height: 51.5556px !important;
+}

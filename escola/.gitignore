@@ -1,0 +1,27 @@
+﻿# Sistema / arquivos locais
+*.db
+*.sqlite
+*.sqlite3
+.env
+instance/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Uploads / arquivos do usuário
+static/uploads/
+uploads/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Backups / temporários
+*.bak
+*.backup
+*~

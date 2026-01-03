@@ -1,13 +1,13 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
-{% block title %}Visualizar ATA nº {{ request.view_args.ata_id if request.view_args else "" }}{% endblock %}
+{% block title %}Visualizar ATA n� {{ request.view_args.ata_id if request.view_args else "" }}{% endblock %}
 
 {% block content %}
 <div class="container">
   <div class="card mt-3">
     <div class="card-body">
       <div class="d-flex justify-content-between mb-3">
-        <h4>ATA — Visualização</h4>
+        <h4>ATA � Visualiza��o</h4>
         <div>
           <button id="btn-print" class="btn btn-primary btn-sm">Imprimir</button>
           {% if ata_id %}
@@ -22,22 +22,22 @@
 
       <!-- documento -->
       <div id="doc" class="document-view" style="background:white; padding:30px;">
-        <!-- Cabeçalho institucional -->
+        <!-- Cabe�alho institucional -->
         <div id="doc-header" style="text-align:center; margin-bottom:20px;">
           <div style="font-weight:700;">&lt; Logotipo ESTADO &gt;</div>
           <div>&lt; ESTADO &gt;</div>
           <div>&lt; SECRETARIA &gt;</div>
-          <div>&lt; COORDENAÇÃO &gt;</div>
+          <div>&lt; COORDENA��O &gt;</div>
           <div>&lt; ESCOLA &gt;</div>
         </div>
 
-        <h5 style="text-align:center; font-weight:700; margin-top:25px;">ATA DE MEDIAÇÃO ESCOLAR Nº <span id="doc-numero"></span></h5>
+        <h5 style="text-align:center; font-weight:700; margin-top:25px;">ATA DE MEDIA��O ESCOLAR N� <span id="doc-numero"></span></h5>
 
         <p id="doc-body" style="margin-top:30px; line-height:1.5;">
           Aos <span id="doc-data-extenso">&lt;data por extenso&gt;</span>, compareceu na <span id="doc-escola">&lt;ESCOLA&gt;</span> o(a) Sr(a)
-          <span id="doc-responsavel">&lt;RESPONSÁVEL&gt;</span>, responsável pelo(a) aluno(a)
+          <span id="doc-responsavel">&lt;RESPONS�VEL&gt;</span>, respons�vel pelo(a) aluno(a)
           <span id="doc-aluno">&lt;ALUNO&gt;</span>, matriculado(a) na(s)
-          <span id="doc-serie-turma">&lt;SÉRIE/TURMA&gt;</span>, para tratar do(s) seguinte(s) assunto(s):
+          <span id="doc-serie-turma">&lt;S�RIE/TURMA&gt;</span>, para tratar do(s) seguinte(s) assunto(s):
         </p>
 
         <div id="doc-relato" style="min-height:200px; border:1px solid #eee; padding:12px; margin-top:10px;">
@@ -69,10 +69,10 @@
           </div>
         </div>
 
-        <!-- footer/rodapé com numeração e nota -->
+        <!-- footer/rodap� com numera��o e nota -->
         <div class="doc-footer" style="margin-top:50px; font-size:0.9em; color:#444;">
           <div style="border-top:1px solid #eee; padding-top:6px;">
-            <span>(ATA ESCOLAR nº <span id="footer-numero"></span> — página <span class="pageNumber"></span>)</span>
+            <span>(ATA ESCOLAR n� <span id="footer-numero"></span> � p�gina <span class="pageNumber"></span>)</span>
           </div>
         </div>
       </div>
@@ -127,7 +127,7 @@
         let parts = [];
         if (Array.isArray(data.participants_json)) parts = data.participants_json;
         else if (Array.isArray(data.participants)) parts = data.participants;
-        // preencher até 4
+        // preencher at� 4
         for (let i=0;i<4;i++) {
           const p = parts[i] || {};
           setParticipant(i, p.nome || p.name || p.nome_participante || "", p.cargo || p.role || p.cargo_participante || "");
@@ -145,8 +145,8 @@
       });
     }
 
-    // preencher contador de página no footer usando CSS counter for printed PDF
-    // também atualiza .pageNumber se possível (some browsers won't update before printing)
+    // preencher contador de p�gina no footer usando CSS counter for printed PDF
+    // tamb�m atualiza .pageNumber se poss�vel (some browsers won't update before printing)
     function updatePageNumber() {
       const els = document.querySelectorAll('.pageNumber');
       for (const el of els) el.textContent = "";
@@ -160,7 +160,7 @@
 </script>
 
 <style>
-/* estilos de impressão simples; o Chromium (pyppeteer) respeita @page e counter(page) */
+/* estilos de impress�o simples; o Chromium (pyppeteer) respeita @page e counter(page) */
 @media print {
   body { background: white; color: black; }
   .document-view { padding: 20mm; }

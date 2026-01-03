@@ -4,7 +4,7 @@
 <h2>Elogios</h2>
 
 <div class="toolbar">
-    <a href="{{ url_for('cadastros_bp.adicionar_elogio') }}" class="button btn-primary">
+    <a href="{{ url_for('cadastros_bp.adicionar_elogio', iframe=1) }}" class="button btn-primary">
         <i class="fas fa-plus-circle"></i> Adicionar Novo Elogio
     </a>
 </div>
@@ -33,13 +33,13 @@
                     <td>{{ elogio.descricao }}</td>
                     <td>{{ elogio.data_criacao | datetime_br }}</td>
                     <td class="actions">
-                        <a href="{{ url_for('cadastros_bp.editar_elogio', elogio_id=elogio.id) }}" 
+                        <a href="{{ url_for('cadastros_bp.editar_elogio', elogio_id=elogio.id, iframe=1) }}"
                            class="btn btn-sm btn-info" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
                         {% if session.get('nivel') == 1 %}
-                        <form method="POST" action="{{ url_for('cadastros_bp.excluir_elogio', elogio_id=elogio.id) }}" 
-                              style="display:inline;" 
+                        <form method="POST" action="{{ url_for('cadastros_bp.excluir_elogio', elogio_id=elogio.id, iframe=1) }}"
+                              style="display:inline;"
                               onsubmit="return confirm('Tem certeza que deseja excluir este elogio?');">
                             <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
                                 <i class="fas fa-trash"></i>
@@ -56,7 +56,7 @@
     <div class="empty-state">
         <i class="fas fa-award"></i>
         <p>Nenhum elogio cadastrado.</p>
-        <a href="{{ url_for('cadastros_bp.adicionar_elogio') }}" class="button btn-primary">
+        <a href="{{ url_for('cadastros_bp.adicionar_elogio', iframe=1) }}" class="button btn-primary">
             <i class="fas fa-plus"></i> Cadastrar Primeiro Elogio
         </a>
     </div>

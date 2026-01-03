@@ -1,0 +1,80 @@
+[35mblueprints/disciplinar.py[m[36m:[m[32m913[m[36m:[m        circ_at = request.form.get('[1;31mcircunst[mancias_atenuantes', '').strip() or 'Não há'
+[35mblueprints/disciplinar.py[m[36m:[m[32m914[m[36m:[m        circ_ag = request.form.get('[1;31mcircunst[mancias_agravantes', '').strip() or 'Não há'
+[35mblueprints/disciplinar.py[m[36m:[m[32m1002[m[36m:[m                if '[1;31mcircunst[mancias_atenuantes' in cols:
+[35mblueprints/disciplinar.py[m[36m:[m[32m1003[m[36m:[m                    update_cols.append("[1;31mcircunst[mancias_atenuantes = ?")
+[35mblueprints/disciplinar.py[m[36m:[m[32m1005[m[36m:[m                if '[1;31mcircunst[mancias_agravantes' in cols:
+[35mblueprints/disciplinar.py[m[36m:[m[32m1006[m[36m:[m                    update_cols.append("[1;31mcircunst[mancias_agravantes = ?")
+[35mblueprints/disciplinar.py[m[36m:[m[32m1265[m[36m:[m        atenuantes = request.form.get('[1;31mcircunst[mancias_atenuantes', '').strip() or 'Não há'
+[35mblueprints/disciplinar.py[m[36m:[m[32m1266[m[36m:[m        agravantes = request.form.get('[1;31mcircunst[mancias_agravantes', '').strip() or 'Não há'
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m285[m[36m:[m                [1;31mcircunst[mancias_atenuantes TEXT,
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m286[m[36m:[m                [1;31mcircunst[mancias_agravantes TEXT,
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m822[m[36m:[m                registros_fatos=?, [1;31mcircunst[mancias_atenuantes=?, [1;31mcircunst[mancias_agravantes=?, deleted=0 WHERE id=?
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m833[m[36m:[m                form.get('circ_atenuantes') or form.get('[1;31mcircunst[mancias_atenuantes'),
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m834[m[36m:[m                form.get('circ_agravantes') or form.get('[1;31mcircunst[mancias_agravantes'),
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m1008[m[36m:[m                        registros_fatos=?, [1;31mcircunst[mancias_atenuantes=?, [1;31mcircunst[mancias_agravantes=?, deleted=0
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m1019[m[36m:[m                    form.get('circ_atenuantes') or form.get('[1;31mcircunst[mancias_atenuantes'),
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m1020[m[36m:[m                    form.get('circ_agravantes') or form.get('[1;31mcircunst[mancias_agravantes'),
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m1034[m[36m:[m                    registros_fatos, [1;31mcircunst[mancias_atenuantes, [1;31mcircunst[mancias_agravantes, created_at, deleted
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m1046[m[36m:[m                form.get('circ_atenuantes') or form.get('[1;31mcircunst[mancias_atenuantes'),
+[35mblueprints/formularios_prontuario.py[m[36m:[m[32m1047[m[36m:[m                form.get('circ_agravantes') or form.get('[1;31mcircunst[mancias_agravantes'),
+[35mmigrations/002_add_circunstancias_ocorrencias.sql[m[36m:[m[32m1[m[36m:[m-- Migration: adiciona colunas [1;31mcircunst[mancias_atenuantes e [1;31mcircunst[mancias_agravantes à tabela ocorrencias
+[35mmigrations/002_add_circunstancias_ocorrencias.sql[m[36m:[m[32m7[m[36m:[mALTER TABLE ocorrencias ADD COLUMN [1;31mcircunst[mancias_atenuantes TEXT;
+[35mmigrations/002_add_circunstancias_ocorrencias.sql[m[36m:[m[32m8[m[36m:[mALTER TABLE ocorrencias ADD COLUMN [1;31mcircunst[mancias_agravantes TEXT;
+[35mmigrations/002_add_circunstancias_ocorrencias.sql[m[36m:[m[32m12[m[36m:[m-- UPDATE ocorrencias SET [1;31mcircunst[mancias_atenuantes = 'Não há' WHERE [1;31mcircunst[mancias_atenuantes IS NULL;
+[35mmigrations/002_add_circunstancias_ocorrencias.sql[m[36m:[m[32m13[m[36m:[m-- UPDATE ocorrencias SET [1;31mcircunst[mancias_agravantes = 'Não há' WHERE [1;31mcircunst[mancias_agravantes IS NULL;
+[35mmodels.py[m[36m:[m[32m416[m[36m:[m        # Criar tabelas auxiliares (comportamentos/[1;31mcircunst[mâncias)
+[35mmodels.py[m[36m:[m[32m418[m[36m:[m        criar_tabela_[1;31mcircunst[mancias()
+[35mmodels.py[m[36m:[m[32m449[m[36m:[m            if '[1;31mcircunst[mancias_atenuantes' not in colunas:
+[35mmodels.py[m[36m:[m[32m450[m[36m:[m                conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN [1;31mcircunst[mancias_atenuantes TEXT;")
+[35mmodels.py[m[36m:[m[32m451[m[36m:[m                print("   [MIGRAÇÃO] Coluna '[1;31mcircunst[mancias_atenuantes' adicionada.")
+[35mmodels.py[m[36m:[m[32m453[m[36m:[m            if '[1;31mcircunst[mancias_agravantes' not in colunas:
+[35mmodels.py[m[36m:[m[32m454[m[36m:[m                conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN [1;31mcircunst[mancias_agravantes TEXT;")
+[35mmodels.py[m[36m:[m[32m455[m[36m:[m                print("   [MIGRAÇÃO] Coluna '[1;31mcircunst[mancias_agravantes' adicionada.")
+[35mmodels.py[m[36m:[m[32m672[m[36m:[mdef criar_tabela_[1;31mcircunst[mancias():
+[35mmodels.py[m[36m:[m[32m673[m[36m:[m    """Cria tabela de [1;31mcircunst[mâncias atenuantes/agravantes"""
+[35mmodels.py[m[36m:[m[32m677[m[36m:[m            CREATE TABLE IF NOT EXISTS [1;31mcircunst[mancias (
+[35mmodels.py[m[36m:[m[32m685[m[36m:[m        # Inserir [1;31mcircunst[mâncias padrão
+[35mmodels.py[m[36m:[m[32m687[m[36m:[m        cursor.execute("SELECT COUNT(*) FROM [1;31mcircunst[mancias")
+[35mmodels.py[m[36m:[m[32m689[m[36m:[m            [1;31mcircunst[mancias_padrao = [
+[35mmodels.py[m[36m:[m[32m700[m[36m:[m                "INSERT INTO [1;31mcircunst[mancias (tipo, descricao) VALUES (?, ?)",
+[35mmodels.py[m[36m:[m[32m701[m[36m:[m                [1;31mcircunst[mancias_padrao
+[35mmodels.py[m[36m:[m[32m706[m[36m:[m        print(f"Erro ao criar tabela [1;31mcircunst[mancias: {e}")
+[35mmodels.py[m[36m:[m[32m946[m[36m:[mdef get_[1;31mcircunst[mancias(tipo):
+[35mmodels.py[m[36m:[m[32m947[m[36m:[m    """Retorna [1;31mcircunst[mâncias por tipo"""
+[35mmodels.py[m[36m:[m[32m952[m[36m:[m        FROM [1;31mcircunst[mancias 
+[35mmodels.py[m[36m:[m[32m1079[m[36m:[m            '[1;31mcircunst[mancias_atenuantes': "TEXT",
+[35mmodels.py[m[36m:[m[32m1080[m[36m:[m            '[1;31mcircunst[mancias_agravantes': "TEXT",
+[35mstatic/css/prontuario_view.css[m[36m:[m[32m3[m[36m:[m   e aplica recuo controlado para as seções "[1;31mCircunst[mâncias".
+[35mstatic/css/prontuario_view.css[m[36m:[m[32m112[m[36m:[m/* Blocos de seção ([1;31mcircunst[mâncias) — recuo lateral dos valores */
+[35mstatic/js/registrar_fmd.js[m[36m:[m[32m11[m[36m:[m  // AUTOCOMPLETE_PONTUACAO_URL, AUTOCOMPLETE_[1;31mCIRCUNST[mANCIAS_URL, AUTOCOMPLETE_USUARIOS_URL
+[35mstatic/js/registrar_fmd.js[m[36m:[m[32m429[m[36m:[m      // [1;31mcircunst[mâncias default
+[35mstatic/js/registrar_fmd.js[m[36m:[m[32m430[m[36m:[m      const atenuantes = document.getElementById('[1;31mcircunst[mancias_atenuantes');
+[35mstatic/js/registrar_fmd.js[m[36m:[m[32m431[m[36m:[m      const agravantes = document.getElementById('[1;31mcircunst[mancias_agravantes');
+[35mstatic/js/registrar_fmd.js[m[36m:[m[32m512[m[36m:[m    setupSingleAutocomplete('[1;31mcircunst[mancias_atenuantes', 'atenuantes_autocomplete_list', AUTOCOMPLETE_[1;31mCIRCUNST[mANCIAS_URL, item => {
+[35mstatic/js/registrar_fmd.js[m[36m:[m[32m514[m[36m:[m      const inp = document.getElementById('[1;31mcircunst[mancias_atenuantes');
+[35mstatic/js/registrar_fmd.js[m[36m:[m[32m519[m[36m:[m    setupSingleAutocomplete('[1;31mcircunst[mancias_agravantes', 'agravantes_autocomplete_list', AUTOCOMPLETE_[1;31mCIRCUNST[mANCIAS_URL, item => {
+[35mstatic/js/registrar_fmd.js[m[36m:[m[32m521[m[36m:[m      const inp = document.getElementById('[1;31mcircunst[mancias_agravantes');
+[35mtemplates/disciplinar/registrar_fmd.html[m[36m:[m[32m139[m[36m:[m            <!-- 12 e 13 - [1;31mCircunst[mâncias atenuantes / agravantes (autocomplete) -->
+[35mtemplates/disciplinar/registrar_fmd.html[m[36m:[m[32m141[m[36m:[m                <label for="[1;31mcircunst[mancias_atenuantes">[1;31mCircunst[mâncias Atenuantes</label>
+[35mtemplates/disciplinar/registrar_fmd.html[m[36m:[m[32m142[m[36m:[m                <input type="text" id="[1;31mcircunst[mancias_atenuantes" name="[1;31mcircunst[mancias_atenuantes" class="form-control" placeholder="Autocomplete..." autocomplete="off">
+[35mtemplates/disciplinar/registrar_fmd.html[m[36m:[m[32m149[m[36m:[m                <label for="[1;31mcircunst[mancias_agravantes">[1;31mCircunst[mâncias Agravantes</label>
+[35mtemplates/disciplinar/registrar_fmd.html[m[36m:[m[32m150[m[36m:[m                <input type="text" id="[1;31mcircunst[mancias_agravantes" name="[1;31mcircunst[mancias_agravantes" class="form-control" placeholder="Autocomplete..." autocomplete="off">
+[35mtemplates/disciplinar/registrar_fmd.html[m[36m:[m[32m197[m[36m:[mconst AUTOCOMPLETE_[1;31mCIRCUNST[mANCIAS_URL = "{{ url_for('disciplinar_bp.api_pontuacoes_busca') }}";  // reutiliza pontuações
+[35mtemplates/disciplinar/tratar_rfo.html[m[36m:[m[32m204[m[36m:[m            <!-- SEÇÃO 2.5: [1;31mCircunst[mâncias (NOVOS CAMPOS) -->
+[35mtemplates/disciplinar/tratar_rfo.html[m[36m:[m[32m206[m[36m:[m                <legend><i class="fas fa-book-open"></i> [1;31mCircunst[mâncias</legend>
+[35mtemplates/disciplinar/tratar_rfo.html[m[36m:[m[32m209[m[36m:[m                    <label for="[1;31mcircunst[mancias_atenuantes">[1;31mCircunst[mâncias Atenuantes</label>
+[35mtemplates/disciplinar/tratar_rfo.html[m[36m:[m[32m210[m[36m:[m                    <textarea id="[1;31mcircunst[mancias_atenuantes" name="[1;31mcircunst[mancias_atenuantes" class="form-control" rows="3" {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}></textarea>
+[35mtemplates/disciplinar/tratar_rfo.html[m[36m:[m[32m215[m[36m:[m                    <label for="[1;31mcircunst[mancias_agravantes">[1;31mCircunst[mâncias Agravantes</label>
+[35mtemplates/disciplinar/tratar_rfo.html[m[36m:[m[32m216[m[36m:[m                    <textarea id="[1;31mcircunst[mancias_agravantes" name="[1;31mcircunst[mancias_agravantes" class="form-control" rows="3" {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}></textarea>
+[35mtemplates/formularios/prontuario.html[m[36m:[m[32m70[m[36m:[m        <label>[1;31mCircunst[mâncias atenuantes</label>
+[35mtemplates/formularios/prontuario.html[m[36m:[m[32m71[m[36m:[m        <textarea id="circ_atenuantes" name="circ_atenuantes" class="form-control" rows="3" placeholder='Se não tiver lançamento deixe "Não há"'>{{ prontuario.[1;31mcircunst[mancias_atenuantes if prontuario and prontuario.[1;31mcircunst[mancias_atenuantes else '' }}</textarea>
+[35mtemplates/formularios/prontuario.html[m[36m:[m[32m75[m[36m:[m        <label>[1;31mCircunst[mâncias agravantes</label>
+[35mtemplates/formularios/prontuario.html[m[36m:[m[32m76[m[36m:[m        <textarea id="circ_agravantes" name="circ_agravantes" class="form-control" rows="3" placeholder='Se não tiver lançamento deixe "Não há"'>{{ prontuario.[1;31mcircunst[mancias_agravantes if prontuario and prontuario.[1;31mcircunst[mancias_agravantes else '' }}</textarea>
+[35mtemplates/formularios/prontuario_view.html[m[36m:[m[32m351[m[36m:[m    <h5 class="pront-section-title">[1;31mCircunst[mâncias atenuantes</h5>
+[35mtemplates/formularios/prontuario_view.html[m[36m:[m[32m357[m[36m:[m      {{ prontuario.get('[1;31mcircunst[mancias_atenuantes') or prontuario.get('circ_atenuantes') or 'Não há' }}
+[35mtemplates/formularios/prontuario_view.html[m[36m:[m[32m366[m[36m:[m    <h5 class="pront-section-title">[1;31mCircunst[mâncias agravantes</h5>
+[35mtemplates/formularios/prontuario_view.html[m[36m:[m[32m372[m[36m:[m      {{ prontuario.get('[1;31mcircunst[mancias_agravantes') or prontuario.get('circ_agravantes') or 'Não há' }}
+[35mtemplates/visualizacoes/prontuario.html[m[36m:[m[32m70[m[36m:[m    <h5 style="margin-top:12px;">[1;31mCircunst[mâncias atenuantes</h5>
+[35mtemplates/visualizacoes/prontuario.html[m[36m:[m[32m72[m[36m:[m      {{ prontuario.[1;31mcircunst[mancias_atenuantes or prontuario.circ_atenuantes or 'Não há' }}
+[35mtemplates/visualizacoes/prontuario.html[m[36m:[m[32m75[m[36m:[m    <h5 style="margin-top:12px;">[1;31mCircunst[mâncias agravantes</h5>
+[35mtemplates/visualizacoes/prontuario.html[m[36m:[m[32m77[m[36m:[m      {{ prontuario.[1;31mcircunst[mancias_agravantes or prontuario.circ_agravantes or 'Não há' }}

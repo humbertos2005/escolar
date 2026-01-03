@@ -3,7 +3,8 @@
 
 <h2>Editar Falta Disciplinar</h2>
 
-<form method="POST" class="form-usuario">
+<form method="POST" action="{{ url_for('cadastros_bp.editar_falta', falta_id=falta.id, iframe=1) }}" class="form-usuario">
+    <input type="hidden" name="iframe" value="1" />
     <div class="form-group">
         <label for="natureza">
             <i class="fas fa-exclamation-triangle"></i> Natureza da Falta <span class="required">*</span>
@@ -15,7 +16,7 @@
             <option value="GRAVE" {% if falta.natureza == 'GRAVE' %}selected{% endif %}>GRAVE</option>
         </select>
     </div>
-    
+
     <div class="form-group">
         <label for="descricao">
             <i class="fas fa-align-left"></i> Descrição <span class="required">*</span>
@@ -27,7 +28,7 @@
         <button type="submit" class="button btn-primary">
             <i class="fas fa-save"></i> Salvar Alterações
         </button>
-        <a href="{{ url_for('cadastros_bp.listar_faltas') }}" class="button btn-secondary">
+        <a href="{{ url_for('cadastros_bp.listar_faltas', iframe=1) }}" class="button btn-secondary">
             <i class="fas fa-arrow-left"></i> Voltar
         </a>
     </div>

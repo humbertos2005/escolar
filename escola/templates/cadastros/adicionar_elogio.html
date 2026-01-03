@@ -3,7 +3,8 @@
 
 <h2>Adicionar Elogio</h2>
 
-<form method="POST" class="form-usuario">
+<form method="POST" action="{{ url_for('cadastros_bp.adicionar_elogio', iframe=1) }}" class="form-usuario">
+    <input type="hidden" name="iframe" value="1" />
     <div class="form-group">
         <label for="tipo">
             <i class="fas fa-award"></i> Tipo de Elogio <span class="required">*</span>
@@ -14,12 +15,12 @@
             <option value="COLETIVO">COLETIVO</option>
         </select>
     </div>
-    
+
     <div class="form-group">
         <label for="descricao">
             <i class="fas fa-align-left"></i> Descrição <span class="required">*</span>
         </label>
-        <textarea id="descricao" name="descricao" required rows="4" 
+        <textarea id="descricao" name="descricao" required rows="4"
                   placeholder="Descreva o elogio..."></textarea>
     </div>
 
@@ -27,7 +28,7 @@
         <button type="submit" class="button btn-primary">
             <i class="fas fa-save"></i> Cadastrar Elogio
         </button>
-        <a href="{{ url_for('cadastros_bp.listar_elogios') }}" class="button btn-secondary">
+        <a href="{{ url_for('cadastros_bp.listar_elogios', iframe=1) }}" class="button btn-secondary">
             <i class="fas fa-arrow-left"></i> Voltar
         </a>
     </div>

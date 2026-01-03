@@ -1,4 +1,4 @@
-﻿{% set resp = (ata.responsavel or '') | trim %}
+{% set resp = (ata.responsavel or '') | trim %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -54,7 +54,7 @@
     <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
     <div class="header-space" aria-hidden="true"></div>
   </div>
-  <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
+  <h3 class="title">ATA DE MEDIA��O ESCOLAR N� {{ ata.numero }}/{{ ata.ano }}</h3>
   <div class="espacador-apos-titulo"></div>
   <p class="conteudo">
     {% set data_text = ata.data_extenso if ata.get('data_extenso') else (ata.created_at if ata.get('created_at') else '') %}
@@ -71,7 +71,7 @@
       {% set nome_responsavel = (ata.aluno.nome if ata.get('aluno') and getattr(ata.aluno, 'nome', None) else (ata.aluno_nome or '')) %}
     {% endif %}
     o(a) Sr.(a) <strong>{{ nome_responsavel }}</strong>,
-    responsável pelo(a) aluno(a) <strong>{{ ata.aluno_nome }}</strong>,
+    respons�vel pelo(a) aluno(a) <strong>{{ ata.aluno_nome }}</strong>,
     matriculado(a) na(s) {{ ata.serie_turma if ata.get('serie_turma') else '' }},
     para tratar do(s) seguinte(s) assunto(s): {{ ata.conteudo or '' }}.
   </p>
@@ -145,7 +145,7 @@
         <div class="assinatura-campo">
           <div class="linha-assinatura"></div>
           <p>{{ nome_responsavel | upper }}</p>
-          <div class="assinatura-cargo">Responsável</div>
+          <div class="assinatura-cargo">Respons�vel</div>
         </div>
       {% endif %}
     {% endif %}
