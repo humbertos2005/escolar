@@ -1,210 +1,308 @@
 {% extends 'base.html' %}
 
+
 {% block title %}Prontuário - Visualizar{% endblock %}
+
 
 {% block content %}
 
+
+
+
+
 <link rel="stylesheet" href="{{ url_for('static', filename='css/prontuario_view.css') }}">
 
-<script>
-/*
-  openPrint: tenta abrir uma POPUP controlada por script (window.open) para
-  executar print() e fechar automaticamente após o término (quando permitido
-  pelo navegador). Se o popup for bloqueado, cai no fallback do iframe oculto
-  (comportamento já existente).
-  Uso: onclick="return openPrint(event, this);"
-*/
-function openPrint(evt, anchor) {
-  if (evt && evt.preventDefault) evt.preventDefault();
-  var url = '';
-  try { url = anchor.getAttribute('href'); } catch (e) { url = null; }
-  if (!url) return false;
 
-  // Tentar abrir popup primeiro (necessário para auto-close funcionar)
-  try {
-    var name = 'pront_print_' + Date.now();
-    // parametros mínimos; sem "noopener" para permitir a janela controlar o print/close
-    // OBS: security - domínio é o mesmo (localhost) então é aceitável; em produção revise conforme política.
-    var w = window.open(url, name, 'toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes');
-    if (w) {
-      try { w.focus(); } catch (e) {}
-      // Se popup abriu, deixamos a popup executar print() e fechar-se.
-      return false;
-    }
-  } catch (e) {
-    console.debug('popup open failed, falling back to iframe', e);
-  }
 
-  // Fallback: iframe oculto (não fecha diálogo do navegador)
-  try {
-    var old = document.getElementById('print-iframe-hidden');
-    if (old) {
-      try { document.body.removeChild(old); } catch (e) {}
-    }
 
-    var iframe = document.createElement('iframe');
-    iframe.id = 'print-iframe-hidden';
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.visibility = 'hidden';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-
-    var previousTitle = document.title;
-
-    iframe.onload = function() {
-      try {
-        // tenta ler título do iframe e ajustar título da janela pai temporariamente (ajuda sugestão de filename em alguns browsers)
-        var suggested = '';
-        try {
-          suggested = iframe.contentDocument && iframe.contentDocument.title;
-        } catch (e) { suggested = ''; }
-        if (suggested) {
-          try { document.title = suggested; } catch (e) {}
-        }
-
-        try { iframe.contentWindow.focus(); } catch (e) {}
-
-        setTimeout(function() {
-          try {
-            iframe.contentWindow.print();
-          } catch (printErr) {
-            console.error('Erro ao imprimir via iframe:', printErr);
-            // fallback: navegar para a URL de impressão na aba atual
-            window.location.href = url;
-          } finally {
-            // restaurar título e remover iframe após pequeno atraso
-            setTimeout(function() {
-              try { document.title = previousTitle; } catch (e) {}
-              try { if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe); } catch (e) {}
-            }, 1000);
-          }
-        }, 300);
-      } catch (err) {
-        console.error('Erro no onload do iframe:', err);
-        try { window.location.href = url; } catch (e) {}
-      }
-    };
-
-    return false;
-  } catch (e) {
-    // último recurso: navegar na aba atual
-    try { window.location.href = url; } catch (er) {}
-    return false;
-  }
-}
-</script>
 
 {% if not prontuario %}
+
+
   <div class="alert alert-warning">Prontuário não encontrado.</div>
+
+
 {% else %}
+
+
   <div class="document-print">
+
 
     <div class="pront-header">
 
+
       <div class="pront-logo">
 
+
         {% if header and header.logo_url %}
+
+
           <img src="{{ header.logo_url }}" alt="Logo" class="pront-logo-img">
+
+
         {% else %}
+
+
           <img src="{{ url_for('static', filename='img/logo-escola.png') }}" alt="Logo" class="pront-logo-img">
+
+
         {% endif %}
 
+
       </div>
+
+
+
+
 
       <div class="pront-center">
 
+
         {% if header and header.lines %}
+
+
           {% for ln in header.lines %}
+
+
             <div class="line">{{ ln }}</div>
+
+
           {% endfor %}
+
+
         {% else %}
+
+
           <div class="line">ESTADO DE MATO GROSSO</div>
+
+
           <div class="line">SECRETARIA DE ESTADO DE EDUCAÇÃO</div>
+
+
           <div class="line">COORDENADORIA DE ESCOLAS MILITARES</div>
+
+
           <div class="line">ESCOLA ESTADUAL CÍVICO-MILITAR</div>
+
+
         {% endif %}
+
+
+
+
 
         <div class="pront-title">PRONTUÁRIO</div>
 
+
         <div class="pront-meta">Emitido em: {{ prontuario.created_at or '-' }}</div>
 
+
       </div>
+
+
+
+
 
       <div class="pront-photo">
 
+
         {% if aluno and aluno.get('foto_url') %}
+
+
           <img src="{{ aluno.get('foto_url') }}" alt="Foto" class="pront-photo-img">
+
+
         {% elif prontuario and prontuario.get('aluno_id') %}
+
+
           <img src="{{ url_for('formularios_prontuario.api_aluno_foto', aluno_id=prontuario.get('aluno_id')) }}" alt="Foto" class="pront-photo-img">
+
+
         {% else %}
+
+
           <img src="{{ url_for('static', filename='img/placeholder-user.png') }}" alt="Foto" class="pront-photo-img">
+
+
         {% endif %}
+
 
       </div>
 
+
     </div>
+
+
+
+
 
     <hr class="pront-hr">
 
+
+
+
+
     <table class="pront-table">
+
+
       <tr>
+
+
         <td class="pront-label"><strong>Aluno:</strong></td>
+
+
         <td class="pront-value">
+
+
           {% if aluno and aluno.get('nome') %}
+
+
             {{ aluno.get('nome') }}
+
+
           {% elif prontuario.get('aluno_nome') %}
+
+
             {{ prontuario.get('aluno_nome') }}
+
+
           {% elif prontuario.get('aluno_id') %}
+
+
             {{ prontuario.get('aluno_id') }}
+
+
           {% else %}
+
+
             -
+
+
           {% endif %}
+
+
         </td>
+
+
+
+
 
         <td class="pront-label"><strong>Matrícula:</strong></td>
+
+
         <td class="pront-value">{% if aluno and aluno.get('matricula') %}{{ aluno.get('matricula') }}{% else %}{{ prontuario.get('matricula') or '-' }}{% endif %}</td>
+
+
       </tr>
 
+
+
+
+
       <tr>
+
+
         <td class="pront-label"><strong>Responsável:</strong></td>
+
+
         <td class="pront-value">{{ prontuario.get('responsavel') or (aluno.get('responsavel') if aluno else '-') or '-' }}</td>
 
+
+
+
+
         <td class="pront-label"><strong>Série/Turma:</strong></td>
+
+
         <td class="pront-value">
+
+
           {% if prontuario.get('serie') or prontuario.get('turma') %}
+
+
             {{ prontuario.get('serie') or '-' }} {{ prontuario.get('turma') or '' }}
+
+
           {% elif aluno and (aluno.get('serie') or aluno.get('turma')) %}
+
+
             {{ aluno.get('serie') or '-' }} {{ aluno.get('turma') or '' }}
+
+
           {% else %}
+
+
             -
+
+
           {% endif %}
+
+
         </td>
+
+
       </tr>
+
+
+
+
 
       <tr>
+
+
         <td class="pront-label"><strong>E-mail:</strong></td>
+
+
         <td class="pront-value">{% if prontuario.get('email') %}{{ prontuario.get('email') }}{% elif aluno and aluno.get('email') %}{{ aluno.get('email') }}{% else %}-{% endif %}</td>
 
+
+
+
+
         <td class="pront-label"><strong>Telefone:</strong></td>
+
+
         <td class="pront-value">
+
+
           {% if prontuario.get('telefone1') %}{{ prontuario.get('telefone1') }}
+
+
           {% elif prontuario.get('telefone2') %}{{ prontuario.get('telefone2') }}
+
+
           {% elif aluno and (aluno.get('telefone1') or aluno.get('telefone2')) %}
+
+
             {{ aluno.get('telefone1') or aluno.get('telefone2') }}
+
+
           {% else %}
+
+
             -
+
+
           {% endif %}
+
+
         </td>
+
+
       </tr>
+
+
     </table>
 
+
+
+
+
     <h5>Registros de Fatos Observados</h5>
+
     <div class="pront-records">
+
+      {# Se existem RFOs estruturados, mostramos no novo formato; caso contrário, mantém o texto antigo #}
       {% if prontuario_rfos is defined and prontuario_rfos %}
         {% for r in prontuario_rfos %}
           <div class="rfo-block" style="margin-bottom:0.5em; white-space:pre-wrap;">
@@ -232,43 +330,61 @@ function openPrint(evt, anchor) {
       {% else %}
         {{ prontuario.get('registros_fatos') or '-' }}
       {% endif %}
+
     </div>
 
     <h5 class="pront-section-title">Circunstâncias atenuantes</h5>
+
+
     <div class="pront-section">
+
+
       {{ prontuario.get('circunstancias_atenuantes') or prontuario.get('circ_atenuantes') or 'Não há' }}
+
+
     </div>
+
+
+
+
 
     <h5 class="pront-section-title">Circunstâncias agravantes</h5>
-    <div class="pront-section">
-      {{ prontuario.get('circunstancias_agravantes') or prontuario.get('circ_agravantes') or 'Não há' }}
-    </div>
+
 
     <div class="pront-section">
-      <p><strong>Comportamento:</strong>
-        {{ comportamento
-          or prontuario.get('comportamento')
-          or prontuario.get('comportamento_atual')
-          or '-' }}
-      </p>
-      <p><strong>Pontuação:</strong>
-        {{ pontuacao
-          or prontuario.get('pontuacao')
-          or prontuario.get('pontuacao_total')
-          or '-' }}
-      </p>
+
+
+      {{ prontuario.get('circunstancias_agravantes') or prontuario.get('circ_agravantes') or 'Não há' }}
+
+
     </div>
+
+
+
+
 
     <div class="pront-actions">
+
+
       <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('formularios_prontuario.listar_prontuarios') }}">Voltar</a>
+
+
       <a class="btn btn-primary btn-sm" href="{{ url_for('formularios_prontuario.editar_prontuario', prontuario_id=prontuario.get('id')) }}">Editar</a>
-      <!-- botão agora usa openPrint (tenta popup primeiro, depois iframe) -->
-      <a id="btn-imprimir" class="btn btn-secondary btn-sm"
-         href="{{ url_for('formularios_prontuario.imprimir_prontuario', prontuario_id=prontuario.get('id')) }}?auto_print=1"
-         onclick="return openPrint(event, this);">Imprimir</a>
+
+
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('formularios_prontuario.imprimir_prontuario', prontuario_id=prontuario.get('id')) }}" target="_blank">Imprimir</a>
+
+
     </div>
 
+
   </div>
+
+
 {% endif %}
+
+
+
+
 
 {% endblock %}

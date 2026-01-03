@@ -3,7 +3,8 @@
 
 <h2>Adicionar Falta Disciplinar</h2>
 
-<form method="POST" class="form-usuario">
+<form method="POST" action="{{ url_for('cadastros_bp.adicionar_falta', iframe=1) }}" class="form-usuario">
+    <input type="hidden" name="iframe" value="1" />
     <div class="form-group">
         <label for="natureza">
             <i class="fas fa-exclamation-triangle"></i> Natureza da Falta <span class="required">*</span>
@@ -15,12 +16,12 @@
             <option value="GRAVE">GRAVE</option>
         </select>
     </div>
-    
+
     <div class="form-group">
         <label for="descricao">
             <i class="fas fa-align-left"></i> Descrição <span class="required">*</span>
         </label>
-        <textarea id="descricao" name="descricao" required rows="4" 
+        <textarea id="descricao" name="descricao" required rows="4"
                   placeholder="Descreva a falta disciplinar..."></textarea>
     </div>
 
@@ -28,7 +29,7 @@
         <button type="submit" class="button btn-primary">
             <i class="fas fa-save"></i> Cadastrar Falta
         </button>
-        <a href="{{ url_for('cadastros_bp.listar_faltas') }}" class="button btn-secondary">
+        <a href="{{ url_for('cadastros_bp.listar_faltas', iframe=1) }}" class="button btn-secondary">
             <i class="fas fa-arrow-left"></i> Voltar
         </a>
     </div>
