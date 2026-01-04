@@ -287,7 +287,7 @@ def criar_tabelas():
             
             if 'data_nascimento' not in colunas:
 
-                conn.execute("ALTER TABLE alunos ADD COLUMN data_nascimento TEXT;")
+                conn.execute("ALTER TABLE alunos ADD COLUMN data_nascimento TEXT DEFAULT '';")
 
                 conn.commit()
 
@@ -295,7 +295,7 @@ def criar_tabelas():
             
             if 'data_matricula' not in colunas:
 
-                conn.execute("ALTER TABLE alunos ADD COLUMN data_matricula TEXT;")
+                conn.execute("ALTER TABLE alunos ADD COLUMN data_matricula TEXT DEFAULT '';")
 
                 conn.commit()
 
