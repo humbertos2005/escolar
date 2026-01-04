@@ -431,6 +431,80 @@ def excluir_aluno(aluno_id):
         flash(f'Erro ao excluir aluno: {e}', 'danger')
     return redirect(url_for('visualizacoes_bp.listar_alunos'))
 
+@visualizacoes_bp.route('/alunos/excluir_selecionados', methods=['POST'])
+@admin_secundario_required
+def excluir_alunos_selecionados():
+    """
+    Endpoint AJAX para excluir vários alunos de uma só vez.
+    Recebe JSON: { "ids": [1,2,3] }
+    Retorna JSON: { "deleted": [ids], "errors": { "<id>": "mensagem" } }
+    """
+    db = get_db()
+    data = request.get_json(silent=True) or {}
+    ids = data.get('ids') or []
+    deleted = []
+    errors = {}
+
+    # valida formato
+    if not isinstance(ids, (list, tuple)):
+        return jsonify({"deleted": [], "errors": {"request": "Formato inválido para 'ids', deve ser lista"}}), 400
+
+    # normalizar e filtrar ids inteiros únicos
+    norm_ids = []
+    for v in ids:
+        try:
+            iv = int(v)
+            if iv not in norm_ids:
+                norm_ids.append(iv)
+        except Exception:
+            # ignorar valores não inteiros, mas registrar erro
+            errors[str(v)] = "ID inválido"
+
+    if not norm_ids:
+        return jsonify({"deleted": [], "errors": errors}), 400
+
+    try:
+        for i in norm_ids:
+            try:
+                # verificar existência
+                row = db.execute("SELECT id FROM alunos WHERE id = ?", (i,)).fetchone()
+                if not row:
+                    errors[str(i)] = "Registro não encontrado"
+                    continue
+
+                cur = db.execute("DELETE FROM alunos WHERE id = ?", (i,))
+                # rowcount pode não ser confiável em todos os adaptadores, mas tentamos usá-lo
+                rc = getattr(cur, "rowcount", None)
+                if rc is None:
+                    # fallback: confirmar não existe mais
+                    chk = db.execute("SELECT id FROM alunos WHERE id = ?", (i,)).fetchone()
+                    if not chk:
+                        deleted.append(i)
+                    else:
+                        errors[str(i)] = "Não foi possível remover (verifique restrições FK)"
+                else:
+                    if rc > 0:
+                        deleted.append(i)
+                    else:
+                        errors[str(i)] = "Não removido"
+            except Exception as e:
+                db.rollback()
+                current_app.logger.exception("Erro ao tentar excluir aluno %r", i)
+                errors[str(i)] = str(e)
+        # tentar commitar tudo de uma vez
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            current_app.logger.exception("Erro no commit da exclusão em massa")
+            return jsonify({"deleted": deleted, "errors": {"commit": "Erro ao gravar alterações no banco: " + str(e)}}), 500
+
+        return jsonify({"deleted": deleted, "errors": errors})
+    except Exception as e:
+        db.rollback()
+        current_app.logger.exception("Erro inesperado em excluir_alunos_selecionados")
+        return jsonify({"deleted": deleted, "errors": {"internal": str(e)}}), 500
+
 
 # ---------------------------
 # Novas rotas/handlers para listar RFOs (Visualização)

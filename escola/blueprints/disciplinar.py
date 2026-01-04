@@ -1413,7 +1413,7 @@ def editar_fmd(fmd_id):
 
     if fmd is None:
         flash('FMD não encontrada.', 'danger')
-        return redirect(url_for('visualizacoes_bp/listar_fmd'))
+        return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
     faltas = get_faltas_disciplinares()
 
@@ -1447,7 +1447,7 @@ def editar_fmd(fmd_id):
 
                 db.commit()
                 flash(f'FMD {fmd["fmd_id"]} atualizada com sucesso!', 'success')
-                return redirect(url_for('visualizacoes_bp/listar_fmd'))
+                return redirect(url_for('visualizacoes_bp.listar_fmds'))
             except sqlite3.Error as e:
                 db.rollback()
                 flash(f'Erro ao atualizar FMD: {e}', 'danger')
@@ -1470,7 +1470,7 @@ def excluir_fmd(fmd_id):
 
         if fmd is None:
             flash('FMD não encontrada.', 'danger')
-            return redirect(url_for('visualizacoes_bp/listar_fmd'))
+            return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
         fmd_id_nome = fmd['fmd_id']
 
@@ -1482,7 +1482,7 @@ def excluir_fmd(fmd_id):
         db.rollback()
         flash(f'Erro ao excluir FMD: {e}', 'danger')
 
-    return redirect(url_for('visualizacoes_bp/listar_fmd'))
+    return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
 
 @disciplinar_bp.route('/api/faltas_busca')
@@ -1592,6 +1592,7 @@ def api_usuarios_busca():
         return jsonify([])
     result = [{'id': r['id'], 'username': r['username'], 'full_name': r['full_name']} for r in rows]
     return jsonify(result)
+
 
 
 
