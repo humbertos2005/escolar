@@ -353,25 +353,27 @@ def importar_alunos():
                 # Processar datas do Excel (podem vir como números seriais ou texto)
                 if data_nascimento:
                     try:
-                        # Se for número serial do Excel
-                        if data_nascimento.replace('.', '', 1).isdigit():
+                        # Se for número serial do Excel (tenta converter para float)
+                        try:
                             excel_date = float(data_nascimento)
                             data_nascimento = (datetime(1899, 12, 30) + timedelta(days=excel_date)).strftime('%Y-%m-%d')
-                        # Se for texto em formato brasileiro (DD/MM/AAAA)
-                        elif '/' in data_nascimento:
-                            data_nascimento = datetime.strptime(data_nascimento, '%d/%m/%Y').strftime('%Y-%m-%d')
-                    except:
+                        except ValueError:
+                            # Se for texto em formato brasileiro (DD/MM/AAAA)
+                            if '/' in data_nascimento:
+                                data_nascimento = datetime.strptime(data_nascimento, '%d/%m/%Y').strftime('%Y-%m-%d')
+                    except (ValueError, TypeError):
                         data_nascimento = ''
 
                 if data_matricula:
                     try:
                         # Mesmo tratamento para data_matricula
-                        if data_matricula.replace('.', '', 1).isdigit():
+                        try:
                             excel_date = float(data_matricula)
                             data_matricula = (datetime(1899, 12, 30) + timedelta(days=excel_date)).strftime('%Y-%m-%d')
-                        elif '/' in data_matricula:
-                            data_matricula = datetime.strptime(data_matricula, '%d/%m/%Y').strftime('%Y-%m-%d')
-                    except:
+                        except ValueError:
+                            if '/' in data_matricula:
+                                data_matricula = datetime.strptime(data_matricula, '%d/%m/%Y').strftime('%Y-%m-%d')
+                    except (ValueError, TypeError):
                         data_matricula = ''
 
                 # DEBUG
