@@ -53,6 +53,18 @@ def listar_bimestres():
     db = get_db()
     rows = db.execute('SELECT DISTINCT ano FROM bimestres ORDER BY ano DESC').fetchall()
     anos = [r['ano'] for r in rows]
+
+    # Se solicitado via iframe, pode-se optar por renderizar um fragmento (se existir).
+    # Aqui deixamos o comportamento atual (render normal). Se você criar um fragmento,
+    # troque o template por 'cadastros/bimestres_list_fragment.html' quando request.args.get('iframe') == '1'.
+    if request.args.get('iframe') == '1':
+        # tenta renderizar fragmento (caso tenha criado o arquivo fragment)
+        try:
+            return render_template('cadastros/bimestres_list_fragment.html', anos=anos)
+        except Exception:
+            # fallback para o template completo se fragment não existir
+            pass
+
     return render_template('cadastros/bimestres_list.html', anos=anos)
 
 
@@ -70,6 +82,9 @@ def gerenciar_bimestres():
             ano = request.form.get('ano', '').strip()
             if not ano or not ano.isdigit():
                 flash('Informe um ano válido.', 'danger')
+                # preservar iframe no redirect se vier do iframe
+                if request.form.get('iframe') == '1' or request.args.get('iframe') == '1':
+                    return redirect(url_for('bimestres_bp.gerenciar_bimestres', ano=ano, iframe=1))
                 return redirect(url_for('bimestres_bp.gerenciar_bimestres', ano=ano))
 
             ano = int(ano)
@@ -85,12 +100,16 @@ def gerenciar_bimestres():
                         datetime.strptime(inicio, '%Y-%m-%d')
                     except Exception:
                         flash(f'Data de início inválida para {n}º Bimestre.', 'danger')
+                        if request.form.get('iframe') == '1' or request.args.get('iframe') == '1':
+                            return redirect(url_for('bimestres_bp.gerenciar_bimestres', ano=ano, iframe=1))
                         return redirect(url_for('bimestres_bp.gerenciar_bimestres', ano=ano))
                 if fim:
                     try:
                         datetime.strptime(fim, '%Y-%m-%d')
                     except Exception:
                         flash(f'Data de fim inválida para {n}º Bimestre.', 'danger')
+                        if request.form.get('iframe') == '1' or request.args.get('iframe') == '1':
+                            return redirect(url_for('bimestres_bp.gerenciar_bimestres', ano=ano, iframe=1))
                         return redirect(url_for('bimestres_bp.gerenciar_bimestres', ano=ano))
 
                 dados.append((n, inicio, fim))
@@ -104,11 +123,18 @@ def gerenciar_bimestres():
                 ''', (ano, numero, inicio, fim, session.get('user_id')))
             db.commit()
             flash(f'Bimestres do ano {ano} salvos com sucesso.', 'success')
+
+            # Redirect: se a requisição veio do iframe, mantenha ?iframe=1 no redirect
+            if request.form.get('iframe') == '1' or request.args.get('iframe') == '1':
+                return redirect(url_for('bimestres_bp.listar_bimestres', iframe=1))
             return redirect(url_for('bimestres_bp.listar_bimestres'))
         except Exception as e:
             db.rollback()
             current_app.logger.exception('Erro ao salvar bimestres')
             flash(f'Erro ao salvar: {e}', 'danger')
+            # preservar iframe no redirect de erro também
+            if request.form.get('iframe') == '1' or request.args.get('iframe') == '1':
+                return redirect(url_for('bimestres_bp.listar_bimestres', iframe=1))
             return redirect(url_for('bimestres_bp.listar_bimestres'))
 
     # GET
@@ -120,6 +146,12 @@ def gerenciar_bimestres():
         for r in rows:
             num = int(r['numero'])
             bimestres[num] = {'inicio': r['inicio'] or '', 'fim': r['fim'] or ''}
+    # se solicitado via iframe, renderizar o formulário de iframe (se existir)
+    if request.args.get('iframe') == '1':
+        try:
+            return render_template('cadastros/bimestres_form_fragment.html', ano=ano, bimestres=bimestres)
+        except Exception:
+            pass
     return render_template('cadastros/bimestres_form.html', ano=ano, bimestres=bimestres)
 
 
@@ -135,4 +167,7 @@ def excluir_bimestres(ano):
         db.rollback()
         current_app.logger.exception('Erro ao excluir bimestres')
         flash(f'Erro ao excluir: {e}', 'danger')
+    # preservar iframe se a requisição veio do iframe
+    if request.form.get('iframe') == '1' or request.args.get('iframe') == '1':
+        return redirect(url_for('bimestres_bp.listar_bimestres', iframe=1))
     return redirect(url_for('bimestres_bp.listar_bimestres'))

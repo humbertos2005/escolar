@@ -22,8 +22,8 @@
       </div>
       <div style="width:140px; text-align:center;">
         {% if aluno %}
-          {% if aluno.foto_filename or aluno.foto %}
-            <img src="{{ aluno.foto_filename or aluno.foto or url_for('formularios_prontuario.api_aluno_foto', aluno_id=aluno.id) }}" style="max-width:100%; max-height:120px; border:1px solid #ddd; padding:4px;">
+          {% if aluno.foto_filename or aluno.foto or aluno.photo %}
+            <img src="{{ aluno.foto_filename or aluno.foto or (url_for('static', filename='uploads/alunos/' ~ aluno.photo) if aluno.photo else url_for('formularios_prontuario.api_aluno_foto', aluno_id=aluno.id)) }}" style="max-width:100%; max-height:120px; border:1px solid #ddd; padding:4px;">
           {% else %}
             <img src="{{ url_for('static', filename='img/placeholder-user.png') }}" style="max-width:100%; max-height:120px; border:1px solid #ddd; padding:4px;">
           {% endif %}
@@ -85,3 +85,4 @@
 {% endif %}
 
 {% endblock %}
+

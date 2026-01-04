@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Nova ATA - {{ next_number if next_number is defined else "" }}{% endblock %}
 
@@ -101,7 +101,7 @@
   <div id="ata-data"
      data-alunos='{{ (alunos | default([])) | tojson | safe }}'
      data-participants='{% if participants_json_val is defined and participants_json_val is string %}{{ participants_json_val | safe }}{% else %}{{ (participants_json_val | default([])) | tojson | safe }}{% endif %}'
-     style="display:none;"></div></div>
+     style="display:none;"></div>
 
   <script>
     // Ler os dados JSON a partir dos atributos data-*

@@ -1,73 +1,163 @@
+/* prontuario_view.css
+   Versão consolidada — mantém layout lateral, reduz espaçamento VERTICAL
+   e aplica recuo controlado para as seções "Circunstâncias".
+   Comentários e regras organizadas para facilitar manutenção.
+*/
+
+/* ===== layout geral ===== */
 .document-print {
   background: white;
-  padding: 18px;
+  padding: 12px;
   border-radius: 6px;
   border: 1px solid #e6e6e6;
+  box-sizing: border-box;
+  max-width: 1100px;
+  margin: 0 auto;
 }
+
 .pront-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
 }
-.pront-logo, .pront-photo {
-  text-align: center;
-}
+
+.pront-logo, .pront-photo { text-align: center; }
 .pront-logo { width: 120px; }
 .pront-photo { width: 140px; }
+
 .pront-logo-img, .pront-photo-img {
   max-width: 100%;
   max-height: 120px;
   border: 1px solid #ddd;
   padding: 4px;
 }
+
 .pront-center {
   flex: 1;
   text-align: center;
   line-height: 1.05;
 }
-.pront-center .line {
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 13px;
-}
-.pront-title {
-  margin-top: 8px;
-  font-size: 20px;
-  font-weight: 700;
-}
-.pront-meta {
-  margin-top: 2px;
-  color: #666;
-}
-.pront-hr {
-  margin: 12px 0;
-  border: none;
-  border-top: 1px solid #e6e6e6;
-}
-.pront-table {
-  width: 100%;
-  margin-bottom: 12px;
-  border-collapse: collapse;
-}
-.pront-table td {
-  vertical-align: top;
-  padding: 4px 6px;
-}
+.pront-center .line { font-weight: 700; text-transform: uppercase; font-size: 13px; }
+.pront-title { margin-top: 8px; font-size: 20px; font-weight: 700; }
+.pront-meta  { margin-top: 2px; color: #666; }
+
+.pront-hr { margin: 12px 0; border: none; border-top: 1px solid #e6e6e6; }
+
+.pront-table { width: 100%; margin-bottom: 12px; border-collapse: collapse; }
+.pront-table td { vertical-align: top; padding: 4px 6px; }
+
 .pront-label { width: 18%; font-weight: 600; }
 .pront-value { width: 32%; }
+
+/* ===== Registros e Seções =====
+   objetivo: reduzir espaçamento VERTICAL sem alterar posicionamento lateral
+*/
+
+/* Container de registros */
 .pront-records {
-  border: 1px solid #000;
-  padding: 10px;
-  min-height: 120px;
-  white-space: pre-wrap;
+  border: 1px solid #bdbdbd;
   background: #fff;
+  padding: 8px 12px;
+  margin: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  white-space: normal;
 }
+
+/* Cada RFO: empilhado com espaçamento mínimo entre RFOs.
+   Usamos flex-column + gap:0 para controlar espaçamento interno (persistente). */
+.rfo-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 6px 0;         /* separação entre RFOs */
+  padding: 2px 0;
+  line-height: 1.12;
+  font-size: 0.95rem;
+  white-space: normal;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* Filhos diretos: zera margens/paddings herdadas que causavam gaps */
+.rfo-block > * {
+  margin: 0;
+  padding: 0;
+  line-height: 1.12;      /* compacto mas legível */
+  white-space: normal;
+}
+
+/* Rótulos (strong) estilo "label: value" */
+.rfo-block strong {
+  display: inline-block;
+  width: 110px;
+  font-weight: 600;
+  vertical-align: top;
+}
+
+/* Relato / medida multilinha: preservar quebras sem espaço extra */
+.rfo-block .relato,
+.rfo-block .medida {
+  white-space: pre-line;
+}
+
+/* Título da seção: pouco espaço acima/abaixo */
+.pront-section-title {
+  margin-top: 10px;
+  margin-bottom: 6px;
+  font-size: 0.98rem;
+}
+
+/* Blocos de seção (circunstâncias) — recuo lateral dos valores */
 .pront-section {
   border: 1px solid #ccc;
-  padding: 10px;
-  min-height: 60px;
-  white-space: pre-wrap;
+  padding: 8px 12px;
+  min-height: 0;
+  margin-bottom: 8px;
+  white-space: normal;
+  line-height: 1.12;
+  box-sizing: border-box;
+  text-align: left;
 }
-.pront-section-title { margin-top: 12px; }
-.pront-actions { margin-top: 18px; display:flex; gap:8px; }
+
+/* Recuo lateral apenas para o conteúdo/valores das seções.
+   Mantemos os títulos e o bloco RFO sem recuo. */
+.document-print .pront-section {
+  padding-left: 12px;
+  padding-right: 8px;
+}
+
+.document-print .pront-section-title,
+.document-print .pront-records .rfo-block {
+  padding-left: 0;
+}
+
+/* Form-controls estáticos (se houver) seguem o mesmo recuo dos valores */
+.document-print .form-group .form-control,
+.document-print .form-group .form-control-static {
+  padding-left: 12px;
+  padding-right: 8px;
+  box-sizing: border-box;
+}
+
+/* Ações */
+.pront-actions { margin-top: 8px; display: flex; gap: 8px; }
+
+/* ===== Impressão ===== */
+@media print {
+  .document-print { padding: 6px; max-width: 100%; }
+  .rfo-block { font-size: 0.92rem; margin: 6px 0; padding: 2px 0; page-break-inside: avoid; }
+  .pront-section { page-break-inside: avoid; }
+  .no-print, .sidebar, .nav { display: none !important; }
+}
+
+/* ===== Ajustes finos (direto aqui se precisar reduzir ainda mais) =====
+   - diminuir line-height em .rfo-block para 1.05 se quiser linhas ainda mais compactas
+   - reduzir width em .rfo-block strong para 100px se rótulos permitirem
+*/
+
+/* Exemplo de ajuste opcional (comente/descomente para testar):
+.rfo-block { line-height: 1.05; font-size: 0.92rem; }
+.rfo-block strong { width: 100px; }
+*/

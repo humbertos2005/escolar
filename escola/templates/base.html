@@ -53,6 +53,19 @@
     </style>
     {% endif %}
 
+    <!-- Início: estilo RFO (inserido manualmente) -->
+    <style id="rfo-console-style">
+    .rfo-console-btn{display:inline-flex!important;align-items:center;gap:.5rem;padding:.45rem .9rem;border-radius:.45rem;font-weight:600;font-size:.95rem;text-decoration:none!important;transition:transform .12s ease,box-shadow .12s ease,opacity .12s ease;cursor:pointer;border:1px solid transparent;box-shadow:0 2px 6px rgba(11,22,40,0.06);}
+    .rfo-console-btn:focus{outline:3px solid rgba(24,144,255,0.15);outline-offset:2px;}
+    .rfo-console-btn--primary{background:linear-gradient(180deg,#2b8de6,#1673d3);color:#fff!important;}
+    .rfo-console-btn--secondary{background:transparent;color:#1673d3!important;border-color:rgba(22,115,211,0.12);box-shadow:none;}
+    .rfo-console-btn:hover{transform:translateY(-1px);}
+    .rfo-console-icon{width:1rem;height:1rem;display:inline-block;flex:0 0 auto;}
+    .rfo-console-label{display:inline-block;vertical-align:middle;}
+    @media (max-width:420px){.rfo-console-label{display:none;}}
+    </style>
+    <!-- Fim: estilo RFO -->
+
 </head>
 
 <body>
@@ -617,6 +630,8 @@
     {% block scripts %}{% endblock %}
 
 
+<script src="/static/js/matricula.js"></script>
+<script src="{{ url_for('static', filename='js/datepicker-fix.js') }}"></script>
 </body>
 
 
