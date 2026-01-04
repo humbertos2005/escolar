@@ -4,7 +4,7 @@ import sqlite3
 import csv
 import io
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .utils import login_required, admin_required, admin_secundario_required, validar_matricula, validar_email
 
@@ -19,7 +19,7 @@ def process_aluno_data(data_source):
     preservando o campo 'email'.
     """
     campos = [
-        'matricula', 'nome', 'serie', 'turma', 'turno', 'pai', 'mae',
+        'matricula', 'nome', 'data_nascimento', 'data_matricula', 'serie', 'turma', 'turno', 'pai', 'mae',
         'responsavel', 'email', 'rua', 'numero', 'complemento', 'bairro', 'cidade', 'estado'
     ]
 
@@ -49,9 +49,9 @@ def process_aluno_data(data_source):
 
     data['telefone'] = ', '.join(telefones) if telefones else ''
 
-    # Normaliza para MAIÚSCULAS (Unicode-aware) EXCETO email
+    # Normaliza para MAIÚSCULAS (Unicode-aware) EXCETO email e datas
     for k, v in list(data.items()):
-        if k == 'email':
+        if k in ('email', 'data_nascimento', 'data_matricula'):
             # preserva exatamente como foi informado
             continue
         if isinstance(v, str) and v != '':
@@ -146,11 +146,11 @@ def adicionar_aluno():
                 db.execute(
                     '''
                     INSERT INTO alunos 
-                    (matricula, nome, serie, turma, turno, pai, mae, responsavel, telefone, email, 
+                    (matricula, nome, data_nascimento, data_matricula, serie, turma, turno, pai, mae, responsavel, telefone, email, 
                      rua, numero, complemento, bairro, cidade, estado)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''',
-                    (data['matricula'], data['nome'], data['serie'], data['turma'], data['turno'], 
+                    (data['matricula'], data['nome'], data['data_nascimento'], data['data_matricula'], data['serie'], data['turma'], data['turno'], 
                      data['pai'], data['mae'], data['responsavel'], data['telefone'], data['email'], 
                      data['rua'], data['numero'], data['complemento'], data['bairro'], data['cidade'], 
                      data['estado'])
@@ -209,12 +209,12 @@ def editar_aluno(aluno_id):
                 db.execute(
                     '''
                     UPDATE alunos SET 
-                    matricula = ?, nome = ?, serie = ?, turma = ?, turno = ?, pai = ?, mae = ?, 
+                    matricula = ?, nome = ?, data_nascimento = ?, data_matricula = ?, serie = ?, turma = ?, turno = ?, pai = ?, mae = ?, 
                     responsavel = ?, telefone = ?, email = ?, rua = ?, numero = ?, complemento = ?, 
                     bairro = ?, cidade = ?, estado = ? 
                     WHERE id = ?
                     ''',
-                    (data['matricula'], data['nome'], data['serie'], data['turma'], data['turno'], 
+                    (data['matricula'], data['nome'], data['data_nascimento'], data['data_matricula'], data['serie'], data['turma'], data['turno'], 
                      data['pai'], data['mae'], data['responsavel'], data['telefone'], data['email'], 
                      data['rua'], data['numero'], data['complemento'], data['bairro'], data['cidade'], 
                      data['estado'], aluno_id)
@@ -346,6 +346,34 @@ def importar_alunos():
                 cidade = str(row.get('CIDADE', '')).strip()
                 estado = str(row.get('ESTADO', '')).strip()
 
+                # Extrair novas colunas de data
+                data_nascimento = str(row.get('DATA_NASCIMENTO', row.get('DATA NASCIMENTO', ''))).strip()
+                data_matricula = str(row.get('DATA_MATRÍCULA', row.get('DATA_MATRICULA', row.get('DATA MATRÍCULA', '')))).strip()
+
+                # Processar datas do Excel (podem vir como números seriais ou texto)
+                if data_nascimento:
+                    try:
+                        # Se for número serial do Excel
+                        if data_nascimento.replace('.', '', 1).isdigit():
+                            excel_date = float(data_nascimento)
+                            data_nascimento = (datetime(1899, 12, 30) + timedelta(days=excel_date)).strftime('%Y-%m-%d')
+                        # Se for texto em formato brasileiro (DD/MM/AAAA)
+                        elif '/' in data_nascimento:
+                            data_nascimento = datetime.strptime(data_nascimento, '%d/%m/%Y').strftime('%Y-%m-%d')
+                    except:
+                        data_nascimento = ''
+
+                if data_matricula:
+                    try:
+                        # Mesmo tratamento para data_matricula
+                        if data_matricula.replace('.', '', 1).isdigit():
+                            excel_date = float(data_matricula)
+                            data_matricula = (datetime(1899, 12, 30) + timedelta(days=excel_date)).strftime('%Y-%m-%d')
+                        elif '/' in data_matricula:
+                            data_matricula = datetime.strptime(data_matricula, '%d/%m/%Y').strftime('%Y-%m-%d')
+                    except:
+                        data_matricula = ''
+
                 # DEBUG
                 print(f"Linha {i}: MAT={matricula}, NOME={nome}, SERIE={serie}, MAE={mae}, EMAIL={email}")
 
@@ -391,12 +419,12 @@ def importar_alunos():
                 # Insere o aluno
                 db.execute('''
                     INSERT INTO alunos 
-                    (matricula, nome, serie, turma, turno, pai, mae, responsavel, telefone, email,
-                     rua, numero, complemento, bairro, cidade, estado)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (matricula, nome, data_nascimento, data_matricula, serie, turma, turno, pai, mae, 
+                     responsavel, telefone, email, rua, numero, complemento, bairro, cidade, estado)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    matricula, nome, serie, turma, turno, pai, mae, responsavel,
-                    telefone_str, email, rua, numero, complemento, bairro, cidade, estado
+                    matricula, nome, data_nascimento, data_matricula, serie, turma, turno, pai, mae, 
+                    responsavel, telefone_str, email, rua, numero, complemento, bairro, cidade, estado
                 ))
                 sucessos += 1
                 print(f"✓ Aluno {nome} cadastrado com sucesso!")
@@ -529,8 +557,11 @@ def buscar_aluno_json():
 
 
 
-@alunos_bp.route('/gerenciar_alunos', methods=['GET'])
+@alunos_bp.route('/gerenciar_alunos', methods=['GET', 'POST'])
 @admin_secundario_required
 def gerenciar_alunos():
     """Exibe a página única com abas para gerenciar alunos (cadastrar e importar)."""
+    if request.method == 'POST':
+        # Redirecionar para a lógica de importação
+        return importar_alunos()
     return render_template('cadastros/gerenciar_alunos.html')
