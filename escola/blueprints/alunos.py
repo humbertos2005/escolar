@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, jsonify
 from database import get_db
 import sqlite3
 import csv
