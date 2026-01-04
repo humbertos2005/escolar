@@ -284,6 +284,22 @@ def criar_tabelas():
                 conn.commit()
 
                 print("   [MIGRAÇÃO] Coluna 'telefone' adicionada à tabela 'alunos'.")
+            
+            if 'data_nascimento' not in colunas:
+
+                conn.execute("ALTER TABLE alunos ADD COLUMN data_nascimento TEXT DEFAULT '';")
+
+                conn.commit()
+
+                print("   [MIGRAÇÃO] Coluna 'data_nascimento' adicionada à tabela 'alunos'.")
+            
+            if 'data_matricula' not in colunas:
+
+                conn.execute("ALTER TABLE alunos ADD COLUMN data_matricula TEXT DEFAULT '';")
+
+                conn.commit()
+
+                print("   [MIGRAÇÃO] Coluna 'data_matricula' adicionada à tabela 'alunos'.")
 
         except sqlite3.OperationalError:
 
