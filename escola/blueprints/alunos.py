@@ -32,8 +32,7 @@ def parse_date_from_excel_or_text(date_str):
     # Verifica se é NaN ou NaT do pandas/numpy
     try:
         import pandas as pd
-        import numpy as np
-        if pd.isna(date_str) or (isinstance(date_str, float) and np.isnan(date_str)):
+        if pd.isna(date_str):
             return ''
     except (ImportError, TypeError):
         pass
@@ -42,7 +41,8 @@ def parse_date_from_excel_or_text(date_str):
         # Tenta converter como número serial do Excel
         excel_date = float(date_str)
         # Validação: data serial do Excel deve estar dentro de limites razoáveis
-        # Excel: 1 = 1900-01-01, valores negativos ou muito grandes são inválidos
+        # Excel serial 1 = 1900-01-01, mas o cálculo usa 1899-12-30 como epoch
+        # para compensar o bug do ano bissexto do Excel (1900 não foi bissexto)
         if excel_date < -100000 or excel_date > 100000:
             return ''
         return (EXCEL_EPOCH_DATE + timedelta(days=excel_date)).strftime('%Y-%m-%d')
