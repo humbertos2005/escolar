@@ -31,16 +31,34 @@ def parse_date_from_excel_or_text(date_str):
     
     try:
         # Tenta converter como número serial do Excel
+        excel_date = float(date_str)
+        return (EXCEL_EPOCH_DATE + timedelta(days=excel_date)).strftime('%Y-%m-%d')
+    except (ValueError, TypeError):
+        # Se falhar, tenta como formato brasileiro (DD/MM/AAAA)
         try:
-            excel_date = float(date_str)
-            return (EXCEL_EPOCH_DATE + timedelta(days=excel_date)).strftime('%Y-%m-%d')
-        except ValueError:
-            # Se falhar, tenta como formato brasileiro (DD/MM/AAAA)
             if '/' in date_str:
                 return datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d')
-            return ''
-    except (ValueError, TypeError):
-        return ''
+        except (ValueError, TypeError):
+            pass
+    return ''
+
+
+def get_column_value(row, *column_names):
+    """
+    Busca o valor de uma coluna testando múltiplos nomes possíveis.
+    
+    Args:
+        row: Dicionário contendo os dados da linha
+        *column_names: Nomes de colunas a serem testados em ordem
+        
+    Returns:
+        String com o valor encontrado ou string vazia
+    """
+    for name in column_names:
+        value = row.get(name)
+        if value is not None:
+            return str(value).strip()
+    return ''
 
 
 
@@ -379,8 +397,8 @@ def importar_alunos():
                 estado = str(row.get('ESTADO', '')).strip()
 
                 # Extrair novas colunas de data
-                data_nascimento = str(row.get('DATA_NASCIMENTO', row.get('DATA NASCIMENTO', ''))).strip()
-                data_matricula = str(row.get('DATA_MATRÍCULA', row.get('DATA_MATRICULA', row.get('DATA MATRÍCULA', '')))).strip()
+                data_nascimento = get_column_value(row, 'DATA_NASCIMENTO', 'DATA NASCIMENTO')
+                data_matricula = get_column_value(row, 'DATA_MATRÍCULA', 'DATA_MATRICULA', 'DATA MATRÍCULA')
 
                 # Processar datas usando helper function
                 data_nascimento = parse_date_from_excel_or_text(data_nascimento)
