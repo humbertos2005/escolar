@@ -11,6 +11,38 @@ from .utils import login_required, admin_required, admin_secundario_required, va
 # Definição da Blueprint
 alunos_bp = Blueprint('alunos_bp', __name__)
 
+# Constante para conversão de datas do Excel
+EXCEL_EPOCH_DATE = datetime(1899, 12, 30)
+
+
+def parse_date_from_excel_or_text(date_str):
+    """
+    Converte uma string de data do Excel (número serial) ou formato brasileiro (DD/MM/AAAA)
+    para o formato ISO (YYYY-MM-DD).
+    
+    Args:
+        date_str: String contendo a data em formato Excel serial ou DD/MM/AAAA
+        
+    Returns:
+        String no formato YYYY-MM-DD ou string vazia se a conversão falhar
+    """
+    if not date_str:
+        return ''
+    
+    try:
+        # Tenta converter como número serial do Excel
+        try:
+            excel_date = float(date_str)
+            return (EXCEL_EPOCH_DATE + timedelta(days=excel_date)).strftime('%Y-%m-%d')
+        except ValueError:
+            # Se falhar, tenta como formato brasileiro (DD/MM/AAAA)
+            if '/' in date_str:
+                return datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d')
+            return ''
+    except (ValueError, TypeError):
+        return ''
+
+
 
 def process_aluno_data(data_source):
     """
@@ -350,31 +382,9 @@ def importar_alunos():
                 data_nascimento = str(row.get('DATA_NASCIMENTO', row.get('DATA NASCIMENTO', ''))).strip()
                 data_matricula = str(row.get('DATA_MATRÍCULA', row.get('DATA_MATRICULA', row.get('DATA MATRÍCULA', '')))).strip()
 
-                # Processar datas do Excel (podem vir como números seriais ou texto)
-                if data_nascimento:
-                    try:
-                        # Se for número serial do Excel (tenta converter para float)
-                        try:
-                            excel_date = float(data_nascimento)
-                            data_nascimento = (datetime(1899, 12, 30) + timedelta(days=excel_date)).strftime('%Y-%m-%d')
-                        except ValueError:
-                            # Se for texto em formato brasileiro (DD/MM/AAAA)
-                            if '/' in data_nascimento:
-                                data_nascimento = datetime.strptime(data_nascimento, '%d/%m/%Y').strftime('%Y-%m-%d')
-                    except (ValueError, TypeError):
-                        data_nascimento = ''
-
-                if data_matricula:
-                    try:
-                        # Mesmo tratamento para data_matricula
-                        try:
-                            excel_date = float(data_matricula)
-                            data_matricula = (datetime(1899, 12, 30) + timedelta(days=excel_date)).strftime('%Y-%m-%d')
-                        except ValueError:
-                            if '/' in data_matricula:
-                                data_matricula = datetime.strptime(data_matricula, '%d/%m/%Y').strftime('%Y-%m-%d')
-                    except (ValueError, TypeError):
-                        data_matricula = ''
+                # Processar datas usando helper function
+                data_nascimento = parse_date_from_excel_or_text(data_nascimento)
+                data_matricula = parse_date_from_excel_or_text(data_matricula)
 
                 # DEBUG
                 print(f"Linha {i}: MAT={matricula}, NOME={nome}, SERIE={serie}, MAE={mae}, EMAIL={email}")
