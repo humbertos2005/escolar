@@ -1,8 +1,21 @@
 {% extends 'base.html' %}
 {% block content %}
 <h2>Visualização de Alunos</h2>
-
 <div class="toolbar">
+    <div class="toolbar-left" style="display:flex; gap:8px; align-items:center;">
+        {% if is_admin %}
+        <!-- Botão Selecionar Todos (apenas admin) -->
+        <button type="button" id="btn-selecionar-todos" class="button btn-outline-primary btn-sm">
+            <i class="fas fa-check-square"></i> Selecionar Todos
+        </button>
+
+        <!-- Botão Excluir Selecionados (apenas admin) -->
+        <button type="button" id="btn-excluir-selecionados" class="button btn-danger btn-sm d-none" title="Excluir alunos selecionados">
+            <i class="fas fa-trash"></i> Excluir Selecionados
+        </button>
+        {% endif %}
+    </div>
+
     <div class="toolbar-right">
         <form method="GET" class="search-form">
             <input type="text" name="search" placeholder="Buscar por nome ou matrícula..." 
@@ -27,6 +40,12 @@
         <table class="table table-data table-full">
             <thead>
                 <tr>
+                    {% if is_admin %}
+                    <!-- Coluna de seleção (apenas admin) -->
+                    <th style="width:40px; text-align:center;">
+                        <input type="checkbox" id="select-all-checkbox" aria-label="Selecionar todos">
+                    </th>
+                    {% endif %}
                     <th>ID</th>
                     <th>Matrícula</th>
                     <th style="min-width: 250px;">Nome Completo</th>
@@ -44,12 +63,20 @@
                     <th style="min-width: 150px;">Bairro</th>
                     <th style="min-width: 150px;">Cidade</th>
                     <th>Estado</th>
+                    {% if is_admin %}
                     <th style="min-width:220px;">Ações</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
                 {% for aluno in alunos %}
-                <tr id="aluno-row-{{ aluno.id }}">
+                <tr id="aluno-row-{{ aluno.id }}" data-aluno-id="{{ aluno.id }}" data-aluno-nome="{{ aluno.nome }}">
+                    {% if is_admin %}
+                    <!-- Checkbox por linha (apenas admin)-->
+                    <td class="align-middle text-center">
+                        <input type="checkbox" class="select-aluno" data-id="{{ aluno.id }}" data-nome="{{ aluno.nome }}" aria-label="Selecionar aluno {{ aluno.nome }}">
+                    </td>
+                    {% endif %}
                     <td>{{ aluno.id }}</td>
                     <td><strong>{{ aluno.matricula }}</strong></td>
                     <td><div class="text-left">{{ aluno.nome }}</div></td>
@@ -75,6 +102,7 @@
                     <td><div class="text-left">{{ aluno.bairro or '-' }}</div></td>
                     <td><div class="text-left">{{ aluno.cidade or '-' }}</div></td>
                     <td>{{ aluno.estado or '-' }}</td>
+                    {% if is_admin %}
                     <td>
                         <div style="display:flex; gap:8px; justify-content:center; align-items:center;">
                             <button type="button"
@@ -102,6 +130,7 @@
                             </form>
                         </div>
                     </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -130,7 +159,7 @@
     </div>
 {% endif %}
 
-<!-- Modal: Visualizar Aluno -->
+<!-- Modal: Visualizar Aluno (mantido para todos) -->
 <div id="modal-view-aluno" class="modal" style="display:none;">
     <div class="modal-content">
         <span class="modal-close" id="close-view-modal">&times;</span>
@@ -141,6 +170,7 @@
     </div>
 </div>
 
+{% if is_admin %}
 <!-- Modal: Upload Foto -->
 <div id="modal-upload-photo" class="modal" style="display:none;">
     <div class="modal-content">
@@ -160,15 +190,41 @@
     </div>
 </div>
 
+<!-- Modal: Confirmação de exclusão em massa -->
+<div id="confirmExcluirAlunosModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="modal-close" id="close-confirm-modal">&times;</span>
+        <h3>Confirmar exclusão</h3>
+        <div>
+            <p id="confirmExcluirAlunosIntro">Você está prestes a excluir os seguintes alunos:</p>
+            <ul id="confirmExcluirAlunosList" style="max-height:280px; overflow:auto; margin-left:16px;"></ul>
+            <p id="confirmExcluirAlunosExtra" class="text-muted"></p>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+            <button type="button" id="confirmExcluirCancel" class="button btn-secondary">Cancelar</button>
+            <button type="button" id="confirmExcluirProceed" class="button btn-danger">Excluir</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Elemento com rotas para uso em JS (evita Jinja dentro de strings JS) -->
+{% if is_admin %}
 <div id="routes" 
      data-visualizar-url="{{ url_for('visualizacoes_bp.visualizar_aluno', aluno_id=0) }}" 
      data-upload-url="{{ url_for('visualizacoes_bp.upload_foto', aluno_id=0) }}"
+     data-excluir-selecionados-url="{{ url_for('visualizacoes_bp.excluir_alunos_selecionados') }}"
      style="display:none;"></div>
+{% else %}
+<div id="routes"
+     data-visualizar-url="{{ url_for('visualizacoes_bp.visualizar_aluno', aluno_id=0) }}"
+     style="display:none;"></div>
+{% endif %}
 
 <style>
 /* estilos mantidos (sem alterações relevantes) */
-.toolbar { display:flex; justify-content:flex-end; align-items:center; margin-bottom:20px; gap:20px; flex-wrap:wrap; }
+.toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:20px; flex-wrap:wrap; }
+.toolbar-left { display:flex; gap:10px; align-items:center; }
 .toolbar-right { display:flex; gap:10px; align-items:center; }
 .search-form { display:flex; gap:10px; }
 .search-input { padding:8px 15px; border:2px solid #e0e0e0; border-radius:5px; font-size:1em; min-width:250px; }
@@ -193,11 +249,18 @@
 .empty-state { text-align:center; padding:60px 20px; background:white; border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
 .empty-state i { font-size:4em; color:#bdc3c7; margin-bottom:20px; }
 .empty-state p { color:#7f8c8d; font-size:1.2em; margin-bottom:20px; }
+
+/* Pequenos ajustes para checkboxes */
+.select-aluno { width:18px; height:18px; }
+#select-all-checkbox { width:18px; height:18px; }
+.d-none { display:none !important; }
 </style>
 
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
+{% if is_admin %}
 <script src="{{ url_for('static', filename='js/listar_alunos.js') }}"></script>
+{% endif %}
 {% endblock %}

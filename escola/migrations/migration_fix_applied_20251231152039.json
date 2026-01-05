@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "timestamp": "20251231152039",
+    "backup": "escola.db.bak.20251231152039"
+  },
+  "updated_pontuacao_bimestral": [],
+  "merged_pontuacao_bimestral": [
+    {
+      "deleted_id": 4,
+      "kept_id": 5,
+      "aluno_id": 39,
+      "ano": 2025,
+      "old_bimestre": 6,
+      "merged_into_bimestre": 4
+    }
+  ],
+  "updated_pontuacao_historico": [
+    {
+      "id": 9,
+      "aluno_id": 39,
+      "ano": 2025,
+      "old_bimestre": 6,
+      "new_bimestre": 4,
+      "criado_em": "2025-12-31 15:00:09"
+    }
+  ],
+  "errors": []
+}

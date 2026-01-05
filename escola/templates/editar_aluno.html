@@ -1,10 +1,11 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block content %}
 
 <h2>Editar Aluno: {{ aluno.nome }}</h2>
 <p class="subtitle">Matrícula: {{ aluno.matricula }} | ID: {{ aluno.id }}</p>
 
 <form method="POST" class="form-aluno">
+<input type="hidden" name="id" value="{{ aluno.id }}" />
     
     <div class="form-section">
         <h3 class="section-title">
@@ -23,31 +24,84 @@
             </div>
         </div>
 
-        <div class="form-row">
-            <div class="input-group">
-                <label for="serie">Série</label>
-                <input type="text" id="serie" name="serie" value="{{ aluno.serie }}">
-            </div>
-
-            <div class="input-group">
-                <label for="turma">Turma</label>
-                <input type="text" id="turma" name="turma" value="{{ aluno.turma }}">
-            </div>
-
-            <div class="input-group">
-                <label for="turno">Turno</label>
-                <select id="turno" name="turno">
-                    <option value="">-- Selecione --</option>
-                    <option value="MATUTINO" {% if aluno.turno == 'MATUTINO' %}selected{% endif %}>Matutino</option>
-                    <option value="VESPERTINO" {% if aluno.turno == 'VESPERTINO' %}selected{% endif %}>Vespertino</option>
-                    <option value="NOTURNO" {% if aluno.turno == 'NOTURNO' %}selected{% endif %}>Noturno</option>
-                    <option value="INTEGRAL" {% if aluno.turno == 'INTEGRAL' %}selected{% endif %}>Integral</option>
-                </select>
-            </div>
-        </div>
+        <!-- INÍCIO: Data da Matrícula e Turno (layout ajustado) -->
+<div class="row align-items-start">
+  <div class="col-md-6">
+    <div class="mb-3 position-relative">
+      <label for="data_matricula" class="form-label">Data da Matrícula</label>
+      <input
+        type="text"
+        id="data_matricula"
+        name="data_matricula"
+        class="form-control datepicker"
+        placeholder="dd/mm/aaaa"
+        value="{% if aluno and aluno.data_matricula %}{{ aluno.data_matricula[8:10] }}/{{ aluno.data_matricula[5:7] }}/{{ aluno.data_matricula[0:4] }}{% endif %}"
+        autocomplete="off"
+        style="padding-right:2.8rem;"
+      />
+      <span id="data_matricula_icon" class="position-absolute" style="right:8px; top:50%; transform:translateY(-50%); color:#495057; font-size:1.05rem; cursor:pointer;">
+  <i class="fa-regular fa-calendar"></i>
+</span>
+<script>
+(function(){
+  function init(){
+    if(!window.fp_data_matricula){
+      if(typeof flatpickr !== "undefined"){
+        window.fp_data_matricula = flatpickr("#data_matricula",{dateFormat:"d/m/Y",allowInput:true,clickOpens:true});
+      } else {
+        var css=document.createElement("link"); css.rel="stylesheet"; css.href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"; document.head.appendChild(css);
+        var s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/flatpickr"; s.onload=function(){ window.fp_data_matricula = flatpickr("#data_matricula",{dateFormat:"d/m/Y",allowInput:true,clickOpens:true}); }; document.head.appendChild(s);
+      }
+    }
+    var icon=document.getElementById("data_matricula_icon")||document.querySelector(".fa-calendar");
+    if(icon){
+      icon.style.cursor="pointer";
+      icon.addEventListener("click",function(e){
+        e.preventDefault();
+        if(window.fp_data_matricula) { window.fp_data_matricula.open(); }
+        else { var i=document.getElementById("data_matricula"); if(i){ try{i.focus();}catch(e){} } }
+      });
+    }
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",init); } else { init(); }
+})();
+</script>
+      <div class="form-text">Formato: dd/mm/aaaa</div>
     </div>
+  </div>
 
-    <div class="form-section">
+  <div class="col-md-6">
+    <div class="mb-3">
+      <label for="turno" class="form-label">Turno</label>
+      <select id="turno" name="turno" class="form-control" style="width:100%;">
+          <option value="">-- Selecione --</option>
+          <option value="MATUTINO" {% if aluno.turno == 'MATUTINO' %}selected{% endif %}>Matutino</option>
+          <option value="VESPERTINO" {% if aluno.turno == 'VESPERTINO' %}selected{% endif %}>Vespertino</option>
+          <option value="NOTURNO" {% if aluno.turno == 'NOTURNO' %}selected{% endif %}>Noturno</option>
+          <option value="INTEGRAL" {% if aluno.turno == 'INTEGRAL' %}selected{% endif %}>Integral</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="mb-3">
+      <label for="serie">Série</label>
+      <input type="text" id="serie" name="serie" class="form-control" value="{{ aluno.serie }}">
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="mb-3">
+      <label for="turma">Turma</label>
+      <input type="text" id="turma" name="turma" class="form-control" value="{{ aluno.turma }}">
+    </div>
+  </div>
+</div>
+
+<!-- FIM: Data da Matrícula e Turno (layout ajustado) -->
+
+<div class="form-section">
         <h3 class="section-title">
             <i class="fas fa-users"></i> Filiação e Contato
         </h3>
@@ -347,3 +401,294 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 {% endblock %}
+
+
+
+
+
+<!-- ajuste: largura total para data e turno + flatpickr ancorado ao ícone -->
+<style>
+  /* força ambos os campos ocuparem 100% da coluna */
+  #data_matricula, select#turno, #turno { width:100% !important; box-sizing:border-box; }
+  /* garante que o calendário possa posicionar-se sem overflow */
+  .flatpickr-calendar { z-index: 2000; }
+</style>
+<script>
+(function(){
+  function initFP(){
+    try {
+      // se já existir, destrói para recriar com positionElement
+      if (window.fp_data_matricula && typeof window.fp_data_matricula.destroy === 'function') {
+        window.fp_data_matricula.destroy();
+        window.fp_data_matricula = null;
+      }
+      var anchor = document.getElementById("data_matricula_icon") || document.querySelector(".fa-calendar");
+      var opts = { dateFormat: "d/m/Y", allowInput: true, clickOpens: true };
+      if (anchor) { opts.positionElement = anchor; }
+      if (typeof flatpickr !== "undefined") {
+        window.fp_data_matricula = flatpickr("#data_matricula", opts);
+      } else {
+        var css=document.createElement("link"); css.rel="stylesheet"; css.href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"; document.head.appendChild(css);
+        var s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/flatpickr"; s.onload=function(){ window.fp_data_matricula = flatpickr("#data_matricula", opts); }; document.head.appendChild(s);
+      }
+      // garantir clique no ícone abre o calendário
+      var icon=document.getElementById("data_matricula_icon") || document.querySelector(".fa-calendar");
+      if (icon) {
+        icon.style.cursor="pointer";
+        icon.removeEventListener && icon.removeEventListener("click", icon._fp_click);
+        icon._fp_click = function(e){ e.preventDefault(); if(window.fp_data_matricula) window.fp_data_matricula.open(); else { var i=document.getElementById("data_matricula"); if(i) i.focus(); } };
+        icon.addEventListener("click", icon._fp_click);
+      }
+    } catch(err){ console && console.error && console.error("initFP err", err); }
+  }
+  if (document.readyState==="loading") document.addEventListener("DOMContentLoaded", initFP); else initFP();
+})();
+</script>
+<!-- fim ajuste -->
+
+<!-- ajuste final: reposicionar flatpickr e igualar largura de Turno à Data -->
+<style>
+  .flatpickr-calendar { z-index: 99999 !important; pointer-events: auto; }
+  #data_matricula, select#turno, #turno { box-sizing: border-box; }
+</style>
+<script>
+(function(){
+  function init(){
+    var icon = document.getElementById("data_matricula_icon") || document.querySelector(".fa-calendar");
+    var input = document.getElementById("data_matricula");
+    if(!input) return;
+    function matchWidth(){
+      var w = Math.round(input.getBoundingClientRect().width);
+      var turno = document.getElementById("turno");
+      if(turno){ turno.style.width = w + "px"; turno.style.boxSizing = "border-box"; }
+    }
+    function createFP(){
+      try{
+        if(window.fp_data_matricula && window.fp_data_matricula.destroy) window.fp_data_matricula.destroy();
+        window.fp_data_matricula = flatpickr("#data_matricula", {
+          dateFormat: "d/m/Y",
+          allowInput: true,
+          clickOpens: false,
+          appendTo: document.body
+        });
+      }catch(e){ console && console.error && console.error(e); }
+      if(icon){
+        icon.style.cursor = "pointer";
+        icon.addEventListener("click", function(e){
+          e.preventDefault();
+          if(window.fp_data_matricula) window.fp_data_matricula.open();
+          setTimeout(function(){
+            var cal = document.querySelector(".flatpickr-calendar");
+            if(!cal) return;
+            var ir = icon.getBoundingClientRect();
+            // posiciona fixo próximo ao ícone
+            cal.style.position = "fixed";
+            cal.style.left = (ir.left + window.pageXOffset) + "px";
+            cal.style.top  = (ir.bottom + window.pageYOffset + 6) + "px";
+            cal.style.zIndex = "999999";
+          }, 10);
+        }, {passive:false});
+      }
+      matchWidth();
+      window.addEventListener("resize", function(){ setTimeout(matchWidth,50); });
+    }
+    function ensureFP(cb){
+      if(typeof flatpickr !== "undefined"){ cb(); return; }
+      var css=document.createElement("link"); css.rel="stylesheet"; css.href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"; document.head.appendChild(css);
+      var s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/flatpickr"; s.onload=cb; document.head.appendChild(s);
+    }
+    ensureFP(createFP);
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init); else init();
+})();
+</script>
+<!-- fim ajuste final -->
+
+
+
+<!-- final: observer para reposicionar flatpickr e ajustar largura de Turno -->
+<style>
+  .flatpickr-calendar { z-index: 999999 !important; pointer-events:auto; }
+</style>
+<script>
+(function(){
+  function setTurnoWidth(){
+    var inpt=document.getElementById("data_matricula"), t=document.getElementById("turno");
+    if(inpt && t){
+      var w = Math.round(inpt.getBoundingClientRect().width);
+      t.style.width = w + "px";
+      t.style.boxSizing = "border-box";
+    }
+  }
+  function positionCalendarNode(cal){
+    try{
+      var icon = document.getElementById("data_matricula_icon") || document.querySelector(".fa-calendar") || document.querySelector(".position-absolute");
+      if(!icon) return;
+      var ir = icon.getBoundingClientRect();
+      cal.style.position = "fixed";
+      cal.style.left = (ir.left) + "px";
+      cal.style.top  = (ir.bottom + 6) + "px";
+      cal.style.zIndex = "999999";
+    }catch(e){/*ignore*/}
+  }
+  function observeCalendars(){
+    // reposition any existing calendars
+    document.querySelectorAll(".flatpickr-calendar").forEach(positionCalendarNode);
+    // observe additions
+    var mo = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        m.addedNodes && m.addedNodes.forEach(function(n){
+          if(n.nodeType===1 && n.classList && n.classList.contains("flatpickr-calendar")){
+            // slight delay to allow flatpickr to finish layout
+            setTimeout(function(){ positionCalendarNode(n); }, 10);
+          }
+        });
+      });
+    });
+    mo.observe(document.body, { childList:true, subtree:true });
+  }
+  function init(){
+    setTurnoWidth();
+    observeCalendars();
+    window.addEventListener("resize", function(){ setTimeout(setTurnoWidth,80); });
+    // try to reposition after fp opens by listening clicks on icon
+    var icon = document.getElementById("data_matricula_icon") || document.querySelector(".fa-calendar") || document.querySelector(".position-absolute");
+    if(icon){
+      icon.addEventListener("click", function(){
+        setTimeout(function(){ document.querySelectorAll(".flatpickr-calendar").forEach(positionCalendarNode); }, 20);
+      }, {passive:true});
+    }
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", init); } else { init(); }
+})();
+</script>
+<!-- fim final -->
+
+<!-- ajuste curto: alinhar Turno com Data e posicionar calendário junto ao ícone -->
+<style>
+  /* força largura/altura consistentes */
+  #data_matricula, #turno { box-sizing: border-box; }
+  /* small visual tweak for turno */
+  #turno { height: auto !important; min-height: 38px; padding-top: .375rem; padding-bottom: .375rem; }
+  .flatpickr-calendar { z-index: 999999 !important; pointer-events: auto; }
+</style>
+<script>
+(function(){
+  function syncTurno(){
+    var d = document.getElementById("data_matricula");
+    var t = document.getElementById("turno");
+    if(!d || !t) return;
+    var rect = d.getBoundingClientRect();
+    t.style.width = Math.round(rect.width) + "px";
+    // match vertical padding/height visually
+    var style = getComputedStyle(d);
+    t.style.paddingTop = style.paddingTop;
+    t.style.paddingBottom = style.paddingBottom;
+    t.style.height = style.height && style.height !== "0px" ? style.height : "auto";
+    t.style.boxSizing = "border-box";
+  }
+  function positionCalendarNode(cal, icon){
+    try{
+      var ir = icon.getBoundingClientRect();
+      cal.style.position = "fixed";
+      // place calendar slightly left of icon so it appears closer
+      cal.style.left = (Math.max(8, ir.left - 8)) + "px";
+      cal.style.top  = (ir.bottom + 6) + "px";
+      cal.style.zIndex = "999999";
+    }catch(e){}
+  }
+  function observeAndHook(){
+    var icon = document.getElementById("data_matricula_icon") || document.querySelector(".fa-calendar") || document.querySelector(".position-absolute");
+    syncTurno();
+    // reposition existing calendars
+    document.querySelectorAll(".flatpickr-calendar").forEach(function(c){ if(icon) positionCalendarNode(c, icon); });
+    // observe additions (flatpickr creates a node)
+    var mo = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        m.addedNodes && m.addedNodes.forEach(function(n){
+          if(n.nodeType===1 && n.classList && n.classList.contains("flatpickr-calendar")){
+            setTimeout(function(){ positionCalendarNode(n, icon); }, 8);
+          }
+        });
+      });
+    });
+    mo.observe(document.body, { childList:true, subtree:true });
+    // ensure icon click repositions after open
+    if(icon){
+      icon.addEventListener("click", function(){ setTimeout(function(){ document.querySelectorAll(".flatpickr-calendar").forEach(function(c){ positionCalendarNode(c, icon); }); }, 12); }, {passive:true});
+    }
+    window.addEventListener("resize", function(){ setTimeout(syncTurno,60); });
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", observeAndHook); } else { observeAndHook(); }
+})();
+</script>
+<!-- fim ajuste curto -->
+
+<!-- FIX: sincroniza largura/altura do Turno com Data e reposiciona flatpickr junto ao ícone -->
+<style>
+  /* segurança visual mínima */
+  #data_matricula, #turno { box-sizing: border-box; }
+  .flatpickr-calendar { z-index: 999999 !important; pointer-events: auto; }
+</style>
+<script>
+(function(){
+  function syncTurno() {
+    var d = document.getElementById("data_matricula");
+    var t = document.getElementById("turno");
+    if (!d || !t) return;
+    var r = d.getBoundingClientRect();
+    t.style.width = Math.round(r.width) + "px";
+    t.style.height = Math.round(r.height) + "px";
+    t.style.boxSizing = "border-box";
+    // copy padding to match visual vertical alignment
+    var cs = getComputedStyle(d);
+    t.style.paddingTop = cs.paddingTop;
+    t.style.paddingBottom = cs.paddingBottom;
+  }
+
+  function positionCalendar(cal, icon) {
+    try {
+      if (!cal || !icon) return;
+      var ir = icon.getBoundingClientRect();
+      cal.style.position = "fixed";
+      // ajusta para ficar próximo e levemente à esquerda do ícone
+      cal.style.left = (Math.max(8, Math.round(ir.left - 8))) + "px";
+      cal.style.top  = (Math.round(ir.bottom + 6)) + "px";
+      cal.style.zIndex = "999999";
+    } catch(e) {}
+  }
+
+  function observeCalendars() {
+    var icon = document.getElementById("data_matricula_icon") || document.querySelector(".fa-calendar") || document.querySelector(".position-absolute");
+    // reposiciona existentes
+    document.querySelectorAll(".flatpickr-calendar").forEach(function(c){ positionCalendar(c, icon); });
+    // observa novos calendários (flatpickr adiciona ao DOM)
+    var mo = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        m.addedNodes && m.addedNodes.forEach(function(n){
+          if (n.nodeType===1 && n.classList && n.classList.contains("flatpickr-calendar")) {
+            setTimeout(function(){ positionCalendar(n, icon); }, 8);
+          }
+        });
+      });
+    });
+    mo.observe(document.body, { childList:true, subtree:true });
+    // garante reposicionamento logo após clique no ícone
+    if (icon) {
+      icon.addEventListener("click", function(){
+        setTimeout(function(){ document.querySelectorAll(".flatpickr-calendar").forEach(function(c){ positionCalendar(c, icon); }); }, 12);
+      }, {passive:true});
+    }
+    // redimensionamento
+    window.addEventListener("resize", function(){ setTimeout(syncTurno, 60); });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function(){ syncTurno(); observeCalendars(); });
+  } else {
+    syncTurno(); observeCalendars();
+  }
+})();
+</script>
+<!-- /FIX -->
+

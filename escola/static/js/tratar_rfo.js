@@ -1,7 +1,7 @@
 // static/js/tratar_rfo.js
 // Versão ajustada: mantem botão "Cancelar reclassificação" visível após reclassificar (não remove a UI).
 // Ajuste mínimo aplicado ao handler de sucesso para NÃO chamar clearReclassifyUI() e manter o cancel disponível.
-// Preserva toda a lógica original: autocomplete, debounce, AbortController, seleção de tipos, validação.
+// Também adiciona suporte para modo "Elogio": oculta/dispensa campos de falta/medida no front-end.
 
 (function () {
   'use strict';
@@ -55,6 +55,46 @@
     const resultEl = document.getElementById('reincidenciaResult');
     const reclassifyContainer = document.getElementById('reclassifyContainer');
     const form = document.getElementById('form-tratar-rfo');
+    // -- Inserir imediatamente após: const form = document.getElementById('form-tratar-rfo');
+    if (form) {
+      form.addEventListener('submit', function (ev) {
+        // garante que existam hidden inputs com os valores atuais antes do envio
+        function ensureHidden(name, value) {
+          let el = form.querySelector('[name="' + name + '"]');
+          if (!el) {
+            el = document.createElement('input');
+            el.type = 'hidden';
+            el.name = name;
+            form.appendChild(el);
+          }
+          el.value = value === undefined || value === null ? '' : String(value);
+        }
+
+        // valor que o JS já determina em runtime (form.dataset.tipo pode ser preenchido)
+        ensureHidden('tipo_rfo', form.dataset.tipo || '');
+
+        // campos que existem no form (selects/inputs) — o valor atual será copiado para hidden
+        const selTrat = form.querySelector('select[name="tratamento_classificacao"]');
+        ensureHidden('tratamento_classificacao', selTrat ? selTrat.value : '');
+
+        const selMed = form.querySelector('select[name="medida_aplicada"]');
+        ensureHidden('medida_aplicada', selMed ? selMed.value : '');
+
+        // sinaliza explicitamente ao backend se este RFO deve ser tratado como elogio
+        // isElogio() é a função já presente no script (se não estiver, substitua por verificação simples)
+        try {
+          ensureHidden('is_elogio', (typeof isElogio === 'function' && isElogio()) ? '1' : '0');
+        } catch (e) {
+          // fallback seguro
+          ensureHidden('is_elogio', '0');
+        }
+      }, true); // use capture=true para rodar antes de handlers que previnam envio
+    }
+
+    // New: references to the two fieldsets we may hide/show (ids must exist in template)
+    const fsClassificacao = document.getElementById('fieldset-classificacao');
+    const fsMedida = document.getElementById('fieldset-medida');
+    const medidaSelect = document.getElementById('medida_aplicada');
 
     // controllers for fetches
     let searchController = null;
@@ -593,20 +633,91 @@
         }
       });
 
-      // validate on submit
+      // Helper: determine if current RFO is an elogio
+      function isElogio() {
+        const formTipo = (form && form.dataset && form.dataset.tipo) ? String(form.dataset.tipo).toLowerCase() : '';
+        if (formTipo && formTipo.indexOf('elogio') !== -1) return true;
+        const radio = document.querySelector('input[name="tipo_rfo"]:checked');
+        if (radio && String(radio.value).toLowerCase().indexOf('elogio') !== -1) return true;
+        return false;
+      }
+
+      // UI adjuster: hide fieldsets and remove required attributes when Elogio
+      function applyTipoMode() {
+        const elog = isElogio();
+        if (elog) {
+          // hide classification and medida blocks
+          if (fsClassificacao) fsClassificacao.style.display = 'none';
+          if (fsMedida) fsMedida.style.display = 'none';
+          // remove required on medida select to avoid browser blocking
+          if (medidaSelect) medidaSelect.removeAttribute('required');
+          // clear any selected types/faltas so validation won't require them
+          selectedTipos = [];
+          selectedFaltas = [];
+          renderTipos();
+          renderFaltas();
+          // show a blue informative message (insert or reuse an element)
+          let note = document.getElementById('elogio-note');
+          if (!note) {
+            note = document.createElement('div');
+            note.id = 'elogio-note';
+            note.style.background = '#e9f7ff';
+            note.style.borderLeft = '4px solid #007bff';
+            note.style.padding = '10px';
+            note.style.margin = '8px 0 16px 0';
+            note.style.color = '#0b63c6';
+            note.style.fontWeight = '600';
+            note.textContent = 'RFO TRATA-SE DE UM ELOGIO';
+            // insert before the first fieldset if possible
+            if (fsClassificacao && fsClassificacao.parentNode) fsClassificacao.parentNode.insertBefore(note, fsClassificacao);
+            else if (fsMedida && fsMedida.parentNode) fsMedida.parentNode.insertBefore(note, fsMedida);
+            else form.insertBefore(note, form.firstChild);
+          }
+        } else {
+          // show classification and medida blocks
+          if (fsClassificacao) fsClassificacao.style.display = '';
+          if (fsMedida) fsMedida.style.display = '';
+          // restore required on medida select (if element exists)
+          if (medidaSelect) medidaSelect.setAttribute('required', 'required');
+          // remove the elogio note if exists
+          const note = document.getElementById('elogio-note');
+          if (note) note.remove();
+        }
+      }
+
+      // initial apply
+      applyTipoMode();
+
+      // If radios exist, watch for changes to apply mode dynamically
+      const tipoRadios = qsa('input[name="tipo_rfo"]');
+      if (tipoRadios && tipoRadios.length) {
+        tipoRadios.forEach(r => r.addEventListener('change', function () {
+          // update dataset so other parts can read it
+          form.dataset.tipo = (r && r.value) ? String(r.value).toLowerCase() : '';
+          applyTipoMode();
+        }));
+      }
+
+      // validate on submit — now conditional on whether RFO is Elogio
       form.addEventListener('submit', function (e) {
-        if (!selectedTipos || selectedTipos.length === 0) {
-          e.preventDefault();
-          alert('Por favor, adicione ao menos um Tipo de Falta antes de salvar o tratamento.');
-          return false;
+        const elog = isElogio();
+        if (!elog) {
+          if (!selectedTipos || selectedTipos.length === 0) {
+            e.preventDefault();
+            alert('Por favor, adicione ao menos um Tipo de Falta antes de salvar o tratamento.');
+            return false;
+          }
+          if (!selectedFaltas || selectedFaltas.length === 0) {
+            e.preventDefault();
+            alert('A descrição da falta é obrigatória. Adicione pelo menos um item/descrição.');
+            return false;
+          }
+        } else {
+          // Elogio: ensure hidden fields don't block server-side assumptions
+          if (tipoHidden) tipoHidden.value = '';
+          if (faltaHidden) faltaHidden.value = '';
+          if (medidaSelect) medidaSelect.removeAttribute('required');
         }
-        // ensure faltas selected as well
-        if (!selectedFaltas || selectedFaltas.length === 0) {
-          e.preventDefault();
-          alert('A descrição da falta é obrigatória. Adicione pelo menos um item/descrição.');
-          return false;
-        }
-        // when submitting, ensure hidden fields are up to date
         if (tipoHidden) tipoHidden.value = selectedTipos.join(',');
         if (faltaHidden) faltaHidden.value = selectedFaltas.map(i => i.id).join(',');
         return true;

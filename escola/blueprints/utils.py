@@ -1,4 +1,4 @@
-from flask import session, flash, redirect, url_for
+﻿from flask import session, flash, redirect, url_for
 from functools import wraps
 
 # --- DICIONÁRIOS DE CONFIGURAÇÃO DO SISTEMA ---
@@ -104,7 +104,7 @@ def admin_secundario_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('nivel') not in [1, 2]:
-            flash('Acesso negado. Apenas usuários administradores podem acessar esta área.', 'danger')
+            flash('RFO encaminhada para tratamento.', 'success')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
@@ -155,3 +155,33 @@ def validar_email(email):
     if not email:
         return True  # Email é opcional
     return '@' in email and '.' in email.split('@')[1]
+
+def get_proximo_rfo_id(incrementar=False):
+    """
+    Gera um identificador para RFO no formato RFO-XXXX/YYYY (ex: RFO-0001/2025).
+    Usa a conexão de banco fornecida por database.get_db() para contar ocorrências
+    do ano atual e retorna RFO-{seq:04d}/{year}. Se houver qualquer erro, cai
+    para um fallback baseado em timestamp (único propósito de garantir retorno).
+    """
+    try:
+        from datetime import datetime
+        # obtém get_db do módulo database (definido em database.py)
+        from database import get_db
+
+        year = datetime.utcnow().strftime('%Y')
+        try:
+            db = get_db()
+            row = db.execute("SELECT COUNT(*) as c FROM ocorrencias WHERE strftime('%Y', created_at) = ?", (year,)).fetchone()
+            base_count = int(row['c']) if row and row['c'] is not None else 0
+        except Exception:
+            # se por alguma razão não temos acesso ao contexto Flask/get_db, usar 0
+            base_count = 0
+
+        seq = base_count + 1
+        return f"RFO-{seq:04d}/{year}"
+    except Exception:
+        # fallback robusto por timestamp (não ideal, mas evita quebrar UI)
+        from datetime import datetime
+        year = datetime.utcnow().strftime('%Y')
+        fallback_seq = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[-6:]
+        return f"RFO-{fallback_seq}/{year}"

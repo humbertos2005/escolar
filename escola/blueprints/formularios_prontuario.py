@@ -1,4 +1,4 @@
-# blueprints/formularios_prontuario.py
+﻿# blueprints/formularios_prontuario.py
 # Versão mesclada e completa para colar no sistema.
 # Esta versão mantém a sua estrutura original (860+ linhas) e inclui:
 # - load_document_header: carrega cabeçalho de documentos do módulo Cadastros/Cabeçalho Documentos
@@ -16,6 +16,165 @@ import os
 import typing
 from urllib.parse import unquote
 import json
+
+# --- Adicionar estes imports no topo do arquivo (se já existirem, não duplicar) ---
+# --- imports adicionados/ajustados (cole uma única vez no topo, abaixo dos outros imports) ---
+from flask import session
+
+# Tentamos usar flask-login se estiver disponível; caso não esteja, mantemos current_user = None
+try:
+    from flask_login import current_user
+except Exception:
+    current_user = None
+# ---------------------------------------------------------------------
+
+# helper para formatar created_at
+def _format_created_at(prontuario_obj):
+    """Retorna (date_str, time_str) ou (None, None). date_str='DD/MM/AAAA', time_str='HH:MM'"""
+    if not prontuario_obj:
+        return None, None
+
+    created_raw = None
+    if isinstance(prontuario_obj, dict):
+        created_raw = prontuario_obj.get('created_at') or prontuario_obj.get('createdAt') or prontuario_obj.get('created')
+    else:
+        created_raw = getattr(prontuario_obj, 'created_at', None) or getattr(prontuario_obj, 'createdAt', None) or getattr(prontuario_obj, 'created', None)
+
+    if not created_raw:
+        return None, None
+
+    created_dt = None
+    # timestamp numérico
+    if isinstance(created_raw, (int, float)):
+        try:
+            created_dt = datetime.fromtimestamp(created_raw)
+        except Exception:
+            created_dt = None
+    # string ISO / com T / sem microsegundos
+    elif isinstance(created_raw, str):
+        try:
+            created_dt = datetime.fromisoformat(created_raw)
+        except Exception:
+            try:
+                created_dt = datetime.strptime(created_raw[:19], '%Y-%m-%dT%H:%M:%S')
+            except Exception:
+                try:
+                    created_dt = datetime.strptime(created_raw[:19].replace('T', ' '), '%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    created_dt = None
+
+    if created_dt:
+        return created_dt.strftime('%d/%m/%Y'), created_dt.strftime('%H:%M')
+    # fallback: retorna a string original como date (time=None)
+    return created_raw, None
+
+# --- Função utilitária: buscar dados adicionais do prontuário (RFOs, gestor, comportamento, pontuação) ---
+def get_prontuario_extras(db_conn, prontuario_id):
+    """
+    Retorna dict com:
+      - prontuario_rfos: lista de dicts {created_at, added_date_br, added_time, rfo_formatted, data_rfo_br, relato, medida_aplicada, gestor_username}
+      - prontuario_comportamento: string ou None
+      - prontuario_pontuacao: number or None
+    db_conn: conexão sqlite3 com row_factory configurado (sqlite3.Row) ou objeto DB compatível.
+    """
+    extras = {
+        "prontuario_rfos": [],
+        "prontuario_comportamento": None,
+        "prontuario_pontuacao": None
+    }
+
+    sql = """
+    SELECT pr.id AS prontuario_rfo_id, pr.created_at AS pr_created_at,
+           o.rfo_id AS rfo_id, o.data_ocorrencia AS data_ocorrencia,
+           o.relato_observador AS relato_observador, o.medida_aplicada AS medida_ocorrencia,
+           fmd.id AS fmd_id, fmd.medida_aplicada AS fmd_medida_aplicada, fmd.gestor_id AS fmd_gestor_id,
+           fmd.comportamento_id AS fmd_comportamento_id, fmd.pontuacao_id AS fmd_pontuacao_id, fmd.pontos_aplicados AS fmd_pontos_aplicados
+    FROM prontuario_rfo pr
+    JOIN ocorrencias o ON pr.ocorrencia_id = o.id
+    LEFT JOIN ficha_medida_disciplinar fmd ON fmd.rfo_id = o.rfo_id
+    WHERE pr.prontuario_id = ?
+    ORDER BY pr.created_at
+    """
+    try:
+        rows = db_conn.execute(sql, (prontuario_id,)).fetchall()
+    except Exception:
+        rows = []
+
+    for r in rows:
+        raw_created = (r["pr_created_at"] or "").replace("T", " ")
+        added_date_br = ""
+        added_time = ""
+        try:
+            if len(raw_created) >= 10:
+                added_date_br = f"{raw_created[8:10]}/{raw_created[5:7]}/{raw_created[0:4]}"
+            if len(raw_created) >= 16:
+                added_time = raw_created[11:16]
+        except Exception:
+            pass
+
+        rfo_raw = r["rfo_id"] or ""
+        rfo_num = ""
+        rfo_year = ""
+        try:
+            if "RFO-" in rfo_raw:
+                parts = rfo_raw.split("-")
+                if len(parts) >= 3:
+                    rfo_year = parts[1]; rfo_num = parts[2]
+            elif "-" in rfo_raw:
+                parts = rfo_raw.split("-")
+                if len(parts) >= 2:
+                    rfo_year = parts[0]; rfo_num = parts[1]
+            else:
+                rfo_num = rfo_raw[-4:]; rfo_year = rfo_raw[:4]
+            rfo_formatted = f"{str(rfo_num).zfill(4)}/{rfo_year}" if (rfo_num and rfo_year) else rfo_raw
+        except Exception:
+            rfo_formatted = rfo_raw
+
+        data_rfo = r["data_ocorrencia"] or ""
+        data_rfo_br = ""
+        try:
+            data_rfo_norm = data_rfo.replace("T", " ")
+            if len(data_rfo_norm) >= 10:
+                data_rfo_br = f"{data_rfo_norm[8:10]}/{data_rfo_norm[5:7]}/{data_rfo_norm[0:4]}"
+        except Exception:
+            data_rfo_br = data_rfo
+
+        relato = r["relato_observador"] or ""
+        medida = r["fmd_medida_aplicada"] or r["medida_ocorrencia"] or ""
+
+        gestor_username = None
+        try:
+            gid = r["fmd_gestor_id"]
+            if gid:
+                u = db_conn.execute("SELECT username FROM usuarios WHERE id = ? LIMIT 1", (gid,)).fetchone()
+                gestor_username = u["username"] if u else None
+        except Exception:
+            gestor_username = None
+
+        extras["prontuario_rfos"].append({
+            "created_at": raw_created,
+            "added_date_br": added_date_br,
+            "added_time": added_time,
+            "rfo_formatted": rfo_formatted,
+            "data_rfo_br": data_rfo_br,
+            "relato": relato,
+            "medida_aplicada": medida,
+            "gestor_username": gestor_username,
+            "author_name": gestor_username  # mostrar o gestor aprovador como "autor" do RFO
+        })
+
+        try:
+            if r.get("fmd_comportamento_id"):
+                comp = db_conn.execute("SELECT descricao, pontuacao FROM comportamentos WHERE id = ? LIMIT 1", (r["fmd_comportamento_id"],)).fetchone()
+                if comp:
+                    extras["prontuario_comportamento"] = comp["descricao"]
+                    extras["prontuario_pontuacao"] = comp["pontuacao"]
+            if extras["prontuario_pontuacao"] is None and r.get("fmd_pontos_aplicados") is not None:
+                extras["prontuario_pontuacao"] = r["fmd_pontos_aplicados"]
+        except Exception:
+            pass
+
+    return extras
 
 formularios_prontuario_bp = Blueprint(
     'formularios_prontuario',
@@ -53,7 +212,7 @@ def build_photo_url_from_row(row: sqlite3.Row) -> str:
         return ''
     filename_candidates = [
         'foto_url', 'foto_path', 'foto_file', 'foto_filename', 'arquivo_foto',
-        'foto', 'imagem', 'foto_nome', 'caminho_foto'
+        'photo', 'foto', 'imagem', 'foto_nome', 'caminho_foto'
     ]
     try:
         keys = row.keys()
@@ -493,7 +652,7 @@ def api_aluno_foto(aluno_id):
                                  download_name=f"aluno_{aluno_id}.jpg")
 
         # Procurar nomes de arquivo em colunas comuns e servir arquivo se encontrado
-        filename_candidates = ['foto_filename', 'foto_file', 'foto_path', 'foto', 'imagem', 'arquivo_foto', 'foto_nome']
+        filename_candidates = ['foto_filename', 'foto_file', 'foto_path', 'photo', 'foto', 'imagem', 'arquivo_foto', 'foto_nome']
         for c in filename_candidates:
             if c in cols:
                 rowf = db.execute(f"SELECT {c} FROM alunos WHERE id = ?", (aluno_id,)).fetchone()
@@ -525,8 +684,29 @@ def visualizar_prontuario(prontuario_id):
     try:
         r = db.execute("SELECT * FROM prontuarios WHERE id = ?", (prontuario_id,)).fetchone()
         if not r:
-            return render_template('formularios/prontuario_view.html', prontuario=None, aluno=None, header=None), 404
+            return render_template(
+                'formularios/prontuario_view.html',
+                prontuario=None,
+                aluno=None,
+                header=None,
+                created_date=None,
+                created_time=None,
+                viewer_name=None,
+            ), 404
         rd = dict(r)
+        # --- calcular data/hora formatada e nome do visualizador ---
+        created_date, created_time = _format_created_at(rd)
+
+        viewer_name = None
+        try:
+            if current_user and getattr(current_user, 'is_authenticated', False):
+                viewer_name = getattr(current_user, 'nome', None) or getattr(current_user, 'name', None) or getattr(current_user, 'username', None)
+        except Exception:
+            viewer_name = None
+
+        if not viewer_name:
+            viewer_name = session.get('user_nome') or session.get('nome') or session.get('username') or session.get('user')
+        # --- fim ---
         aluno = None
         if rd.get('aluno_id'):
             a = db.execute("SELECT * FROM alunos WHERE id = ?", (rd.get('aluno_id'),)).fetchone()
@@ -535,6 +715,41 @@ def visualizar_prontuario(prontuario_id):
                     aluno = dict(a)
                 except Exception:
                     aluno = a
+
+                # --- obter comportamento/pontuacao via helper centralizado (get_aluno_estado_atual) ---
+        comportamento = None
+        pontuacao = None
+
+        try:
+            # import local para evitar problemas de import circular; models.get_aluno_estado_atual já foi criado
+            from models import get_aluno_estado_atual
+
+            aluno_id = rd.get('aluno_id') if isinstance(rd, dict) else getattr(rd, 'aluno_id', None)
+            if aluno_id:
+                estado = get_aluno_estado_atual(aluno_id) or {}
+                comportamento = estado.get('comportamento')
+                pontuacao = estado.get('pontuacao')
+        except Exception:
+            current_app.logger.debug("Erro ao obter estado atual do aluno via get_aluno_estado_atual", exc_info=True)
+            comportamento = None
+            pontuacao = None
+
+        # manter fallbacks antigos como última opção (não sobrescrever se já tem valor)
+        if not comportamento:
+            comportamento = (
+                rd.get('comportamento')
+                or (aluno.get('comportamento') if isinstance(aluno, dict) else getattr(aluno, 'comportamento', None))
+                or (extras.get('prontuario_comportamento') if 'extras' in locals() and extras else None)
+            )
+
+        if not pontuacao:
+            pontuacao = (
+                rd.get('pontuacao')
+                or (aluno.get('pontuacao') if isinstance(aluno, dict) else getattr(aluno, 'pontuacao', None))
+                or (extras.get('prontuario_pontuacao') if 'extras' in locals() and extras else None)
+            )
+        # --- fim ---
+
         # carregar cabeçalho de documentos (se disponível)
         try:
             header = load_document_header(db)
@@ -542,10 +757,32 @@ def visualizar_prontuario(prontuario_id):
             header = None
             current_app.logger.debug("visualizar_prontuario: falha ao carregar header", exc_info=True)
 
-        return render_template('formularios/prontuario_view.html', prontuario=rd, aluno=aluno, header=header)
+        extras = get_prontuario_extras(db, rd["id"])
+        return render_template(
+            'formularios/prontuario_view.html',
+            prontuario=rd,
+            aluno=aluno,
+            header=header,
+            prontuario_rfos=extras["prontuario_rfos"],
+            prontuario_comportamento=extras["prontuario_comportamento"],
+            prontuario_pontuacao=extras["prontuario_pontuacao"],
+            created_date=created_date,
+            created_time=created_time,
+            viewer_name=viewer_name,
+            comportamento=comportamento,
+            pontuacao=pontuacao,
+        )
     except Exception:
         current_app.logger.exception("Erro ao carregar prontuário")
-        return render_template('formularios/prontuario_view.html', prontuario=None, aluno=None, header=None), 500
+        return render_template(
+            'formularios/prontuario_view.html',
+            prontuario=None,
+            aluno=None,
+            header=None,
+            created_date=None,
+            created_time=None,
+            viewer_name=None,
+        ), 500
 
 
 @formularios_prontuario_bp.route('/prontuario/<int:prontuario_id>/edit', methods=['GET', 'POST'])
@@ -633,19 +870,130 @@ def excluir_prontuario(prontuario_id):
 @formularios_prontuario_bp.route('/prontuario/<int:prontuario_id>/print', methods=['GET'])
 def imprimir_prontuario(prontuario_id):
     """
-    Imprimir (mantido apenas para compatibilidade; botão de impressão removido da listagem).
+    Imprimir (mantido apenas para compatibilidade). Agora calcula um
+    suggested_filename (prontuario_<nome_do_aluno>) e passa para o template.
     """
+    import re
+
     db = get_db()
     try:
         r = db.execute("SELECT * FROM prontuarios WHERE id = ?", (prontuario_id,)).fetchone()
         if not r:
             return "Prontuário não encontrado", 404
         rd = dict(r)
-        return render_template('formularios/prontuario_impressao.html', prontuario=rd)
+
+        # --- calcular data/hora formatada e nome do visualizador ---
+        created_date, created_time = _format_created_at(rd)
+
+        viewer_name = None
+        try:
+            if current_user and getattr(current_user, 'is_authenticated', False):
+                viewer_name = getattr(current_user, 'nome', None) or getattr(current_user, 'name', None) or getattr(current_user, 'username', None)
+        except Exception:
+            viewer_name = None
+
+        if not viewer_name:
+            viewer_name = session.get('user_nome') or session.get('nome') or session.get('username') or session.get('user')
+        # --- fim ---
+
+        # carregar dados do aluno (se houver)
+        aluno = None
+        if rd.get('aluno_id'):
+            a = db.execute("SELECT * FROM alunos WHERE id = ?", (rd.get('aluno_id'),)).fetchone()
+            if a:
+                try:
+                    aluno = dict(a)
+                except Exception:
+                    aluno = a
+
+        # obter comportamento/pontuacao via helper (se disponível)
+        comportamento = None
+        pontuacao = None
+        try:
+            from models import get_aluno_estado_atual
+            aluno_id = rd.get('aluno_id') if isinstance(rd, dict) else getattr(rd, 'aluno_id', None)
+            if aluno_id:
+                estado = get_aluno_estado_atual(aluno_id) or {}
+                comportamento = estado.get('comportamento')
+                pontuacao = estado.get('pontuacao')
+        except Exception:
+            current_app.logger.debug("Erro ao obter estado atual do aluno via get_aluno_estado_atual", exc_info=True)
+            comportamento = None
+            pontuacao = None
+
+        # fallbacks (mesma lógica da view)
+        if not comportamento:
+            comportamento = (
+                rd.get('comportamento')
+                or (aluno.get('comportamento') if isinstance(aluno, dict) else getattr(aluno, 'comportamento', None))
+            )
+
+        if not pontuacao:
+            pontuacao = (
+                rd.get('pontuacao')
+                or (aluno.get('pontuacao') if isinstance(aluno, dict) else getattr(aluno, 'pontuacao', None))
+            )
+
+        # carregar cabeçalho de documentos (se disponível)
+        try:
+            header = load_document_header(db)
+        except Exception:
+            header = None
+            current_app.logger.debug("imprimir_prontuario: falha ao carregar header", exc_info=True)
+
+        # carregar extras (prontuario_rfos, etc.)
+        try:
+            extras = get_prontuario_extras(db, rd["id"]) or {}
+        except Exception:
+            extras = {}
+            current_app.logger.debug("imprimir_prontuario: falha ao carregar extras", exc_info=True)
+
+        # --- criar suggested filename seguro ---
+        name_candidate = None
+        if aluno and isinstance(aluno, dict):
+            name_candidate = aluno.get('nome')
+        if not name_candidate:
+            name_candidate = rd.get('aluno_nome') or rd.get('nome') or f"id{rd.get('id')}"
+        # remover caracteres indesejados e substituir espaços por underscore
+        if not name_candidate:
+            name_candidate = f"id{rd.get('id')}"
+        raw = str(name_candidate).strip()
+        # permite letras, números, traço e underscore; substitui o resto por _
+        safe = re.sub(r'[^A-Za-z0-9 _\-]', '_', raw)
+        safe = re.sub(r'\s+', '_', safe)
+        if not safe:
+            safe = str(rd.get('id') or 'prontuario')
+        suggested_filename = f"prontuario_{safe}"
+
+        # detectar flag auto_print na query string
+        auto_print_raw = request.args.get('auto_print', None)
+        auto_print = False
+        if auto_print_raw is not None:
+            try:
+                if str(auto_print_raw).lower() in ('1', 'true', 'yes', 'on'):
+                    auto_print = True
+            except Exception:
+                auto_print = bool(auto_print_raw)
+
+        return render_template(
+            'formularios/prontuario_impressao.html',
+            prontuario=rd,
+            aluno=aluno,
+            header=header,
+            prontuario_rfos=extras.get("prontuario_rfos"),
+            prontuario_comportamento=extras.get("prontuario_comportamento"),
+            prontuario_pontuacao=extras.get("prontuario_pontuacao"),
+            created_date=created_date,
+            created_time=created_time,
+            viewer_name=viewer_name,
+            comportamento=comportamento,
+            pontuacao=pontuacao,
+            auto_print=auto_print,
+            suggested_filename=suggested_filename,
+        )
     except Exception:
         current_app.logger.exception("Erro ao imprimir prontuário")
         return "Erro ao imprimir", 500
-
 
 @formularios_prontuario_bp.route('/visualizacoes/prontuario/<int:prontuario_id>')
 def visualizar_prontuario_visualizacao(prontuario_id):
@@ -658,9 +1006,30 @@ def visualizar_prontuario_visualizacao(prontuario_id):
     try:
         r = db.execute("SELECT * FROM prontuarios WHERE id = ?", (prontuario_id,)).fetchone()
         if not r:
-            return render_template('formularios/prontuario_view.html', prontuario=None, aluno=None, header=None), 404
+            return render_template(
+                'formularios/prontuario_view.html',
+                prontuario=None,
+                aluno=None,
+                header=None,
+                created_date=None,
+                created_time=None,
+                viewer_name=None,
+            ), 404
         try:
             rd = dict(r)
+            # --- calcular data/hora formatada e nome do visualizador (rota compat) ---
+            created_date, created_time = _format_created_at(rd)
+
+            viewer_name = None
+            try:
+                if current_user and getattr(current_user, 'is_authenticated', False):
+                    viewer_name = getattr(current_user, 'nome', None) or getattr(current_user, 'name', None) or getattr(current_user, 'username', None)
+            except Exception:
+                viewer_name = None
+
+            if not viewer_name:
+                viewer_name = session.get('user_nome') or session.get('nome') or session.get('username') or session.get('user')
+            # --- fim ---
         except Exception:
             rd = r
         aluno = None
@@ -676,10 +1045,30 @@ def visualizar_prontuario_visualizacao(prontuario_id):
             header = load_document_header(db)
         except Exception:
             header = None
-        return render_template('formularios/prontuario_view.html', prontuario=rd, aluno=aluno, header=header)
+        extras = get_prontuario_extras(db, rd["id"])
+        return render_template(
+            'formularios/prontuario_view.html',
+            prontuario=rd,
+            aluno=aluno,
+            header=header,
+            prontuario_rfos=extras["prontuario_rfos"],
+            prontuario_comportamento=extras["prontuario_comportamento"],
+            prontuario_pontuacao=extras["prontuario_pontuacao"],
+            created_date=created_date,
+            created_time=created_time,
+            viewer_name=viewer_name,
+        )
     except Exception:
         current_app.logger.exception("Erro ao renderizar visualização do prontuário")
-        return render_template('formularios/prontuario_view.html', prontuario=None, aluno=None, header=None), 500
+        return render_template(
+            'formularios/prontuario_view.html',
+            prontuario=None,
+            aluno=None,
+            header=None,
+            created_date=None,
+            created_time=None,
+            viewer_name=None,
+        ), 500
     
 @formularios_prontuario_bp.route('/prontuario/save', methods=['POST'])
 def salvar_prontuario():
@@ -1003,3 +1392,5 @@ __all__ = ['formularios_prontuario_bp', 'formularios_prontuarios_bp']
 # Padding line 199
 # Padding line 200
 # End of file
+
+

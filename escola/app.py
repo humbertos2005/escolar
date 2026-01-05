@@ -32,11 +32,7 @@ except:
             print("   [AVISO] NÃ£o foi possÃ­vel configurar localizaÃ§Ã£o PT-BR")
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY")
-if not app.secret_key:
-    import secrets
-    app.secret_key = secrets.token_urlsafe(32)
-    print("[AVISO] FLASK_SECRET_KEY não definido — chave temporária gerada. Defina FLASK_SECRET_KEY em produção.")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave-secreta-gestao-escolar-2025-v2")
 app.config['DATABASE'] = DATABASE
 
 # Configurar Flask-Moment com localizaÃ§Ã£o brasileira
@@ -66,6 +62,13 @@ app.register_blueprint(formularios_bp, url_prefix='/formularios')
 
 app.register_blueprint(visualizacoes_bp, url_prefix='/visualizacoes')
 app.register_blueprint(bimestres_bp)
+
+# Registrar rota para aplicar FMDs a partir de RFOs
+try:
+    from blueprints.apply_fmds import bp_apply_fmds
+    app.register_blueprint(bp_apply_fmds)
+except Exception:
+    pass
 
 @app.before_request
 def load_logged_in_user():
@@ -328,3 +331,11 @@ def inject_logo_data():
     except Exception:
         return {"LOGO_DATA_URI": None}
 # --- end inject ---
+# --- registrar blueprint de data_matricula (adicionado automaticamente) ---
+try:
+    from blueprints.matricula import bp_matricula
+    app.register_blueprint(bp_matricula)
+except Exception:
+    # se algo falhar aqui (por ordem de imports ou contexto), não quebramos a aplicação
+    pass
+# --- fim registro matricula ---

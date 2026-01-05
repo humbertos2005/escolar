@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "timestamp": "20251231151904",
+    "backup": "escola.db.bak.20251231151904"
+  },
+  "updated_pontuacao_bimestral": [],
+  "updated_pontuacao_historico": [],
+  "errors": [
+    {
+      "migration_exception": "'sqlite3.Row' object has no attribute 'get'"
+    }
+  ]
+}

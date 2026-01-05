@@ -1,8 +1,8 @@
-﻿<h2>Adicionar Novo Aluno</h2>
+<h2>Adicionar Novo Aluno</h2>
 
 <form method="POST" id="form-cadastro-aluno" class="form-aluno">
     
-    <div class="form-section">
+        <div class="form-section">
         <h3 class="section-title">
             <i class="fas fa-id-card"></i> Dados Pessoais e Escolares
         </h3>
@@ -20,6 +20,12 @@
         </div>
 
         <div class="form-row">
+            <div class="input-group">
+                <label for="data_matricula">Data da Matrícula</label>
+                <input type="date" id="data_matricula" name="data_matricula">
+                <small style="color: #7f8c8d; margin-top: 5px;">Formato:  dd/mm/aaaa</small>
+            </div>
+
             <div class="input-group">
                 <label for="serie">Série</label>
                 <input type="text" id="serie" name="serie">

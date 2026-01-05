@@ -4,7 +4,7 @@
 <h2>Faltas Disciplinares</h2>
 
 <div class="toolbar">
-    <a href="{{ url_for('cadastros_bp.adicionar_falta') }}" class="button btn-primary">
+    <a href="{{ url_for('cadastros_bp.adicionar_falta', iframe=1) }}" class="button btn-primary">
         <i class="fas fa-plus-circle"></i> Adicionar Nova Falta
     </a>
 </div>
@@ -31,13 +31,13 @@
                         </span>
                     </td>
                     <td class="actions" style="text-align: center;">
-                        <a href="{{ url_for('cadastros_bp.editar_falta', falta_id=falta.id) }}" 
+                        <a href="{{ url_for('cadastros_bp.editar_falta', falta_id=falta.id, iframe=1) }}"
                            class="btn btn-sm btn-info" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
                         {% if session.get('nivel') == 1 %}
-                        <form method="POST" action="{{ url_for('cadastros_bp.excluir_falta', falta_id=falta.id) }}" 
-                              style="display:inline;" 
+                        <form method="POST" action="{{ url_for('cadastros_bp.excluir_falta', falta_id=falta.id, iframe=1) }}"
+                              style="display:inline;"
                               onsubmit="return confirm('Tem certeza que deseja excluir esta falta?');">
                             <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
                                 <i class="fas fa-trash"></i>
@@ -54,7 +54,7 @@
     <div class="empty-state">
         <i class="fas fa-exclamation-triangle"></i>
         <p>Nenhuma falta disciplinar cadastrada.</p>
-        <a href="{{ url_for('cadastros_bp.adicionar_falta') }}" class="button btn-primary">
+        <a href="{{ url_for('cadastros_bp.adicionar_falta', iframe=1) }}" class="button btn-primary">
             <i class="fas fa-plus"></i> Cadastrar Primeira Falta
         </a>
     </div>

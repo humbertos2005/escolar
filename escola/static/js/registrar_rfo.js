@@ -1,263 +1,286 @@
-﻿// Contador de caracteres
-const relatoTextarea = document.getElementById('relato_observador');
-const charCounter = document.querySelector('.char-counter');
+﻿// registrar_rfo.js - Versão limpa e funcional
 
+// Contador de caracteres
 function updateCharCounter() {
-    if (!relatoTextarea || !charCounter) return;
-    const length = relatoTextarea.value.length;
+    const relatoTextarea = document.getElementById('relato_observador');
+    const charCounter = document.querySelector('.char-counter');
+    
+    if (! relatoTextarea || !charCounter) return;
+    
+    const length = relatoTextarea.value. length;
     charCounter.textContent = `${length}/500 caracteres`;
     charCounter.style.color = length > 450 ? '#e74c3c' : '#7f8c8d';
 }
 
-// Função genérica de Autocomplete
-function autocomplete(inp, hidden_inp, info_display_id, fetch_url, callback) {
-    // prevent double-binding for the same input element
+// Função de Autocomplete - CORRIGIDA
+function autocomplete(inp, hidden_inp, fetch_url, callback) {
     if (!inp || inp._autocompleteBound) return;
     inp._autocompleteBound = true;
 
-    let currentFocus;
+    let currentFocus = -1;
+
+    function closeAllLists() {
+        const items = document.getElementsByClassName('autocomplete-items');
+        Array.from(items).forEach(item => {
+            if (item.parentNode) item.parentNode.removeChild(item);
+        });
+        currentFocus = -1;
+    }
 
     inp.addEventListener('input', function() {
-        const val = this.value;
+        const val = this.value. trim();
         closeAllLists();
-        if (!val || val.length < 3) {
+        
+        if (! val || val.length < 3) {
             if (callback) callback(null, null);
-            return false;
+            return;
         }
-        currentFocus = -1;
-        const a = document.createElement('DIV');
-        a.setAttribute('id', this.id + 'autocomplete-list');
-        a.setAttribute('class', 'autocomplete-items');
-        this.parentNode.appendChild(a);
+
+        const listDiv = document.createElement('DIV');
+        listDiv.setAttribute('id', this.id + '-autocomplete-list');
+        listDiv.setAttribute('class', 'autocomplete-items');
+        this.parentNode.appendChild(listDiv);
 
         fetch(fetch_url + '?q=' + encodeURIComponent(val))
-            .then(response => response.json())
-            .then(function(arr) {
-                if (!arr || arr.length === 0) {
-                    const b = document.createElement('DIV');
-                    b.innerHTML = 'Nenhum resultado encontrado.';
-                    b.style.color = '#7f8c8d';
-                    a.appendChild(b);
+            .then(response => response. json())
+            .then(arr => {
+                if (! arr || arr.length === 0) {
+                    listDiv.innerHTML = '<div style="padding: 10px;color:#999;">Nenhum resultado encontrado</div>';
                     return;
                 }
-                arr.forEach(function(item) {
-                    const b = document.createElement('DIV');
-                    b.innerHTML = item.value;
-                    b.dataset.id = item.id;
-                    b.dataset.data = JSON.stringify(item.data);
-                    b.addEventListener('click', function(e) {
+
+                arr.forEach(item => {
+                    const itemDiv = document.createElement('DIV');
+                    itemDiv.innerHTML = item.value;
+                    itemDiv.dataset.id = item.id;
+                    itemDiv.dataset.data = JSON.stringify(item. data);
+
+                    // CRÍTICO: mousedown previne conflito com blur
+                    itemDiv.addEventListener('mousedown', function(e) {
+                        e. preventDefault();
+                        e.stopPropagation();
+
                         inp.value = item.value;
                         if (hidden_inp) hidden_inp.value = item.id;
-                        if (callback) {
-                            callback(item.id, item.data);
-                        }
+                        if (callback) callback(item.id, item.data);
+                        
                         closeAllLists();
                     });
-                    a.appendChild(b);
+
+                    listDiv.appendChild(itemDiv);
                 });
             })
-            .catch(error => console.error('Erro ao buscar dados:', error));
+            .catch(error => {
+                console. error('Erro ao buscar:', error);
+                listDiv.innerHTML = '<div style="padding:10px;color:#dc3545;">Erro ao buscar</div>';
+            });
     });
 
     inp.addEventListener('keydown', function(e) {
-        let x = document.getElementById(this.id + 'autocomplete-list');
-        if (x) x = x.getElementsByTagName('div');
-        if (e.keyCode === 40) { // Seta para baixo
+        const list = document.getElementById(this.id + '-autocomplete-list');
+        if (! list) return;
+        
+        const items = list. getElementsByTagName('div');
+        if (!items. length) return;
+
+        if (e.keyCode === 40) { // Seta baixo
             currentFocus++;
-            addActive(x);
-        } else if (e.keyCode === 38) { // Seta para cima
+            if (currentFocus >= items.length) currentFocus = 0;
+            setActive(items);
+            e.preventDefault();
+        } else if (e.keyCode === 38) { // Seta cima
             currentFocus--;
-            addActive(x);
+            if (currentFocus < 0) currentFocus = items.length - 1;
+            setActive(items);
+            e.preventDefault();
         } else if (e.keyCode === 13) { // Enter
             e.preventDefault();
-            if (currentFocus > -1 && x && x[currentFocus]) {
-                x[currentFocus].click();
+            if (currentFocus > -1) {
+                items[currentFocus].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
             }
+        } else if (e.keyCode === 27) { // Escape
+            closeAllLists();
         }
     });
 
-    function addActive(x) {
-        if (!x) return false;
-        removeActive(x);
-        if (currentFocus >= x.length) currentFocus = 0;
-        if (currentFocus < 0) currentFocus = (x.length - 1);
-        x[currentFocus].classList.add('autocomplete-active');
-        x[currentFocus].scrollIntoView({ block: 'nearest' });
-    }
-
-    function removeActive(x) {
-        for (let i = 0; i < x.length; i++) {
-            x[i].classList.remove('autocomplete-active');
+    function setActive(items) {
+        Array.from(items).forEach((item, index) => {
+            item.classList.toggle('autocomplete-active', index === currentFocus);
+        });
+        if (items[currentFocus]) {
+            items[currentFocus]. scrollIntoView({ block: 'nearest' });
         }
     }
 
-    function closeAllLists(elmnt) {
-        const x = document.getElementsByClassName('autocomplete-items');
-        for (let i = 0; i < x.length; i++) {
-            if (elmnt !== x[i] && elmnt !== inp) {
-                if (x[i] && x[i].parentNode) x[i].parentNode.removeChild(x[i]);
-            }
-        }
-    }
-    document.addEventListener('click', function (e) {
-        closeAllLists(e.target);
+    document.addEventListener('click', function(e) {
+        if (e.target !== inp) closeAllLists();
     });
 }
 
-// Callback genérico para exibir info em um elemento específico
+// Callback para exibir info do aluno
 function buildAlunoInfoCallback(infoElement) {
     return function(alunoId, itemData) {
         if (!infoElement) return;
+        
         if (alunoId && itemData && itemData.serie) {
             infoElement.innerHTML = `<strong>Série/Turma:</strong> ${itemData.serie} - ${itemData.turma}`;
             infoElement.classList.add('show');
         } else {
             infoElement.innerHTML = '';
-            infoElement.classList.remove('show');
+            infoElement.classList. remove('show');
         }
     };
 }
 
-// Compatibilidade: função ainda disponível para quem a chamava antes (mantida)
-function exibirInfoAluno(alunoId, itemData) {
-    const displayP = document.getElementById('aluno-info');
-    if (!displayP) return;
-    if (alunoId && itemData && itemData.serie) {
-        displayP.innerHTML = `<strong>Série/Turma:</strong> ${itemData.serie} - ${itemData.turma}`;
-        displayP.classList.add('show');
-    } else {
-        displayP.innerHTML = '';
-        displayP.classList.remove('show');
-    }
-}
-
-// Expor inicializador global para uso em elementos dinâmicos
+// Inicializador global para elementos dinâmicos
 window.initAlunoSearch = function(inputEl, hiddenEl, infoEl) {
-    if (!inputEl) return;
-    // idempotency: don't reinitialize same element
-    if (inputEl._alunoSearchInit) {
-        // but update bound hidden/info references if provided
-        if (hiddenEl) inputEl._boundHidden = hiddenEl;
-        if (infoEl) inputEl._boundInfo = (typeof infoEl === 'string') ? document.getElementById(infoEl) : infoEl;
-        return;
-    }
+    if (!inputEl || inputEl._alunoSearchInit) return;
+    inputEl._alunoSearchInit = true;
 
-    // infoEl pode ser um elemento DOM ou um id string; normaliza para elemento
-    let infoElement = null;
+    let infoElement = infoEl;
     if (typeof infoEl === 'string') {
         infoElement = document.getElementById(infoEl);
-    } else if (infoEl instanceof HTMLElement) {
-        infoElement = infoEl;
-    } else {
-        // tenta encontrar elemento .aluno-info associado ao input
+    } else if (! infoElement) {
         const entry = inputEl.closest('.aluno-entry');
         if (entry) infoElement = entry.querySelector('.aluno-info');
     }
 
     const callback = buildAlunoInfoCallback(infoElement);
-
-    // keep references on input element for other code to use
-    inputEl._boundHidden = hiddenEl || inputEl._boundHidden || null;
-    inputEl._boundInfo = infoElement || inputEl._boundInfo || null;
-
-    // mark initialized
-    inputEl._alunoSearchInit = true;
-
-    // attach autocomplete behavior
-    autocomplete(inputEl, inputEl._boundHidden, null, AUTOCOMPLETE_ALUNOS_URL, callback);
+    autocomplete(inputEl, hiddenEl, AUTOCOMPLETE_ALUNOS_URL, callback);
 };
 
-// Aliases para compatibilidade com possíveis nomes usados pelo template
-window.setupAlunoSearch = window.initAlunoSearch;
-window.bindAlunoSearch = window.initAlunoSearch;
+// Toggle Tipo RFO (Falta Disciplinar / Elogio)
+function toggleTipoRfo() {
+    const tipoEl = document.querySelector('input[name="tipo_rfo"]:checked');
+    if (!tipoEl) return;
 
-// Inicializações ao carregar o DOM
+    const advBlock = document.getElementById('advertencia-oral-block');
+    const subtipoBlock = document.getElementById('subtipo-elogio-block');
+    
+    if (! advBlock || !subtipoBlock) return;
+
+    if (tipoEl.value === 'Elogio') {
+        advBlock.style.display = 'none';
+        advBlock.querySelectorAll('input').forEach(i => i.removeAttribute('required'));
+        
+        subtipoBlock.style. display = 'block';
+        const radios = subtipoBlock. querySelectorAll("input[name='subtipo_elogio']");
+        if (radios. length && !Array.from(radios).some(r => r.checked)) {
+            radios[0].checked = true;
+        }
+    } else {
+        subtipoBlock.style.display = 'none';
+        
+        advBlock.style.display = 'block';
+        const advRadios = advBlock.querySelectorAll("input[name='advertencia_oral']");
+        if (advRadios.length && !Array.from(advRadios).some(r => r.checked)) {
+            advRadios[0].checked = true;
+        }
+        advRadios.forEach(r => r.setAttribute('required', 'required'));
+    }
+}
+
+// Fix encoding "Série"
+function fixSerieEncoding() {
+    document.querySelectorAll('.aluno-info, . info-display').forEach(el => {
+        if (! el) return;
+        try {
+            let html = el.innerHTML;
+            if (html && /Série/. test(html)) {
+                html = html.replace(/Série/g, 'Série');
+                el.innerHTML = html;
+            }
+        } catch (e) {}
+    });
+}
+
+// Inicialização ao carregar página
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializa contador de caracteres
-    if (relatoTextarea && charCounter) {
+    
+    // Contador de caracteres
+    const relatoTextarea = document.getElementById('relato_observador');
+    if (relatoTextarea) {
         relatoTextarea.addEventListener('input', updateCharCounter);
         updateCharCounter();
     }
 
-    // Inicializa Autocomplete para todos os inputs .aluno-search presentes
-    try {
-        document.querySelectorAll('.aluno-search').forEach(function(inp){
-            const parent = inp.closest('.aluno-entry') || document.getElementById('alunos-container');
-            const hidden = parent ? parent.querySelector('.aluno-id') : null;
-            const info = parent ? parent.querySelector('.aluno-info') : null;
-            window.initAlunoSearch(inp, hidden, info);
-        });
-    } catch(e){}
+    // Inicializar autocomplete nos campos existentes
+    document.querySelectorAll('.aluno-search').forEach(inp => {
+        const parent = inp.closest('.aluno-entry');
+        const hidden = parent ?  parent.querySelector('.aluno-id') : null;
+        const info = parent ? parent.querySelector('.aluno-info') : null;
+        window.initAlunoSearch(inp, hidden, info);
+    });
 
-    // Define data atual como padrão, se o campo estiver vazio
+    // Data padrão
     const hoje = new Date().toISOString().split('T')[0];
-    const dataOcorrenciaInput = document.getElementById('data_ocorrencia');
-    if (dataOcorrenciaInput && !dataOcorrenciaInput.value) {
-        dataOcorrenciaInput.value = hoje;
+    const dataInput = document.getElementById('data_ocorrencia');
+    if (dataInput && ! dataInput.value) {
+        dataInput.value = hoje;
     }
 
-    // Lógica para os botões de rádio "Advertência Oral"
-    document.querySelectorAll('.radio-buttons label').forEach(function(label) {
+    // Radio buttons com classe active
+    document.querySelectorAll('. radio-buttons label').forEach(label => {
         label.addEventListener('click', function() {
-            // Remove 'active' de todos os labels no mesmo grupo
-            this.closest('.radio-buttons').querySelectorAll('label').forEach(function(otherLabel) {
-                otherLabel.classList.remove('active');
+            this.closest('.radio-buttons').querySelectorAll('label').forEach(l => {
+                l.classList.remove('active');
             });
-            // Adiciona 'active' ao label clicado
             this.classList.add('active');
-            // Marca o input de rádio correspondente
-            this.querySelector('input[type="radio"]').checked = true;
         });
     });
-    // Garante que o botão de rádio selecionado no carregamento da página tenha a classe 'active'
-    const selectedRadio = document.querySelector('.radio-buttons input[type="radio"]:checked');
+
+    const selectedRadio = document.querySelector('. radio-buttons input[type="radio"]:checked');
     if (selectedRadio) {
         selectedRadio.closest('label').classList.add('active');
     }
 
-    // Handler de submissão do formulário para UX (spinner e desabilitar botão)
-    const formRFO = document.querySelector('.form-rfo');
+    // Toggle tipo RFO
+    document.querySelectorAll('input[name="tipo_rfo"]').forEach(radio => {
+        radio.addEventListener('change', toggleTipoRfo);
+    });
+    setTimeout(toggleTipoRfo, 100);
+
+    // Spinner ao submeter
+    const formRFO = document.querySelector('. form-rfo');
     if (formRFO) {
-        formRFO.addEventListener('submit', function(event) {
-            const submitButton = formRFO.querySelector('button[type="submit"]');
-            if (submitButton) {
-                // Adiciona um pequeno delay para o spinner aparecer antes da navegação
+        formRFO.addEventListener('submit', function() {
+            const btn = this.querySelector('button[type="submit"]');
+            if (btn) {
                 setTimeout(() => {
-                    submitButton.disabled = true;
-                    submitButton.innerHTML = 'Registrando... <i class="fas fa-spinner fa-spin"></i>';
+                    btn. disabled = true;
+                    btn. innerHTML = 'Registrando...  <i class="fas fa-spinner fa-spin"></i>';
                 }, 50);
             }
         });
     }
 
-    // Observe adições dinâmicas dentro do container de alunos e inicialize novos inputs
-    try {
-        const container = document.getElementById('alunos-container');
-        if (container && window.MutationObserver) {
-            const mo = new MutationObserver(function(mutations) {
-                mutations.forEach(function(m) {
-                    m.addedNodes.forEach(function(node) {
-                        if (node.nodeType !== 1) return;
-                        // se o nó adicionado for um wrapper que contém .aluno-search
-                        const found = [];
-                        if (node.matches && node.matches('.aluno-search')) found.push(node);
-                        if (node.querySelectorAll) {
-                            node.querySelectorAll('.aluno-search').forEach(function(i){ found.push(i); });
-                        }
-                        found.forEach(function(inp){
-                            const parent = inp.closest('.aluno-entry') || container;
-                            const hidden = parent ? parent.querySelector('.aluno-id') : null;
-                            const info = parent ? parent.querySelector('.aluno-info') : null;
-                            // small timeout to allow other scripts to attach if needed
-                            setTimeout(function(){ window.initAlunoSearch(inp, hidden, info); }, 30);
-                        });
+    // Observar adições dinâmicas de alunos
+    const container = document.getElementById('alunos-container');
+    if (container && window.MutationObserver) {
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(m => {
+                m.addedNodes.forEach(node => {
+                    if (node.nodeType !== 1) return;
+                    
+                    const inputs = [];
+                    if (node.matches && node.matches('.aluno-search')) inputs.push(node);
+                    if (node.querySelectorAll) {
+                        node.querySelectorAll('.aluno-search').forEach(i => inputs.push(i));
+                    }
+
+                    inputs.forEach(inp => {
+                        const parent = inp.closest('.aluno-entry');
+                        const hidden = parent ? parent.querySelector('.aluno-id') : null;
+                        const info = parent ? parent. querySelector('.aluno-info') : null;
+                        setTimeout(() => window.initAlunoSearch(inp, hidden, info), 50);
                     });
                 });
             });
-            mo.observe(container, { childList: true, subtree: true });
-        }
-    } catch(e){}
+            fixSerieEncoding();
+        });
+        observer.observe(container, { childList: true, subtree: true });
+    }
+
+    // Fix encoding inicial
+    fixSerieEncoding();
 });
-
-
-

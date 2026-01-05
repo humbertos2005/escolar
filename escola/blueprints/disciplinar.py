@@ -21,6 +21,15 @@ import re
 import os
 import models
 
+# Adicionar (logo após os imports já existentes)
+import pdfkit
+import shutil
+from werkzeug.utils import secure_filename
+from flask import Response, abort
+
+# adicionar no topo do arquivo (junto com outros imports)
+from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
+
 disciplinar_bp = Blueprint('disciplinar_bp', __name__, url_prefix='/disciplinar')
 
 @disciplinar_bp.before_app_request
@@ -276,22 +285,51 @@ def _get_config_values(db_conn):
 
 def _get_bimestre_for_date(db_conn, data_str):
     """
-    Tenta mapear uma data (YYYY-MM-DD) para (ano, bimestre) consultando tabela bimestres.
-    Se não encontrar, usa fallback por meses (2 meses por bimestre).
+    Determina (ano_int, bimestre_int) consultando a tabela 'bimestres'.
+    Usa as colunas (ano, numero, inicio, fim). Para o ano da data, procura
+    uma linha cujo intervalo inicio..fim contenha a data e retorna (ano, numero).
+    Se não encontrar ou ocorrer erro, faz fallback para 4 bimestres por ano
+    (cada 3 meses) para manter compatibilidade.
     """
-    try:
-        row = db_conn.execute('SELECT ano, numero FROM bimestres WHERE ? BETWEEN inicio AND fim LIMIT 1', (data_str,)).fetchone()
-        if row:
-            return int(row['ano']), int(row['numero'])
-    except Exception:
-        pass
-    # fallback
     try:
         d = datetime.strptime(data_str[:10], '%Y-%m-%d').date()
     except Exception:
         d = date.today()
-    b = ((d.month - 1) // 2) + 1
-    return d.year, b
+    ano = d.year
+    try:
+        rows = db_conn.execute(
+            "SELECT numero, inicio, fim FROM bimestres WHERE ano = ? ORDER BY numero",
+            (ano,)
+        ).fetchall()
+        if rows:
+            for r in rows:
+                try:
+                    num = int(r['numero']) if r['numero'] is not None else None
+                except Exception:
+                    num = None
+                inicio = r.get('inicio') if isinstance(r, dict) else r['inicio']
+                fim = r.get('fim') if isinstance(r, dict) else r['fim']
+                try:
+                    inicio_date = datetime.strptime(inicio[:10], '%Y-%m-%d').date() if inicio else None
+                except Exception:
+                    inicio_date = None
+                try:
+                    fim_date = datetime.strptime(fim[:10], '%Y-%m-%d').date() if fim else None
+                except Exception:
+                    fim_date = None
+                # Se inicio/fim não definidos, consideramos compatível (aberto)
+                if (inicio_date is None or inicio_date <= d) and (fim_date is None or fim_date >= d):
+                    if num is not None:
+                        return ano, num
+    except Exception:
+        try:
+            from flask import current_app
+            current_app.logger.debug("Erro ao consultar tabela bimestres; usando fallback.")
+        except Exception:
+            pass
+    # fallback: 4 bimestres por ano (cada 3 meses)
+    b = ((d.month - 1) // 3) + 1
+    return ano, b
 
 def _calcular_delta_por_medida(medida_aplicada, qtd, config):
     """
@@ -757,6 +795,73 @@ def imprimir_rfo(ocorrencia_id):
 
     return render_template('formularios/rfo_impressao.html', rfo=dict(rfo))
 
+@disciplinar_bp.route('/export_prontuario/<int:ocorrencia_id>')
+@admin_secundario_required
+def export_prontuario_pdf(ocorrencia_id):
+    db = get_db()
+
+    # Reutiliza a mesma consulta usada em visualizar_rfo/imprimir_rfo para obter dados
+    rfo = db.execute('''
+        SELECT
+            o.*,
+            GROUP_CONCAT(a.nome, '; ') AS alunos,
+            GROUP_CONCAT(a.serie || ' - ' || a.turma, '; ') AS series_turmas,
+            a.matricula, a.nome AS nome_aluno, a.serie, a.turma,
+            tipo_oc.nome AS tipo_ocorrencia_nome,
+            u.username AS responsavel_registro_username
+        FROM ocorrencias o
+        LEFT JOIN ocorrencias_alunos oa ON oa.ocorrencia_id = o.id
+        LEFT JOIN alunos a ON a.id = oa.aluno_id
+        LEFT JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
+        LEFT JOIN usuarios u ON o.responsavel_registro_id = u.id
+        WHERE o.id = ?
+        GROUP BY o.id
+    ''', (ocorrencia_id,)).fetchone()
+
+    if rfo is None:
+        flash('RFO não encontrado.', 'danger')
+        return redirect(url_for('disciplinar_bp.listar_rfo'))
+
+    rfo_dict = dict(rfo)
+
+    # Renderizamos um template específico para o PDF (criaremos o template depois).
+    # Use, por exemplo, templates/disciplinar/prontuario_pdf.html
+    html = render_template('disciplinar/prontuario_pdf.html', rfo=rfo_dict)
+
+    # Detecta wkhtmltopdf (procura no PATH, senão usa o local padrão do Windows)
+    wk_path = shutil.which('wkhtmltopdf')
+    if not wk_path:
+        wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+
+    if not os.path.isfile(wk_path):
+        abort(500, description=f"wkhtmltopdf não encontrado em: {wk_path}")
+
+    config = pdfkit.configuration(wkhtmltopdf=wk_path)
+
+    options = {
+        'page-size': 'A4',
+        'encoding': 'UTF-8',
+        'enable-local-file-access': None,
+        'print-media-type': None,
+        'margin-top': '10mm',
+        'margin-bottom': '10mm',
+        'margin-left': '10mm',
+        'margin-right': '10mm',
+    }
+
+    pdf_bytes = pdfkit.from_string(html, False, configuration=config, options=options)
+    if not pdf_bytes:
+        abort(500, description="Falha ao gerar o PDF.")
+
+    # Monta nome seguro do arquivo
+    nome_aluno = rfo_dict.get('nome_aluno') or 'aluno'
+    safe_name = secure_filename(f"prontuario_{nome_aluno}.pdf")
+
+    headers = {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': f'attachment; filename="{safe_name}"'
+    }
+    return Response(pdf_bytes, headers=headers)
 
 @disciplinar_bp.route('/gerar_ficha_medida/<int:ocorrencia_id>')
 @admin_secundario_required
@@ -811,7 +916,7 @@ def tratar_rfo(ocorrencia_id):
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
     ocorrencia_dict = dict(ocorrencia)
-
+    
     # ---------- NOVO: montar lista completa de alunos associados à ocorrencia ----------
     alunos_rows = db.execute('''
         SELECT al.matricula, al.nome, al.serie, al.turma
@@ -881,19 +986,55 @@ def tratar_rfo(ocorrencia_id):
         circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'
         circ_ag = request.form.get('circunstancias_agravantes', '').strip() or 'Não há'
 
+        # --- INÍCIO: detectar se este tratamento refere-se a um ELOGIO ---
+        tratamento_classificacao = request.form.get('tratamento_classificacao', '').strip() or ''
+        tipo_rfo_post = request.form.get('tipo_rfo', '').strip() or ''
+        oc_tipo = ocorrencia_dict.get('tipo_rfo') or ocorrencia_dict.get('tipo_ocorrencia_nome') or ''
+
+        # também aceitar sinalização direta enviada no POST (is_elogio)
+        is_elogio_form = request.form.get('is_elogio')
+        is_elogio_from_form = str(is_elogio_form).strip().lower() in ('1', 'true', 'on')
+
+        # is_elogio será True se qualquer uma das fontes indicar "elogio" ou se o form sinalizou
+        is_elogio = False
+        for v in (tratamento_classificacao, medida_aplicada or '', tipo_rfo_post, oc_tipo):
+            try:
+                if v and 'elogio' in v.lower():
+                    is_elogio = True
+                    break
+            except Exception:
+                pass
+
+        if not is_elogio and is_elogio_from_form:
+            is_elogio = True
+
+        # Se for elogio, limpar campos de falta (não se aplicam) para evitar validação desnecessária
+        if is_elogio:
+            tipos_csv = ''
+            falta_ids_list = []
+            falta_ids_csv = ''
+            # tentar inferir medida_aplicada a partir de classificações/tipo (caso frontend não tenha enviado)
+            if not medida_aplicada:
+                medida_aplicada = (tratamento_classificacao or tipo_rfo_post or oc_tipo or '').strip()
+        # --- FIM: detecção de ELOGIO ---
         error = None
-        if not tipos_csv:
-            error = 'Tipo de falta é obrigatório.'
-        elif not falta_ids_list:
-            error = 'A descrição da falta é obrigatória.'
-        elif not medida_aplicada:
-            error = 'A medida aplicada é obrigatória.'
-        elif reincidencia not in [0, 1]:
-            error = 'Reincidência deve ser "Sim" ou "Não".'
-        elif not despacho_gestor:
-            error = 'O despacho do gestor é obrigatório.'
-        elif not data_despacho:
-            error = 'A data do despacho é obrigatória.'
+        # somente exigir campos de falta/medida quando NÃO for elogio
+        if not is_elogio:
+            if not tipos_csv:
+                error = 'Tipo de falta é obrigatório.'
+            elif not falta_ids_list:
+                error = 'A descrição da falta é obrigatória.'
+            elif not medida_aplicada:
+                error = 'A medida aplicada é obrigatória.'
+
+        # checagens comuns (reincidência, despacho) válidas para ambos os casos
+        if error is None:
+            if reincidencia not in [0, 1]:
+                error = 'Reincidência deve ser "Sim" ou "Não".'
+            elif not despacho_gestor:
+                error = 'O despacho do gestor é obrigatório.'
+            elif not data_despacho:
+                error = 'A data do despacho é obrigatória.'
 
         if error is not None:
             flash(error, 'danger')
@@ -954,11 +1095,23 @@ def tratar_rfo(ocorrencia_id):
 
                 # --- INTEGRAÇÃO: calcular delta e aplicar pontuação ---
                 try:
-                    config = _get_config_values(db)
-                    qtd_form = request.form.get('sim_qtd') or request.form.get('dias') or request.form.get('quantidade') or 1
-                    delta = _calcular_delta_por_medida(medida_aplicada, qtd_form, config)
-                    # manter comportamento anterior: usa ocorrencia['aluno_id'] (se existir)
-                    _apply_delta_pontuacao(db, ocorrencia.get('aluno_id'), data_trat, delta, ocorrencia_id, medida_aplicada)
+                    # Aplicar pontuação apenas quando houver uma medida válida (pode ocorrer em elogios)
+                    if medida_aplicada:
+                        try:
+                            config = _get_config_values(db)
+                            qtd_form = request.form.get('sim_qtd') or request.form.get('dias') or request.form.get('quantidade') or 1
+                            delta = _calcular_delta_por_medida(medida_aplicada, qtd_form, config)
+                            # manter comportamento anterior: usa ocorrencia['aluno_id'] (se existir)
+                            _apply_delta_pontuacao(db, ocorrencia.get('aluno_id'), data_trat, delta, ocorrencia_id, medida_aplicada)
+                        except Exception:
+                            # falha no cálculo de pontuação não deve abortar o tratamento; registrar erro em log
+                            current_app.logger.exception("Erro ao aplicar delta de pontuação")
+                    else:
+                        # sem medida_aplicada — não há base para pontuar; registrar aviso (útil para auditoria)
+                        current_app.logger.warning(
+                            "Tratamento salvo sem aplicar pontuação: ocorrencia_id=%s, medida_aplicada ausente (possível elogio sem medida)",
+                            ocorrencia_id
+                        )
 
                     try:
                         if isinstance(ocorrencia, dict):
@@ -992,25 +1145,38 @@ def tratar_rfo(ocorrencia_id):
                         if rfo_id:
                             existing = db.execute('SELECT id FROM ficha_medida_disciplinar WHERE rfo_id = ?', (rfo_id,)).fetchone()
                             if existing:
-                                db.execute('UPDATE ficha_medida_disciplinar SET pontos_aplicados = ? WHERE rfo_id = ?', (float(delta), rfo_id))
+                                # NOTE: delta pode não existir se não houve medida_aplicada; usar 0.0 por segurança
+                                db.execute('UPDATE ficha_medida_disciplinar SET pontos_aplicados = ? WHERE rfo_id = ?', (float(delta) if 'delta' in locals() else 0.0, rfo_id))
                             else:
                                 seq, seq_ano = _next_fmd_sequence(db)
                                 fmd_id = f"FMD-{seq:04d}/{seq_ano}"
                                 data_fmd = datetime.now().strftime('%Y-%m-%d')
                                 db.execute(
                                     'INSERT INTO ficha_medida_disciplinar (fmd_id, aluno_id, rfo_id, data_fmd, tipo_falta, medida_aplicada, descricao_falta, observacoes, responsavel_id, data_registro, falta_disciplinar_ids, tipo_falta_list, pontos_aplicados) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                                    (fmd_id, aluno_id_local, rfo_id, data_fmd, tipo_falta_val, medida_aplicada, '', '', responsavel_id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), falta_ids_val, tipo_falta_list_val, float(delta))
+                                    (fmd_id, aluno_id_local, rfo_id, data_fmd, tipo_falta_val, medida_aplicada, '', '', responsavel_id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), falta_ids_val, tipo_falta_list_val, float(delta) if 'delta' in locals() else 0.0)
                                 )
                     except Exception:
                         current_app.logger.exception('Erro ao gravar pontos_aplicados em ficha_medida_disciplinar')
 
                     try:
                         if ocorrencia_id:
-                            db.execute('UPDATE ocorrencias SET pontos_aplicados = ? WHERE id = ?', (float(delta), ocorrencia_id))
+                            db.execute('UPDATE ocorrencias SET pontos_aplicados = ? WHERE id = ?', (float(delta) if 'delta' in locals() else 0.0, ocorrencia_id))
                     except Exception:
                         current_app.logger.exception('Erro ao gravar pontos_aplicados em ocorrencias')
+
                 except Exception:
                     current_app.logger.exception('Erro ao aplicar atualização de pontuacao')
+
+                # dentro da função que trata o RFO, antes de db.commit()
+                # (apenas inserir estas linhas)
+                try:
+                    # integrar RFO ao prontuário do aluno (evita duplicação)
+                    ok, msg = create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
+                    if not ok:
+                        # msg pode indicar "já integrado" ou erro; não abortamos o tratamento por isso
+                        current_app.logger.debug('create_or_append_prontuario_por_rfo: ' + str(msg))
+                except Exception:
+                    current_app.logger.exception('Erro ao integrar RFO ao prontuário (tarefa auxiliar)')
 
                 db.commit()
                 flash(f'RFO {ocorrencia_dict["rfo_id"]} tratado com sucesso.', 'success')
@@ -1247,7 +1413,7 @@ def editar_fmd(fmd_id):
 
     if fmd is None:
         flash('FMD não encontrada.', 'danger')
-        return redirect(url_for('visualizacoes_bp/listar_fmd'))
+        return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
     faltas = get_faltas_disciplinares()
 
@@ -1281,7 +1447,7 @@ def editar_fmd(fmd_id):
 
                 db.commit()
                 flash(f'FMD {fmd["fmd_id"]} atualizada com sucesso!', 'success')
-                return redirect(url_for('visualizacoes_bp/listar_fmd'))
+                return redirect(url_for('visualizacoes_bp.listar_fmds'))
             except sqlite3.Error as e:
                 db.rollback()
                 flash(f'Erro ao atualizar FMD: {e}', 'danger')
@@ -1304,7 +1470,7 @@ def excluir_fmd(fmd_id):
 
         if fmd is None:
             flash('FMD não encontrada.', 'danger')
-            return redirect(url_for('visualizacoes_bp/listar_fmd'))
+            return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
         fmd_id_nome = fmd['fmd_id']
 
@@ -1316,7 +1482,7 @@ def excluir_fmd(fmd_id):
         db.rollback()
         flash(f'Erro ao excluir FMD: {e}', 'danger')
 
-    return redirect(url_for('visualizacoes_bp/listar_fmd'))
+    return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
 
 @disciplinar_bp.route('/api/faltas_busca')
@@ -1426,5 +1592,7 @@ def api_usuarios_busca():
         return jsonify([])
     result = [{'id': r['id'], 'username': r['username'], 'full_name': r['full_name']} for r in rows]
     return jsonify(result)
+
+
 
 
