@@ -1557,15 +1557,23 @@ label[for="turno"] {
 }
 
 @media print {
-  body {
+  /* Eliminar qualquer margem/padding padrão do topo */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
     background: #fff !important;
     color: #000 !important;
+    overflow: visible !important;
   }
+
   .sidebar, .navbar, .main-header, .acoes-impressao, .footer {
     display: none !important;
   }
-  .main-content, .fmd-ficha-content {
+
+  /* Zerando margens e paddings do conteúdo principal */
+  .main-content, .fmd-ficha-content, .container, .container-fluid {
     margin: 0 !important;
+    padding: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     background: #fff !important;
@@ -1573,14 +1581,21 @@ label[for="turno"] {
     color: #000 !important;
     overflow: visible !important;
   }
+
+  /* Ajusta o logotipo */
   .cabecalho-logo {
     display: block !important;
     max-width: 110px !important;
     max-height: 110px !important;
     visibility: visible !important;
     opacity: 1 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
-  html, body {
-    overflow: visible !important;
+
+  /* Força o primeiro filho da ficha ficar encostado no topo */
+  .fmd-ficha-content > *:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
 }
