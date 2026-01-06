@@ -1593,6 +1593,201 @@ def api_usuarios_busca():
     result = [{'id': r['id'], 'username': r['username'], 'full_name': r['full_name']} for r in rows]
     return jsonify(result)
 
+from flask import render_template
+
+@disciplinar_bp.route('/fmd_teste_novo')
+def fmd_teste_novo():
+    # Simulação de dados
+    aluno = {
+        'nome': 'FULANO DE TAL',
+        'serie': '7º',
+        'turma': 'B'
+    }
+    fmd = {
+        'fmd_id': 'FMD-0001/2026',
+        'pontos_aplicados': -2.0,
+        'comportamento': 'Descumprimento das normas',
+        'medida_aplicada': 'Advertência Escrita',
+        'agravantes': 'Reincidência',
+        'atenuantes': 'Arrependimento',
+        'comparecimento_responsavel': True,
+        'prazo_comparecimento': '10/01/2026',
+        'itens_especificacao': 'Artigo 10, inciso II',
+    }
+    rfo = {
+        'data_ocorrencia': '05/01/2026',
+        'relato_observador': 'Falta de respeito ao professor.',
+    }
+    escola = {
+        'logotipo_url': '/static/img/logo.png',  # Ajuste para o logo real!
+        'nome': 'ESCOLA MODELO',
+        'secretaria': 'Secretaria Municipal de Educação',
+        'coordenacao': 'Coordenação Pedagógica',
+        'estado': 'Estado do Exemplo',
+    }
+    usuario = {
+        'nome': 'MÁRIO RESPONSÁVEL',
+        'cargo': 'Gestor Escolar'
+    }
+    envio = {
+        'data_hora': '05/01/2026 14:08',
+        'email_destinatario': 'responsavel@email.com'
+    }
+    return render_template(
+        'disciplinar/fmd_novo.html',
+        aluno=aluno,
+        fmd=fmd,
+        rfo=rfo,
+        escola=escola,
+        usuario=usuario,
+        envio=envio
+    )
+
+from flask import render_template, g
+import sqlite3
+
+@disciplinar_bp.route('/fmd_novo_real/<path:fmd_id>')
+def fmd_novo_real(fmd_id):
+    from flask import session
+    import sqlite3
+    db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
+    db.row_factory = sqlite3.Row
+
+    # ==== 1. PEGA O USUÁRIO LOGADO NA SESSÃO ====
+    user_id = session.get('user_id')
+    usuario_sessao = None
+    if user_id:
+        usuario_sessao = db.execute("SELECT * FROM usuarios WHERE id = ?", (user_id,)).fetchone()
+    print('[FMD] Usuário ativo:', dict(usuario_sessao) if usuario_sessao else None)
+    if not usuario_sessao or usuario_sessao['nivel'] not in [1, 2]:
+        return "Você não tem permissão para acessar este documento.", 403
+
+    # ==== 2. Busca a FMD ====
+    fmd = db.execute("SELECT * FROM ficha_medida_disciplinar WHERE fmd_id = ?", (fmd_id,)).fetchone()
+    if not fmd:
+        return 'FMD não encontrada', 404
+
+    # ==== 3. Busca o aluno relacionado ====
+    aluno = db.execute("SELECT * FROM alunos WHERE id = ?", (fmd['aluno_id'],)).fetchone() or {}
+    from models import get_aluno_estado_atual
+
+    estado = {}
+    comportamento = None
+    pontuacao = None
+    if aluno and 'id' in aluno.keys():
+        estado = get_aluno_estado_atual(aluno['id']) or {}
+        comportamento = estado.get('comportamento')
+        pontuacao = estado.get('pontuacao')
+
+    # ==== 4. Busca ocorrência relacionada (RFO) ====
+    rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
+    item_descricoes_faltas = []
+
+    ids_faltas = []
+    if 'falta_disciplinar_id' in rfo.keys() and rfo['falta_disciplinar_id']:
+        ids_faltas.append(str(rfo['falta_disciplinar_id']))
+    elif 'falta_ids_csv' in rfo.keys() and rfo['falta_ids_csv']:
+        ids_faltas = [id.strip() for id in str(rfo['falta_ids_csv']).split(',') if id.strip()]
+
+    for falta_id in ids_faltas:
+        res = db.execute(
+            "SELECT id, descricao FROM faltas_disciplinares WHERE id = ?", 
+            (falta_id,)
+        ).fetchone()
+        if res:
+            item_descricoes_faltas.append(f"{res[0]} - {res[1]}")
+
+    if item_descricoes_faltas:
+        item_descricao_falta = "<br>".join(item_descricoes_faltas)
+    else:
+        item_descricao_falta = "-"
+    print("RFO ->", dict(rfo))
+    print("RFO TODOS OS CAMPOS:", list(rfo.keys()))
+
+    itens_especificacao = (
+        rfo['item_descricao'] if 'item_descricao' in rfo.keys() and rfo['item_descricao'] else
+        rfo['descricao_item'] if 'descricao_item' in rfo.keys() and rfo['descricao_item'] else
+        rfo['descricao'] if 'descricao' in rfo.keys() and rfo['descricao'] else
+        rfo['falta_descricao'] if 'falta_descricao' in rfo.keys() and rfo['falta_descricao'] else
+        '-'
+    )
+
+    # ==== 5. Cabeçalho institucional ====
+    cabecalho = db.execute("SELECT * FROM cabecalhos LIMIT 1;").fetchone() or {}
+
+    escola = {
+        'estado': cabecalho['estado'],
+        'secretaria': cabecalho['secretaria'],
+        'coordenacao': cabecalho['coordenacao'],
+        'nome': cabecalho['escola'],
+        'logotipo_url': '/static/uploads/cabecalhos/' + cabecalho['logo_escola'] if ('logo_escola' in cabecalho.keys() and cabecalho['logo_escola']) else ''
+    }
+
+    # Ajuste para futuro campo correto de envio de e-mail
+    envio = {
+        'data_hora': fmd['email_enviado_data'] if 'email_enviado_data' in fmd.keys() and fmd['email_enviado_data'] else None,
+        'email_destinatario': fmd['email_enviado_para'] if 'email_enviado_para' in fmd.keys() and fmd['email_enviado_para'] else None,
+    }
+
+    # ==== 6. Busca gestor/responsável para carimbo/assinatura ====
+    usuario_id_registro = fmd['gestor_id'] or fmd['responsavel_id']
+    usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() or {}
+    print("USUARIO REGISTRO -->", dict(usuario_registro) if usuario_registro else "NENHUM")
+
+    atenuantes = fmd['atenuantes'] or (rfo['circunstancias_atenuantes'] if rfo and 'circunstancias_atenuantes' in rfo.keys() else '')
+    agravantes = fmd['agravantes'] or (rfo['circunstancias_agravantes'] if rfo and 'circunstancias_agravantes' in rfo.keys() else '')
+
+    nome_usuario = usuario_sessao['username'] if usuario_sessao and 'username' in usuario_sessao.keys() else '-'
+    cargo_usuario = usuario_sessao['cargo'] if usuario_sessao and 'cargo' in usuario_sessao.keys() else '-'
+
+    return render_template(
+        'disciplinar/fmd_novo.html',
+        escola=escola,
+        aluno=aluno,
+        fmd=fmd,
+        rfo=rfo,
+        nome_usuario=nome_usuario,
+        cargo_usuario=cargo_usuario,
+        envio=envio,
+        atenuantes=atenuantes,
+        agravantes=agravantes,
+        comportamento=comportamento,
+        pontuacao=pontuacao,
+        itens_especificacao=item_descricao_falta,
+    )
 
 
+@disciplinar_bp.route('/enviar_email_fmd/<fmd_id>', methods=['POST'])
+def enviar_email_fmd(fmd_id):
+    from flask import redirect, url_for, flash
+    import datetime
+    import sqlite3
 
+    db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
+    db.row_factory = sqlite3.Row
+
+    # Busca os dados da FMD
+    fmd = db.execute("SELECT * FROM ficha_medida_disciplinar WHERE fmd_id = ?", (fmd_id,)).fetchone()
+    if not fmd:
+        flash('FMD não encontrada!', 'alert-danger')
+        return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
+
+    # Busca o aluno e seu e-mail
+    aluno = db.execute("SELECT * FROM alunos WHERE id = ?", (fmd['aluno_id'],)).fetchone()
+    email_destinatario = aluno['email'] if aluno and 'email' in aluno.keys() and aluno['email'] else None
+
+    # SE NÃO existir e-mail cadastrado, retorna erro e não envia
+    if not email_destinatario:
+        flash('Não existe e-mail cadastrado para este aluno.', 'alert-danger')
+        return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
+
+    # Simulando envio com sucesso (em breve, código real de envio):
+    data_envio = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
+
+    # Atualiza os dados do envio na FMD
+    db.execute("UPDATE ficha_medida_disciplinar SET email_enviado_data=?, email_enviado_para=? WHERE fmd_id=?",
+               (data_envio, email_destinatario, fmd_id))
+    db.commit()
+
+    flash(f'FMD enviada por e-mail com sucesso para: {email_destinatario} em {data_envio}', 'alert-success')
+    return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))

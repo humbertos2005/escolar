@@ -54,15 +54,56 @@
                             {{ fmd.get('status') or '' }}
                         </span>
                     </td>
+                    <style>
+                    .btn-fmd-visualizar {
+                        display: inline-block;
+                        background: linear-gradient(90deg, #17a2b8 60%, #138496 100%);
+                        color: #fff !important;
+                        font-weight: 600;
+                        padding: 10px 25px;
+                        border-radius: 8px;
+                        border: none;
+                        text-decoration: none;
+                        margin: 3px 2px;
+                        font-size: 1rem;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                        transition: background 0.18s, transform 0.18s;
+                    }
+                    .btn-fmd-visualizar:hover {
+                        background: linear-gradient(90deg, #138496 60%, #17a2b8 100%);
+                        transform: translateY(-2px) scale(1.045);
+                    }
+                    .btn-fmd-editar {
+                        display: inline-block;
+                        background: linear-gradient(90deg, #ffc107 60%, #e0a800 100%);
+                        color: #563c00 !important;
+                        font-weight: 600;
+                        padding: 10px 24px;
+                        border-radius: 8px;
+                        border: none;
+                        text-decoration: none;
+                        margin: 3px 2px;
+                        font-size: 1rem;
+                        box-shadow: 0 1.5px 5px rgba(0,0,0,0.06);
+                        transition: background 0.18s, transform 0.18s;
+                    }
+                    .btn-fmd-editar:hover {
+                        background: linear-gradient(90deg, #e0a800 60%, #ffc107 100%);
+                        color: #4b3700 !important;
+                        transform: translateY(-2px) scale(1.045);
+                    }
+                    </style>
+
                     <td class="actions">
-                        <a href="{{ url_for('formularios_bp.formulario_fmd', fmd_id=fmd.get('id')) }}" 
-                           class="btn btn-sm btn-info" title="Ver Formulário" target="_blank">
-                            <i class="fas fa-file-pdf"></i>
+                        <a href="{{ url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd.get('fmd_id') or fmd.get('id')) }}"
+                        class="btn-fmd-visualizar" title="Visualizar">
+                            <i class="fas fa-eye"></i> Visualizar
                         </a>
-                        <a href="{{ url_for('disciplinar_bp.editar_fmd', fmd_id=fmd.get('id')) }}" 
-                           class="btn btn-sm btn-warning" title="Editar">
+                        <a href="{{ url_for('disciplinar_bp.editar_fmd', fmd_id=fmd.get('id')) }}"
+                        class="btn-fmd-editar" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
+                    </td>
 
                         {% if session.get('nivel') == 1 %}
                             {% if not fmd.get('baixa') %}

@@ -35,6 +35,23 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave-secreta-gestao-escolar-2025-v2")
 app.config['DATABASE'] = DATABASE
 
+from datetime import datetime
+
+def datetimeformat(value, format="%d/%m/%Y"):
+    if not value:
+        return ""
+    try:
+        # Se vier só 'YYYY-MM-DD'
+        if len(value) == 10 and value[4] == '-' and value[7] == '-':
+            dt = datetime.strptime(value, "%Y-%m-%d")
+        else:
+            dt = datetime.fromisoformat(value)
+        return dt.strftime(format)
+    except Exception:
+        return value
+
+app.jinja_env.filters['datetimeformat'] = datetimeformat
+
 # Configurar Flask-Moment com localizaÃ§Ã£o brasileira
 moment = Moment(app)
 app.config['MOMENT_DEFAULT_FORMAT'] = 'DD/MM/YYYY'
