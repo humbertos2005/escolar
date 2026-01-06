@@ -1555,3 +1555,32 @@ label[for="turno"] {
   padding-bottom: 12px !important;
   height: 51.5556px !important;
 }
+
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .sidebar, .navbar, .main-header, .acoes-impressao, .footer {
+    display: none !important;
+  }
+  .main-content, .fmd-ficha-content {
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    color: #000 !important;
+    overflow: visible !important;
+  }
+  .cabecalho-logo {
+    display: block !important;
+    max-width: 110px !important;
+    max-height: 110px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  html, body {
+    overflow: visible !important;
+  }
+}
