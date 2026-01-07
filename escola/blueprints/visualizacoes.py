@@ -982,6 +982,9 @@ async def _make_pdf(content_html,
                 ],
             )
             _register_launched_browser(browser)
+        except Exception as e:
+            # Pode exibir ou logar erro, se quiser
+            raise e
 
                  # Limpeza robusta dos handlers de atexit registrados pelo pyppeteer
             try:
@@ -1019,34 +1022,34 @@ async def _make_pdf(content_html,
             browser = await _connect(browserURL=connect_url)
             launched_here = False
 
-        page = await browser.newPage()
-        # Carrega via data URL e espera a rede ficar ociosa (garante CSS/fonts)
-        data_url = "data:text/html;charset=utf-8," + _urllib.quote(content_html)
-        await page.goto(data_url, {"waitUntil": "networkidle0"})
-        # pequena espera adicional
-        await _asyncio.sleep(0.2)
-
-        pdfbytes = await page.pdf({
-            "format": "A4",
-            "printBackground": True,
-            "margin": {"top": "0mm", "bottom": "20mm", "left": "15mm", "right": "15mm"},
-        })
-        return pdfbytes
-    finally:
-        # Fecha/desconecta de forma segura
         try:
-            if browser:
-                if launched_here:
-                    await browser.close()
-                    try:
-                        if browser in _launched_browsers:
-                            _launched_browsers.remove(browser)
-                    except Exception:
-                        pass
-                else:
-                    await browser.disconnect()
-        except Exception:
-            pass
+            page = await browser.newPage()
+            data_url = "data:text/html;charset=utf-8," + _urllib.quote(content_html)
+            await page.goto(data_url, {"waitUntil": "networkidle0"})
+            await _asyncio.sleep(0.2)
+
+            pdfbytes = await page.pdf({
+                "format": "A4",
+                "printBackground": True,
+                "preferCSSPageSize": True,
+                "margin": {"top": "0mm", "bottom": "20mm", "left": "15mm", "right": "15mm"},
+            })
+            return pdfbytes
+        finally:
+            try:
+                if browser:
+                    if launched_here:
+                        await browser.close()
+                        try:
+                            if browser in _launched_browsers:
+                                _launched_browsers.remove(browser)
+                        except Exception:
+                            pass
+                    else:
+                        await browser.disconnect()
+            except Exception:
+                pass
+    
 
 
 def generate_pdf_bytes(html):

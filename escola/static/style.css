@@ -1557,6 +1557,12 @@ label[for="turno"] {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin-top: 0;
+    /* Demais margens seguem o padrão do navegador/engine */
+  }
+  
   /* Eliminar qualquer margem/padding padrão do topo */
   html, body {
     margin: 0 !important;
@@ -1596,6 +1602,20 @@ label[for="turno"] {
   /* Força o primeiro filho da ficha ficar encostado no topo */
   .fmd-ficha-content > *:first-child {
     margin-top: 0 !important;
-    padding-top: 0 !important;
+    padding-top: 0 !important;    
+  }
+
+  /* Evita quebra forçada de página após o conteúdo */
+  .fmd-ficha-content, .main-content, .container, .container-fluid {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Não deixar rodapé ou última linha causar quebra */
+  .footer {
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 }
