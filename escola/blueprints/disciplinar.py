@@ -1826,93 +1826,26 @@ def enviar_email_fmd(fmd_id):
 
     # ========== ENVIO REAL DO E-MAIL ==========
     try:
-        # GERA O PDF DA TELA (EXATAMENTE IGUAL AO IMPRIMIR/SALVAR)
-        from flask import render_template
-        import pdfkit
-        import shutil
+        # Gera o PDF da FMD
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(0, 10, "Ficha de Medida Disciplinar", ln=True, align='C')
+        pdf.ln(10)
+        pdf.cell(0, 10, f"Aluno(a): {aluno['nome']}", ln=True)
+        pdf.cell(0, 10, f"Tipo de falta: {get_fmd_field(fmd,'tipo_falta')}", ln=True)
+        pdf.cell(0, 10, f"Medida aplicada: {get_fmd_field(fmd,'medida_aplicada')}", ln=True)
+        if get_fmd_field(fmd,'descricao_detalhada'):
+            pdf.cell(0, 10, f"Descrição: {get_fmd_field(fmd,'descricao_detalhada')}", ln=True)
+        pdf.cell(0, 10, f"Status: {get_fmd_field(fmd,'status')}", ln=True)
+        pdf.cell(0, 10, f"Telefone da escola: {telefone_escola}", ln=True)
 
         temp_dir = "tmp"
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
-
-            # ========== VARIÁVEIS ADICIONAIS NECESSÁRIAS ==========
-        # Busca o cabeçalho/dados institucionais da escola para preencher o template
-        cabecalho = db.execute("SELECT * FROM cabecalhos LIMIT 1;").fetchone() or {}
-
-        escola = {
-            'estado': cabecalho['estado'] if 'estado' in cabecalho.keys() else '',
-            'secretaria': cabecalho['secretaria'] if 'secretaria' in cabecalho.keys() else '',
-            'coordenacao': cabecalho['coordenacao'] if 'coordenacao' in cabecalho.keys() else '',
-            'nome': cabecalho['escola'] if 'escola' in cabecalho.keys() else '',
-            'logotipo_url': '/static/uploads/cabecalhos/' + cabecalho['logo_escola'] if ('logo_escola' in cabecalho.keys() and cabecalho['logo_escola']) else ''
-        }
-                
-        # Busca ocorrência relacionada (RFO), se existir para esse FMD
-        rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() if 'rfo_id' in fmd.keys() and fmd['rfo_id'] else {}
-
-        # Busca usuário logado ou responsável para assinatura (pode ser adaptado conforme seu template)
-        usuario_id_registro = fmd['gestor_id'] or fmd['responsavel_id'] if 'gestor_id' in fmd.keys() or 'responsavel_id' in fmd.keys() else None
-        usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() if usuario_id_registro else {}
-
-        nome_usuario = usuario_registro['username'] if usuario_registro and 'username' in usuario_registro.keys() else '-'
-        cargo_usuario = usuario_registro['cargo'] if usuario_registro and 'cargo' in usuario_registro.keys() else '-'
-
-        # Dados "envio", "atenuantes", "agravantes", "comportamento", "pontuacao", etc.
-        envio = {
-            'data_hora': fmd['email_enviado_data'] if 'email_enviado_data' in fmd.keys() and fmd['email_enviado_data'] else None,
-            'email_destinatario': fmd['email_enviado_para'] if 'email_enviado_para' in fmd.keys() and fmd['email_enviado_para'] else None,
-        }
-        atenuantes = fmd['atenuantes'] if 'atenuantes' in fmd.keys() and fmd['atenuantes'] else ''
-        agravantes = fmd['agravantes'] if 'agravantes' in fmd.keys() and fmd['agravantes'] else ''
-        comportamento = fmd['comportamento'] if 'comportamento' in fmd.keys() and fmd['comportamento'] else ''
-        pontuacao = fmd['pontuacao'] if 'pontuacao' in fmd.keys() and fmd['pontuacao'] else ''
-
-        # Ajuste para o nome correto da variável dos itens da falta: use o mesmo nome abaixo conforme o template espera!
-        item_descricao_falta = "-"
-        if rfo and 'falta_disciplinar_id' in rfo.keys():
-            falta = db.execute("SELECT descricao FROM faltas_disciplinares WHERE id = ?", (rfo['falta_disciplinar_id'],)).fetchone()
-            if falta:
-                item_descricao_falta = falta['descricao']
- 
-        html = render_template(
-        'disciplinar/fmd_novo.html',
-        escola=escola,
-        aluno=aluno,
-        fmd=fmd,
-        rfo=rfo,
-        nome_usuario=nome_usuario,
-        cargo_usuario=cargo_usuario,
-        envio=envio,
-        atenuantes=atenuantes,
-        agravantes=agravantes,
-        comportamento=comportamento,
-        pontuacao=pontuacao,
-        itens_especificacao=item_descricao_falta,
-    )
-
-        # Detecta caminho do wkhtmltopdf
-        wk_path = shutil.which('wkhtmltopdf')
-        if not wk_path:
-            wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
-
-        config = pdfkit.configuration(wkhtmltopdf=wk_path)
-
-        options = {
-            'page-size': 'A4',
-            'encoding': 'UTF-8',
-            'enable-local-file-access': None,
-            'print-media-type': None,
-            'margin-top': '10mm',
-            'margin-bottom': '10mm',
-            'margin-left': '10mm',
-            'margin-right': '10mm'
-        }
-
-        pdf_bytes = pdfkit.from_string(html, False, configuration=config, options=options)
-        with open(pdf_path, "wb") as f:
-            f.write(pdf_bytes)
+        pdf.output(pdf_path)
 
         msg = MIMEMultipart()
         msg['From'] = email_remetente
@@ -1926,7 +1859,7 @@ def enviar_email_fmd(fmd_id):
             part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_path)}"'
             msg.attach(part)
         # ---------------------
-
+        
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(email_remetente, senha_email_app)
@@ -1934,9 +1867,8 @@ def enviar_email_fmd(fmd_id):
         server.quit()
 
         data_envio = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
-        db.execute(
-            "UPDATE ficha_medida_disciplinar SET email_enviado_data=?, email_enviado_para=? WHERE fmd_id=?",
-            (data_envio, email_destinatario, fmd_id))
+        db.execute("UPDATE ficha_medida_disciplinar SET email_enviado_data=?, email_enviado_para=? WHERE fmd_id=?",
+                   (data_envio, email_destinatario, fmd_id))
         db.commit()
         flash("FMD enviada por e-mail com sucesso!", "success")
     except Exception as e:
