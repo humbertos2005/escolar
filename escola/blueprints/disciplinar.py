@@ -1472,7 +1472,7 @@ def excluir_fmd(fmd_id):
             flash('FMD não encontrada.', 'danger')
             return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
-        fmd_id_nome = fmd['fmd_id']
+        fmd_id_nome = fmd['fmd_id'] if fmd and 'fmd_id' in fmd.keys() and fmd['fmd_id'] is not None else 'N/A'
 
         db.execute('DELETE FROM ficha_medida_disciplinar WHERE id = ?', (fmd_id,))
         db.commit()
@@ -1730,12 +1730,25 @@ def fmd_novo_real(fmd_id):
     }
 
     # ==== 6. Busca gestor/responsável para carimbo/assinatura ====
-    usuario_id_registro = fmd['gestor_id'] or fmd['responsavel_id']
+    usuario_id_registro = (
+    fmd['gestor_id'] if fmd and 'gestor_id' in fmd.keys() and fmd['gestor_id'] is not None else
+    fmd['responsavel_id'] if fmd and 'responsavel_id' in fmd.keys() and fmd['responsavel_id'] is not None else
+        None
+    )
     usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() or {}
     print("USUARIO REGISTRO -->", dict(usuario_registro) if usuario_registro else "NENHUM")
 
-    atenuantes = fmd['atenuantes'] or (rfo['circunstancias_atenuantes'] if rfo and 'circunstancias_atenuantes' in rfo.keys() else '')
-    agravantes = fmd['agravantes'] or (rfo['circunstancias_agravantes'] if rfo and 'circunstancias_agravantes' in rfo.keys() else '')
+    atenuantes = (
+        fmd['atenuantes'] if fmd and 'atenuantes' in fmd.keys() and fmd['atenuantes'] is not None and str(fmd['atenuantes']).strip() != ''
+        else (rfo['circunstancias_atenuantes'] if rfo and 'circunstancias_atenuantes' in rfo.keys() and rfo['circunstancias_atenuantes'] is not None and str(rfo['circunstancias_atenuantes']).strip() != ''
+            else 'Não há')
+    )
+
+    agravantes = (
+        fmd['agravantes'] if fmd and 'agravantes' in fmd.keys() and fmd['agravantes'] is not None and str(fmd['agravantes']).strip() != ''
+        else (rfo['circunstancias_agravantes'] if rfo and 'circunstancias_agravantes' in rfo.keys() and rfo['circunstancias_agravantes'] is not None and str(rfo['circunstancias_agravantes']).strip() != ''
+            else 'Não há')
+    )
 
     nome_usuario = usuario_sessao['username'] if usuario_sessao and 'username' in usuario_sessao.keys() else '-'
     cargo_usuario = usuario_sessao['cargo'] if usuario_sessao and 'cargo' in usuario_sessao.keys() else '-'
@@ -1875,9 +1888,15 @@ def enviar_email_fmd(fmd_id):
         rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
 
         # Usuário responsável (ajuste o ID conforme seu sistema)
-        usuario = db.execute("SELECT * FROM usuarios WHERE id = ?", (fmd('usuario_id'),)).fetchone() or {}
-        nome_usuario = usuario['username'] if 'username' in usuario.keys() else ''
-        cargo_usuario = usuario['cargo'] if 'cargo' in usuario.keys() else ''
+        usuario_id_registro = fmd['gestor_id'] if 'gestor_id' in fmd.keys() and fmd['gestor_id'] else fmd['responsavel_id'] if 'responsavel_id' in fmd.keys() and fmd['responsavel_id'] else None
+        usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() if usuario_id_registro else None
+
+        if usuario_registro:
+            nome_usuario = usuario_registro['username'] if 'username' in usuario_registro.keys() else ''
+            cargo_usuario = usuario_registro['cargo'] if 'cargo' in usuario_registro.keys() else ''
+        else:
+            nome_usuario = ''
+            cargo_usuario = ''
 
         # Envio (substitua esta busca pelo seu método real)
         envio = db.execute("SELECT * FROM envios WHERE fmd_id = ?", (fmd['fmd_id'],)).fetchone() or {}
@@ -1888,9 +1907,9 @@ def enviar_email_fmd(fmd_id):
         agravantes = rfo['circunstancias_agravantes'] if 'circunstancias_agravantes' in rfo.keys() else 'Não há'
 
         # Comportamento, Pontuação, Itens Especificação (substitua pelo cálculo/consulta real)
-        comportamento = fmd['comportamento'] if 'comportamento' in fmd.keys() else '-'
-        pontuacao = fmd['pontuacao'] if 'pontuacao' in fmd.keys() else '-'          # ajuste igualmente
-        itens_especificacao = fmd['itens_especificacao'] if 'itens_especificacao' in fmd.keys() else '-'          # ajuste igualmente
+        comportamento = fmd['comportamento'] if fmd and 'comportamento' in fmd.keys() and fmd['comportamento'] is not None else '-'
+        pontuacao = fmd['pontuacao'] if fmd and 'pontuacao' in fmd.keys() and fmd['pontuacao'] is not None else '-'
+        itens_especificacao = fmd['itens_especificacao'] if fmd and 'itens_especificacao' in fmd.keys() and fmd['itens_especificacao'] is not None else '-'
 
         html_fmd = render_template(
             'disciplinar/fmd_novo_pdf.html',
