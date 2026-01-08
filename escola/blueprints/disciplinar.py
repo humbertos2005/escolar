@@ -1875,22 +1875,22 @@ def enviar_email_fmd(fmd_id):
         rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
 
         # Usuário responsável (ajuste o ID conforme seu sistema)
-        usuario = db.execute("SELECT * FROM usuarios WHERE id = ?", (fmd.get('usuario_id'),)).fetchone() or {}
-        nome_usuario = usuario.get('nome', '---')
-        cargo_usuario = usuario.get('cargo', '---')
+        usuario = db.execute("SELECT * FROM usuarios WHERE id = ?", (fmd('usuario_id'),)).fetchone() or {}
+        nome_usuario = usuario['username'] if 'username' in usuario.keys() else ''
+        cargo_usuario = usuario['cargo'] if 'cargo' in usuario.keys() else ''
 
         # Envio (substitua esta busca pelo seu método real)
         envio = db.execute("SELECT * FROM envios WHERE fmd_id = ?", (fmd['fmd_id'],)).fetchone() or {}
         # Ou, caso não tenha envio no banco, pode deixar vazio: envio = {}
 
         # Atenuantes e Agravantes (substitua o campo pelo nome real)
-        atenuantes = rfo.get('circunstancias_atenuantes', 'Não há')
-        agravantes = rfo.get('circunstancias_agravantes', 'Não há')
+        atenuantes = rfo['circunstancias_atenuantes'] if 'circunstancias_atenuantes' in rfo.keys() else 'Não há'
+        agravantes = rfo['circunstancias_agravantes'] if 'circunstancias_agravantes' in rfo.keys() else 'Não há'
 
         # Comportamento, Pontuação, Itens Especificação (substitua pelo cálculo/consulta real)
-        comportamento = fmd.get('comportamento', '-')  # ajuste para onde está esses dados no seu sistema
-        pontuacao = fmd.get('pontuacao', '-')          # ajuste igualmente
-        itens_especificacao = fmd.get('itens_especificacao', '-')  # ajuste igualmente
+        comportamento = fmd['comportamento'] if 'comportamento' in fmd.keys() else '-'
+        pontuacao = fmd['pontuacao'] if 'pontuacao' in fmd.keys() else '-'          # ajuste igualmente
+        itens_especificacao = fmd['itens_especificacao'] if 'itens_especificacao' in fmd.keys() else '-'          # ajuste igualmente
 
         html_fmd = render_template(
             'disciplinar/fmd_novo_pdf.html',
