@@ -9,10 +9,40 @@
     <div class="mb-3">
       <label class="form-label">Escola (autocomplete)</label>
       <input list="cabecalhos_list" id="escola_search" name="escola" class="form-control"
-             value="{{ dados.escola if dados else '' }}" autocomplete="off" placeholder="Digite para buscar...">
+            value="{{ dados.escola if dados else '' }}" autocomplete="off" placeholder="Digite para buscar...">
       <datalist id="cabecalhos_list"></datalist>
       <small class="text-muted">Selecione uma opção para preencher automaticamente os dados do cabeçalho.</small>
     </div>
+
+    <!-- === NOVOS CAMPOS PARA E-MAIL INSTITUCIONAL E SENHA DE APP === -->
+    <div class="mb-3">
+      <label class="form-label">E-mail institucional para envio</label>
+      <input name="email_remetente" id="email_remetente" type="email" class="form-control"
+            value="{{ dados.email_remetente if dados else '' }}" autocomplete="off" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Senha de aplicativo do e-mail</label>
+      <input name="senha_email_app" id="senha_email_app" type="password" class="form-control"
+            value="{{ dados.senha_email_app if dados else '' }}" autocomplete="new-password" required>
+      <small class="text-muted">Digite a senha de aplicativo gerada no painel de segurança do Gmail.</small>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Telefone da escola</label>
+      <input name="telefone" id="telefone" type="text" class="form-control"
+            value="{{ dados.telefone if dados else '' }}" autocomplete="off" maxlength="15" placeholder="(99) 99999-9999">
+      <small class="text-muted">Informe o telefone institucional com DDD.</small>
+    </div>
+
+    <!-- Scripts de máscara -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+    <script>
+    $(function(){
+      $('#telefone').mask('(00) 00000-0000');
+    });
+    </script>
 
     <div class="row g-2">
       <div class="col-md-6"><label class="form-label">Rua</label><input name="rua" id="rua" class="form-control" value="{{ dados.rua if dados else '' }}"></div>

@@ -1756,12 +1756,18 @@ def fmd_novo_real(fmd_id):
         itens_especificacao=item_descricao_falta,
     )
 
-
-@disciplinar_bp.route('/enviar_email_fmd/<fmd_id>', methods=['POST'])
+@disciplinar_bp.route('/enviar_email_fmd/<path:fmd_id>', methods=['POST'])
 def enviar_email_fmd(fmd_id):
     from flask import redirect, url_for, flash
     import datetime
     import sqlite3
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from fpdf import FPDF
+    import os
+    from email.mime.application import MIMEApplication
+    import pdfkit
 
     db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
     db.row_factory = sqlite3.Row
@@ -1781,13 +1787,92 @@ def enviar_email_fmd(fmd_id):
         flash('Não existe e-mail cadastrado para este aluno.', 'alert-danger')
         return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
-    # Simulando envio com sucesso (em breve, código real de envio):
-    data_envio = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
+    # Busca o e-mail e a senha de app da escola
+    dados_escola = db.execute("SELECT email_remetente, senha_email_app, telefone FROM dados_escola LIMIT 1").fetchone()
+    if not dados_escola or not dados_escola['email_remetente'] or not dados_escola['senha_email_app']:
+        flash('Não há e-mail institucional e/ou senha de aplicativo cadastrados para a escola.', 'danger')
+        return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
+    email_remetente = dados_escola['email_remetente']
+    senha_email_app = dados_escola['senha_email_app']
 
-    # Atualiza os dados do envio na FMD
-    db.execute("UPDATE ficha_medida_disciplinar SET email_enviado_data=?, email_enviado_para=? WHERE fmd_id=?",
-               (data_envio, email_destinatario, fmd_id))
-    db.commit()
+    # MONTE AQUI O CORPO DO E-MAIL (exemplo simples abaixo)
+    assunto = "Ficha de Medida Disciplinar"
 
-    flash(f'FMD enviada por e-mail com sucesso para: {email_destinatario} em {data_envio}', 'alert-success')
+    # Função utilitária para pegar campo ou retorno vazio
+    def get_fmd_field(row, key):
+        try:
+            return row[key]
+        except Exception:
+            return ''
+
+    # Pegue o telefone em Python ANTES da string do e-mail
+    telefone_escola = dados_escola['telefone'] if 'telefone' in dados_escola.keys() else ''
+
+    corpo_html = f"""
+    <html>
+    <body>
+        <p>Prezado responsável,<br>
+        Segue a Ficha de Medida Disciplinar referente ao(a) aluno(a): <b>{aluno['nome']}</b>.
+        <br><br>
+        Tipo de falta: <b>{get_fmd_field(fmd,'tipo_falta')}</b><br>
+        Medida aplicada: <b>{get_fmd_field(fmd,'medida_aplicada')}</b><br>
+        {"Descrição: <b>{}</b><br>".format(get_fmd_field(fmd,'descricao_detalhada')) if get_fmd_field(fmd,'descricao_detalhada') else ""}
+        Status: <b>{get_fmd_field(fmd,'status')}</b><br>
+        <br>
+        <i>Favor entrar em contato com a escola caso necessário. Telefone: <b>{telefone_escola}</b></i>
+        </p>
+    </body>
+    </html>
+    """
+
+    # ========== ENVIO REAL DO E-MAIL ==========
+    try:
+        # Gera o PDF da FMD
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(0, 10, "Ficha de Medida Disciplinar", ln=True, align='C')
+        pdf.ln(10)
+        pdf.cell(0, 10, f"Aluno(a): {aluno['nome']}", ln=True)
+        pdf.cell(0, 10, f"Tipo de falta: {get_fmd_field(fmd,'tipo_falta')}", ln=True)
+        pdf.cell(0, 10, f"Medida aplicada: {get_fmd_field(fmd,'medida_aplicada')}", ln=True)
+        if get_fmd_field(fmd,'descricao_detalhada'):
+            pdf.cell(0, 10, f"Descrição: {get_fmd_field(fmd,'descricao_detalhada')}", ln=True)
+        pdf.cell(0, 10, f"Status: {get_fmd_field(fmd,'status')}", ln=True)
+        pdf.cell(0, 10, f"Telefone da escola: {telefone_escola}", ln=True)
+
+        temp_dir = "tmp"
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        safe_fmd_id = str(fmd_id).replace('/', '_')
+        pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
+        pdf.output(pdf_path)
+
+        msg = MIMEMultipart()
+        msg['From'] = email_remetente
+        msg['To'] = email_destinatario
+        msg['Subject'] = assunto
+        msg.attach(MIMEText(corpo_html, 'html'))
+
+        # ----- ANEXO PDF -----
+        with open(pdf_path, "rb") as f:
+            part = MIMEApplication(f.read(), Name=os.path.basename(pdf_path))
+            part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_path)}"'
+            msg.attach(part)
+        # ---------------------
+        
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(email_remetente, senha_email_app)
+        server.sendmail(email_remetente, email_destinatario, msg.as_string())
+        server.quit()
+
+        data_envio = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
+        db.execute("UPDATE ficha_medida_disciplinar SET email_enviado_data=?, email_enviado_para=? WHERE fmd_id=?",
+                   (data_envio, email_destinatario, fmd_id))
+        db.commit()
+        flash("FMD enviada por e-mail com sucesso!", "success")
+    except Exception as e:
+        flash(f"Erro ao enviar o e-mail: {e}", "danger")
+
     return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))

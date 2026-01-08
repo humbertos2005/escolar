@@ -509,6 +509,7 @@ def listar_dados_escola():
 @admin_secundario_required
 def dados_escola_novo():
     db = get_db()
+    telefone = request.form.get('telefone', '').strip()
     if request.method == 'POST':
         cabecalho_id = request.form.get('cabecalho_id') or None
         escola = request.form.get('escola','').strip()
@@ -530,12 +531,16 @@ def dados_escola_novo():
         diretor_nome = request.form.get('diretor_nome','').strip()
         diretor_cpf = request.form.get('diretor_cpf','').strip()
 
+        # >>>>>>>>> NOVOS CAMPOS ADICIONADOS <<<<<<<<<<
+        email_remetente = request.form.get('email_remetente','').strip()
+        senha_email_app = request.form.get('senha_email_app','').strip()
+        # <<<<<<<< FIM DOS NOVOS CAMPOS <<<<<<<<<<
+
         try:
             db.execute('''
-                INSERT INTO dados_escola
-                (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-            ''', (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf))
+            INSERT INTO dados_escola (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf, email_remetente, senha_email_app, telefone)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf, email_remetente, senha_email_app, telefone))
             db.commit()
             flash('Dados da Escola salvos.', 'success')
             return redirect(url_for('cadastros_bp.listar_dados_escola'))
@@ -551,6 +556,7 @@ def dados_escola_novo():
 @admin_secundario_required
 def dados_escola_editar(id):
     db = get_db()
+    telefone = request.form.get('telefone', '').strip()
     row = db.execute("SELECT * FROM dados_escola WHERE id = ?", (id,)).fetchone()
     if not row:
         flash('Registro não encontrado.', 'warning')
@@ -577,11 +583,17 @@ def dados_escola_editar(id):
         diretor_nome = request.form.get('diretor_nome','').strip()
         diretor_cpf = request.form.get('diretor_cpf','').strip()
 
+        # NOVOS CAMPOS
+        email_remetente = request.form.get('email_remetente','').strip()
+        senha_email_app = request.form.get('senha_email_app','').strip()
+
         try:
             db.execute('''
-                UPDATE dados_escola SET cabecalho_id=?, escola=?, rua=?, numero=?, complemento=?, bairro=?, cidade=?, estado=?, cep=?, cnpj=?, diretor_nome=?, diretor_cpf=?
-                WHERE id = ?
-            ''', (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf, id))
+                UPDATE dados_escola SET cabecalho_id=?, escola=?, rua=?, numero=?, complemento=?, bairro=?, cidade=?, estado=?, cep=?, cnpj=?, diretor_nome=?, diretor_cpf=?, email_remetente=?, senha_email_app=?, telefone=? WHERE id=?
+            ''', (
+                cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj,
+                diretor_nome, diretor_cpf, email_remetente, senha_email_app, telefone, id
+            ))
             db.commit()
             flash('Dados da Escola atualizados.', 'success')
             return redirect(url_for('cadastros_bp.listar_dados_escola'))
