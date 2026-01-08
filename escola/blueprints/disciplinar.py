@@ -1765,7 +1765,6 @@ def enviar_email_fmd(fmd_id):
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     from fpdf import FPDF
-    import os
     from email.mime.application import MIMEApplication
     import pdfkit
 
@@ -1828,25 +1827,98 @@ def enviar_email_fmd(fmd_id):
     # ========== ENVIO REAL DO E-MAIL ==========
     try:
         # Gera o PDF da FMD
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        pdf.cell(0, 10, "Ficha de Medida Disciplinar", ln=True, align='C')
-        pdf.ln(10)
-        pdf.cell(0, 10, f"Aluno(a): {aluno['nome']}", ln=True)
-        pdf.cell(0, 10, f"Tipo de falta: {get_fmd_field(fmd,'tipo_falta')}", ln=True)
-        pdf.cell(0, 10, f"Medida aplicada: {get_fmd_field(fmd,'medida_aplicada')}", ln=True)
-        if get_fmd_field(fmd,'descricao_detalhada'):
-            pdf.cell(0, 10, f"Descrição: {get_fmd_field(fmd,'descricao_detalhada')}", ln=True)
-        pdf.cell(0, 10, f"Status: {get_fmd_field(fmd,'status')}", ln=True)
-        pdf.cell(0, 10, f"Telefone da escola: {telefone_escola}", ln=True)
+        # pdf = FPDF()
+        # pdf.add_page()
+        # pdf.set_font("Arial", size=12)
+        # pdf.cell(0, 10, "Ficha de Medida Disciplinar", ln=True, align='C')
+        # pdf.ln(10)
+        # pdf.cell(0, 10, f"Aluno(a): {aluno['nome']}", ln=True)
+        # pdf.cell(0, 10, f"Tipo de falta: {get_fmd_field(fmd,'tipo_falta')}", ln=True)
+        # pdf.cell(0, 10, f"Medida aplicada: {get_fmd_field(fmd,'medida_aplicada')}", ln=True)
+        # if get_fmd_field(fmd,'descricao_detalhada'):
+        #     pdf.cell(0, 10, f"Descrição: {get_fmd_field(fmd,'descricao_detalhada')}", ln=True)
+        # pdf.cell(0, 10, f"Status: {get_fmd_field(fmd,'status')}", ln=True)
+        # pdf.cell(0, 10, f"Telefone da escola: {telefone_escola}", ln=True)
 
+        # temp_dir = "tmp"
+        # if not os.path.exists(temp_dir):
+        #     os.makedirs(temp_dir)
+        # safe_fmd_id = str(fmd_id).replace('/', '_')
+        # pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
+        # pdf.output(pdf_path)
+                # === GERAÇÃO DO PDF BONITO A PARTIR DO HTML ===
+        # Monte as MESMAS variáveis do template usado no render_template!
+        
         temp_dir = "tmp"
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
-        safe_fmd_id = str(fmd_id).replace('/', '_')
-        pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
-        pdf.output(pdf_path)
+
+        # Busca o cabeçalho institucional para montar o dicionário 'escola'
+        cabecalho = db.execute("SELECT * FROM cabecalhos LIMIT 1;").fetchone() or {}
+
+        logotipo_url = ''
+        if 'logo_escola' in cabecalho.keys() and cabecalho['logo_escola']:
+            caminho_logotipo = os.path.abspath(os.path.join('static', 'uploads', 'cabecalhos', cabecalho['logo_escola']))
+            logotipo_url = 'file:///' + caminho_logotipo.replace('\\', '/')
+
+        escola = {
+            'estado': cabecalho['estado'],
+            'secretaria': cabecalho['secretaria'],
+            'coordenacao': cabecalho['coordenacao'],
+            'nome': cabecalho['escola'],
+            'logotipo_url': logotipo_url
+        }
+
+        # --- Busca dados faltantes ---
+
+        # Dados da ocorrência (rfo)
+        rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
+
+        # Usuário responsável (ajuste o ID conforme seu sistema)
+        usuario = db.execute("SELECT * FROM usuarios WHERE id = ?", (fmd.get('usuario_id'),)).fetchone() or {}
+        nome_usuario = usuario.get('nome', '---')
+        cargo_usuario = usuario.get('cargo', '---')
+
+        # Envio (substitua esta busca pelo seu método real)
+        envio = db.execute("SELECT * FROM envios WHERE fmd_id = ?", (fmd['fmd_id'],)).fetchone() or {}
+        # Ou, caso não tenha envio no banco, pode deixar vazio: envio = {}
+
+        # Atenuantes e Agravantes (substitua o campo pelo nome real)
+        atenuantes = rfo.get('circunstancias_atenuantes', 'Não há')
+        agravantes = rfo.get('circunstancias_agravantes', 'Não há')
+
+        # Comportamento, Pontuação, Itens Especificação (substitua pelo cálculo/consulta real)
+        comportamento = fmd.get('comportamento', '-')  # ajuste para onde está esses dados no seu sistema
+        pontuacao = fmd.get('pontuacao', '-')          # ajuste igualmente
+        itens_especificacao = fmd.get('itens_especificacao', '-')  # ajuste igualmente
+
+        html_fmd = render_template(
+            'disciplinar/fmd_novo_pdf.html',
+            escola=escola,
+            aluno=aluno,
+            fmd=fmd,
+            rfo=rfo,
+            nome_usuario=nome_usuario,
+            cargo_usuario=cargo_usuario,
+            envio=envio,
+            atenuantes=atenuantes,
+            agravantes=agravantes,
+            comportamento=comportamento,
+            pontuacao=pontuacao,
+            itens_especificacao=itens_especificacao,
+        )
+
+        nome_pdf = f"FMD_{fmd['fmd_id'].replace('/', '_')}_{aluno['nome'].replace(' ', '_').replace('/', '_')}.pdf"
+        pdf_path = os.path.join(temp_dir, nome_pdf)
+
+        caminho_exe = r"C:\Arquivos de Programas\wkhtmltopdf\bin\wkhtmltopdf.exe"  # ajuste o caminho se necessário!
+        config = pdfkit.configuration(wkhtmltopdf=caminho_exe)
+
+        options = {
+            'enable-local-file-access': None
+        }
+
+        pdfkit.from_string(html_fmd, pdf_path, configuration=config, options=options)
 
         msg = MIMEMultipart()
         msg['From'] = email_remetente
@@ -1876,3 +1948,47 @@ def enviar_email_fmd(fmd_id):
         flash(f"Erro ao enviar o e-mail: {e}", "danger")
 
     return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
+
+# @disciplinar_bp.route('/fmd_preview_pdf')
+# def fmd_preview_pdf():
+#     aluno = {
+#         'nome': 'FULANO DE TAL',
+#         'serie': '5º',
+#         'turma': 'B'
+#     }
+#     fmd = {
+#         'fmd_id': 'FMD-0001/2026',
+#         'medida_aplicada': 'Advertência Oral',
+#         'tipo_falta': 'Média',
+#         'descricao_falta': 'Desrespeito ao professor.',
+#         'comparecimento_responsavel': True,
+#         'prazo_comparecimento': '12/01/2026',
+#         'observacoes': 'Conversar com os pais.',
+#     }
+#     rfo = {
+#         'data_ocorrencia': '2026-01-07',
+#         'relato_observador': 'Usando celular durante o recreio'
+#     }
+#     escola = {
+#         'logotipo_url': '/static/uploads/cabecalhos/escola_1767660928.png',
+#         'nome': 'ESCOLA ESTADUAL CÍVICO MILITAR TIRADENTES',
+#         'estado': 'ESTADO DO MATO GROSSO',
+#         'secretaria': 'SECRETARIA DE ESTADO DE EDUCAÇÃO',
+#         'coordenacao': 'COORDENADORIA DE ESCOLAS MILITARES'
+#     }
+#     envio = {'data_hora': None, 'email_destinatario': ''}
+#     return render_template(
+#         'disciplinar/fmd_novo_pdf.html',
+#         escola=escola,
+#         aluno=aluno,
+#         fmd=fmd,
+#         rfo=rfo,
+#         nome_usuario='Nome do Gestor',
+#         cargo_usuario='Cargo do Gestor',
+#         envio=envio,
+#         atenuantes='Não há',
+#         agravantes='Não há',
+#         comportamento='Bom',
+#         pontuacao='7.9',
+#         itens_especificacao='Usar dispositivos eletrônicos sem autorização.'
+#     )

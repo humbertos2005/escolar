@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Ficha de Medida Disciplinar</title>
+    <style>
+        body {
+            font-family: Arial, serif;
+            margin: 10px 40px 40px 40px;
+        }
+        hr { border: 1px solid #999; margin: 24px 0; }
+        .section { margin-bottom: 24px; }
+        .label { font-weight: bold; }
+        .destaque { font-weight: bold; color: #900; }
+        .box { border: 1px solid #888; border-radius: 6px; padding: 15px; margin-top: 15px; }
+        .footer { text-align: center; }
+        .assinatura { margin-top: 35px; text-align: center; }
+        .cabecalho-linha {
+            display: flex; align-items: flex-start; gap: 24px; margin-bottom: 5px;
+        }
+        .cabecalho-logo {
+            max-width: 110px; max-height: 110px;
+        }
+        .cabecalho-centro {
+            max-width: 646px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            margin: 0 auto;
+            position: relative;
+            left: -65px;
+        }
+        .titulo-central {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Cabeçalho com logo lateral e texto centralizado -->
+    <div class="cabecalho-linha">
+        {% if escola.logotipo_url %}
+            <img src="{{ escola.logotipo_url }}" alt="Logotipo da Escola" class="cabecalho-logo">
+        {% endif %}
+        <div class="cabecalho-centro">
+            <div>{{ escola.estado }}</div>
+            <div>{{ escola.secretaria }}</div>
+            <div>{{ escola.coordenacao }}</div>
+            <div style="font-weight:bold;">{{ escola.nome }}</div>
+        </div>
+    </div>
+    <hr>
+
+    <div class="titulo-central">
+        <div class="destaque">FICHA DE MEDIDA DISCIPLINAR</div>
+        <div>Notificação de Medida Disciplinar Número: {{ fmd.fmd_id }}</div>
+    </div>
+
+    <div class="section">
+        <span class="label">Estudante:</span> {{ aluno.nome }}<br>
+        <span class="label">Série/Turma:</span> {{ aluno.serie }}/{{ aluno.turma }}
+    </div>
+
+    <div class="section">
+        <p>
+            Senhor(a) responsável, informamos que no dia <b>
+            {%- if rfo.data_ocorrencia -%}
+                {{ rfo.data_ocorrencia | datetimeformat("%d/%m/%Y") }}
+            {%- endif -%}
+            </b>,
+            o estudante recebeu uma Notificação de Medida Disciplinar de Natureza <b>{{ fmd.medida_aplicada }}</b>,
+            que poderá ocasionar perda de créditos. O período recursal está previsto no Regulamento Disciplinar das EECM.
+            A defesa poderá ser feita por escrito, no prazo de <b>3 (três) dias úteis</b> a contar do recebimento da Notificação.
+            A Medida Disciplinar será efetivada ou arquivada conforme despacho do gestor competente.
+        </p>
+        <p>
+            O estudante supracitado cometeu a seguinte falta disciplinar: <span class="destaque">{{ rfo.relato_observador }}</span>
+        </p>
+    </div>
+
+    <div class="section box">
+        <span class="label">Em razão disso, foi enquadrado no(s) item(ns) abaixo:</span><br>
+        <span class="label">Itens/Especificação:</span> {{ itens_especificacao|safe if itens_especificacao != '-' else '-' }}<br>
+        <span class="label">Comportamento:</span> {{ comportamento or '-' }}<br>
+        <span class="label">Pontuação:</span> {{ pontuacao or '-' }}<br>
+    </div>
+
+    <div class="section">
+        <span class="label">Há necessidade de comparecimento do responsável?</span>
+        {% if fmd.comparecimento_responsavel %}
+            ( X ) sim   (   ) não
+            <br><span class="label">Prazo para comparecimento: </span> {{ fmd.prazo_comparecimento or '-' }}
+        {% else %}
+            (   ) sim   ( X ) não
+        {% endif %}
+    </div>
+
+    <div class="section box">
+        <span class="label">Circunstâncias atenuantes:</span> {{ atenuantes or 'Não há' }}<br>
+        <span class="label">Circunstâncias agravantes:</span> {{ agravantes or 'Não há' }}
+    </div>
+
+    <!-- Assinatura centralizada -->
+    <div class="assinatura">
+        <span style="font-weight: bold;">{{ nome_usuario }}</span><br>
+        <span>{{ cargo_usuario }}</span>
+    </div>
+
+    <!-- Status de envio somente texto simples -->
+    <div class="footer" style="margin-top:20px; font-size:1.08em; color:#444;">
+        <strong>Enviado por e-mail:</strong>
+        {% if envio.data_hora %}
+            {{ envio.data_hora }}, {{ envio.email_destinatario }}
+        {% else %}
+            AINDA NÃO
+        {% endif %}
+    </div>
+</body>
+</html>
