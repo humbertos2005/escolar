@@ -1472,7 +1472,7 @@ def excluir_fmd(fmd_id):
             flash('FMD não encontrada.', 'danger')
             return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
-        fmd_id_nome = fmd['fmd_id'] if fmd and 'fmd_id' in fmd.keys() and fmd['fmd_id'] is not None else 'N/A'
+        fmd_id_nome = fmd['fmd_id']
 
         db.execute('DELETE FROM ficha_medida_disciplinar WHERE id = ?', (fmd_id,))
         db.commit()
@@ -1653,11 +1653,6 @@ def fmd_novo_real(fmd_id):
     db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
     db.row_factory = sqlite3.Row
 
-    context = get_fmd_context(db, fmd_id, session)
-    if context is None:
-        return 'FMD não encontrada', 404
-    return render_template('disciplinar/fmd_novo.html', **context)
-
     # ==== 1. PEGA O USUÁRIO LOGADO NA SESSÃO ====
     user_id = session.get('user_id')
     usuario_sessao = None
@@ -1735,25 +1730,12 @@ def fmd_novo_real(fmd_id):
     }
 
     # ==== 6. Busca gestor/responsável para carimbo/assinatura ====
-    usuario_id_registro = (
-    fmd['gestor_id'] if fmd and 'gestor_id' in fmd.keys() and fmd['gestor_id'] is not None else
-    fmd['responsavel_id'] if fmd and 'responsavel_id' in fmd.keys() and fmd['responsavel_id'] is not None else
-        None
-    )
+    usuario_id_registro = fmd['gestor_id'] or fmd['responsavel_id']
     usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() or {}
     print("USUARIO REGISTRO -->", dict(usuario_registro) if usuario_registro else "NENHUM")
 
-    atenuantes = (
-        fmd['atenuantes'] if fmd and 'atenuantes' in fmd.keys() and fmd['atenuantes'] is not None and str(fmd['atenuantes']).strip() != ''
-        else (rfo['circunstancias_atenuantes'] if rfo and 'circunstancias_atenuantes' in rfo.keys() and rfo['circunstancias_atenuantes'] is not None and str(rfo['circunstancias_atenuantes']).strip() != ''
-            else 'Não há')
-    )
-
-    agravantes = (
-        fmd['agravantes'] if fmd and 'agravantes' in fmd.keys() and fmd['agravantes'] is not None and str(fmd['agravantes']).strip() != ''
-        else (rfo['circunstancias_agravantes'] if rfo and 'circunstancias_agravantes' in rfo.keys() and rfo['circunstancias_agravantes'] is not None and str(rfo['circunstancias_agravantes']).strip() != ''
-            else 'Não há')
-    )
+    atenuantes = fmd['atenuantes'] or (rfo['circunstancias_atenuantes'] if rfo and 'circunstancias_atenuantes' in rfo.keys() else '')
+    agravantes = fmd['agravantes'] or (rfo['circunstancias_agravantes'] if rfo and 'circunstancias_agravantes' in rfo.keys() else '')
 
     nome_usuario = usuario_sessao['username'] if usuario_sessao and 'username' in usuario_sessao.keys() else '-'
     cargo_usuario = usuario_sessao['cargo'] if usuario_sessao and 'cargo' in usuario_sessao.keys() else '-'
@@ -1783,8 +1765,8 @@ def enviar_email_fmd(fmd_id):
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     from fpdf import FPDF
+    import os
     from email.mime.application import MIMEApplication
-    import pdfkit
 
     db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
     db.row_factory = sqlite3.Row
@@ -1845,111 +1827,25 @@ def enviar_email_fmd(fmd_id):
     # ========== ENVIO REAL DO E-MAIL ==========
     try:
         # Gera o PDF da FMD
-        # pdf = FPDF()
-        # pdf.add_page()
-        # pdf.set_font("Arial", size=12)
-        # pdf.cell(0, 10, "Ficha de Medida Disciplinar", ln=True, align='C')
-        # pdf.ln(10)
-        # pdf.cell(0, 10, f"Aluno(a): {aluno['nome']}", ln=True)
-        # pdf.cell(0, 10, f"Tipo de falta: {get_fmd_field(fmd,'tipo_falta')}", ln=True)
-        # pdf.cell(0, 10, f"Medida aplicada: {get_fmd_field(fmd,'medida_aplicada')}", ln=True)
-        # if get_fmd_field(fmd,'descricao_detalhada'):
-        #     pdf.cell(0, 10, f"Descrição: {get_fmd_field(fmd,'descricao_detalhada')}", ln=True)
-        # pdf.cell(0, 10, f"Status: {get_fmd_field(fmd,'status')}", ln=True)
-        # pdf.cell(0, 10, f"Telefone da escola: {telefone_escola}", ln=True)
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(0, 10, "Ficha de Medida Disciplinar", ln=True, align='C')
+        pdf.ln(10)
+        pdf.cell(0, 10, f"Aluno(a): {aluno['nome']}", ln=True)
+        pdf.cell(0, 10, f"Tipo de falta: {get_fmd_field(fmd,'tipo_falta')}", ln=True)
+        pdf.cell(0, 10, f"Medida aplicada: {get_fmd_field(fmd,'medida_aplicada')}", ln=True)
+        if get_fmd_field(fmd,'descricao_detalhada'):
+            pdf.cell(0, 10, f"Descrição: {get_fmd_field(fmd,'descricao_detalhada')}", ln=True)
+        pdf.cell(0, 10, f"Status: {get_fmd_field(fmd,'status')}", ln=True)
+        pdf.cell(0, 10, f"Telefone da escola: {telefone_escola}", ln=True)
 
-        # temp_dir = "tmp"
-        # if not os.path.exists(temp_dir):
-        #     os.makedirs(temp_dir)
-        # safe_fmd_id = str(fmd_id).replace('/', '_')
-        # pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
-        # pdf.output(pdf_path)
-                # === GERAÇÃO DO PDF BONITO A PARTIR DO HTML ===
-        # Monte as MESMAS variáveis do template usado no render_template!
-        
         temp_dir = "tmp"
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
-
-        # # Busca o cabeçalho institucional para montar o dicionário 'escola'
-        # cabecalho = db.execute("SELECT * FROM cabecalhos LIMIT 1;").fetchone() or {}
-
-        # logotipo_url = ''
-        # if 'logo_escola' in cabecalho.keys() and cabecalho['logo_escola']:
-        #     caminho_logotipo = os.path.abspath(os.path.join('static', 'uploads', 'cabecalhos', cabecalho['logo_escola']))
-        #     logotipo_url = 'file:///' + caminho_logotipo.replace('\\', '/')
-
-        # escola = {
-        #     'estado': cabecalho['estado'],
-        #     'secretaria': cabecalho['secretaria'],
-        #     'coordenacao': cabecalho['coordenacao'],
-        #     'nome': cabecalho['escola'],
-        #     'logotipo_url': logotipo_url
-        # }
-
-        # # --- Busca dados faltantes ---
-
-        # # Dados da ocorrência (rfo)
-        # rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
-
-        # # Usuário responsável (ajuste o ID conforme seu sistema)
-        # usuario_id_registro = fmd['gestor_id'] if 'gestor_id' in fmd.keys() and fmd['gestor_id'] else fmd['responsavel_id'] if 'responsavel_id' in fmd.keys() and fmd['responsavel_id'] else None
-        # usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() if usuario_id_registro else None
-
-        # if usuario_registro:
-        #     nome_usuario = usuario_registro['username'] if 'username' in usuario_registro.keys() else ''
-        #     cargo_usuario = usuario_registro['cargo'] if 'cargo' in usuario_registro.keys() else ''
-        # else:
-        #     nome_usuario = ''
-        #     cargo_usuario = ''
-
-        # # Envio (substitua esta busca pelo seu método real)
-        # envio = db.execute("SELECT * FROM envios WHERE fmd_id = ?", (fmd['fmd_id'],)).fetchone() or {}
-        # # Ou, caso não tenha envio no banco, pode deixar vazio: envio = {}
-
-        # # Atenuantes e Agravantes (substitua o campo pelo nome real)
-        # atenuantes = rfo['circunstancias_atenuantes'] if 'circunstancias_atenuantes' in rfo.keys() else 'Não há'
-        # agravantes = rfo['circunstancias_agravantes'] if 'circunstancias_agravantes' in rfo.keys() else 'Não há'
-
-        # # Comportamento, Pontuação, Itens Especificação (substitua pelo cálculo/consulta real)
-        # comportamento = fmd['comportamento'] if fmd and 'comportamento' in fmd.keys() and fmd['comportamento'] is not None else '-'
-        # pontuacao = fmd['pontuacao'] if fmd and 'pontuacao' in fmd.keys() and fmd['pontuacao'] is not None else '-'
-        # itens_especificacao = fmd['itens_especificacao'] if fmd and 'itens_especificacao' in fmd.keys() and fmd['itens_especificacao'] is not None else '-'
-
-        # html_fmd = render_template(
-        #     'disciplinar/fmd_novo.html',
-        #     escola=escola,
-        #     aluno=aluno,
-        #     fmd=fmd,
-        #     rfo=rfo,
-        #     nome_usuario=nome_usuario,
-        #     cargo_usuario=cargo_usuario,
-        #     envio=envio,
-        #     atenuantes=atenuantes,
-        #     agravantes=agravantes,
-        #     comportamento=comportamento,
-        #     pontuacao=pontuacao,
-        #     itens_especificacao=itens_especificacao,
-        # )
-
-        context = get_fmd_context(db, fmd_id)
-        if context is None:
-            flash('FMD não encontrada!', 'alert-danger')
-            return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
-
-        html_fmd = render_template('disciplinar/fmd_novo.html', **context)
-
-        nome_pdf = f"FMD_{fmd['fmd_id'].replace('/', '_')}_{aluno['nome'].replace(' ', '_').replace('/', '_')}.pdf"
-        pdf_path = os.path.join(temp_dir, nome_pdf)
-
-        caminho_exe = r"C:\Arquivos de Programas\wkhtmltopdf\bin\wkhtmltopdf.exe"  # ajuste o caminho se necessário!
-        config = pdfkit.configuration(wkhtmltopdf=caminho_exe)
-
-        options = {
-            'enable-local-file-access': None
-        }
-
-        pdfkit.from_string(html_fmd, pdf_path, configuration=config, options=options)
+        safe_fmd_id = str(fmd_id).replace('/', '_')
+        pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
+        pdf.output(pdf_path)
 
         msg = MIMEMultipart()
         msg['From'] = email_remetente
@@ -1979,117 +1875,3 @@ def enviar_email_fmd(fmd_id):
         flash(f"Erro ao enviar o e-mail: {e}", "danger")
 
     return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
-
-def get_fmd_context(db, fmd_id, session=None):
-    # Busca os dados da FMD
-    fmd = db.execute("SELECT * FROM ficha_medida_disciplinar WHERE fmd_id = ?", (fmd_id,)).fetchone()
-    if not fmd:
-        return None
-
-    # Busca o aluno
-    aluno = db.execute("SELECT * FROM alunos WHERE id = ?", (fmd['aluno_id'],)).fetchone() or {}
-
-    # Cabeçalho institucional
-    cabecalho = db.execute("SELECT * FROM cabecalhos LIMIT 1;").fetchone() or {}
-    escola = {
-        'estado': cabecalho.get('estado'),
-        'secretaria': cabecalho.get('secretaria'),
-        'coordenacao': cabecalho.get('coordenacao'),
-        'nome': cabecalho.get('escola'),
-        'logotipo_url': '/static/uploads/cabecalhos/' + cabecalho['logo_escola'] if cabecalho.get('logo_escola') else ''
-    }
-    
-    # Ocorrência relacionada
-    rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
-
-    # Usuário responsável para carimbo/assinatura
-    usuario_id_registro = (
-        fmd['gestor_id'] if fmd and 'gestor_id' in fmd.keys() and fmd['gestor_id'] is not None else
-        fmd['responsavel_id'] if fmd and 'responsavel_id' in fmd.keys() and fmd['responsavel_id'] is not None else
-        None
-    )
-    usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() or {}
-
-    nome_usuario = usuario_registro.get('username', '-')
-    cargo_usuario = usuario_registro.get('cargo', '-')
-
-    # Envio
-    envio = db.execute("SELECT * FROM envios WHERE fmd_id = ?", (fmd['fmd_id'],)).fetchone() or {}
-
-    # Atenuantes e Agravantes
-    atenuantes = (
-        fmd['atenuantes'] if fmd and 'atenuantes' in fmd.keys() and str(fmd['atenuantes']).strip()
-        else rfo.get('circunstancias_atenuantes', 'Não há')
-        if rfo else 'Não há'
-    )
-    agravantes = (
-        fmd['agravantes'] if fmd and 'agravantes' in fmd.keys() and str(fmd['agravantes']).strip()
-        else rfo.get('circunstancias_agravantes', 'Não há')
-        if rfo else 'Não há'
-    )
-
-    # Comportamento, Pontuação, Itens Especificação
-    comportamento = fmd.get('comportamento', '-')
-    pontuacao = fmd.get('pontuacao', '-')
-    itens_especificacao = fmd.get('itens_especificacao', '-')
-
-    context = {
-        'escola': escola,
-        'aluno': aluno,
-        'fmd': fmd,
-        'rfo': rfo,
-        'nome_usuario': nome_usuario,
-        'cargo_usuario': cargo_usuario,
-        'envio': envio,
-        'atenuantes': atenuantes,
-        'agravantes': agravantes,
-        'comportamento': comportamento,
-        'pontuacao': pontuacao,
-        'itens_especificacao': itens_especificacao
-    }
-    return context
-
-# @disciplinar_bp.route('/fmd_preview_pdf')
-# def fmd_preview_pdf():
-#     aluno = {
-#         'nome': 'FULANO DE TAL',
-#         'serie': '5º',
-#         'turma': 'B'
-#     }
-#     fmd = {
-#         'fmd_id': 'FMD-0001/2026',
-#         'medida_aplicada': 'Advertência Oral',
-#         'tipo_falta': 'Média',
-#         'descricao_falta': 'Desrespeito ao professor.',
-#         'comparecimento_responsavel': True,
-#         'prazo_comparecimento': '12/01/2026',
-#         'observacoes': 'Conversar com os pais.',
-#     }
-#     rfo = {
-#         'data_ocorrencia': '2026-01-07',
-#         'relato_observador': 'Usando celular durante o recreio'
-#     }
-#     escola = {
-#         'logotipo_url': '/static/uploads/cabecalhos/escola_1767660928.png',
-#         'nome': 'ESCOLA ESTADUAL CÍVICO MILITAR TIRADENTES',
-#         'estado': 'ESTADO DO MATO GROSSO',
-#         'secretaria': 'SECRETARIA DE ESTADO DE EDUCAÇÃO',
-#         'coordenacao': 'COORDENADORIA DE ESCOLAS MILITARES'
-#     }
-#     envio = {'data_hora': None, 'email_destinatario': ''}
-#     return render_template(
-#         'disciplinar/fmd_novo_pdf.html',
-#         escola=escola,
-#         aluno=aluno,
-#         fmd=fmd,
-#         rfo=rfo,
-#         nome_usuario='Nome do Gestor',
-#         cargo_usuario='Cargo do Gestor',
-#         envio=envio,
-#         atenuantes='Não há',
-#         agravantes='Não há',
-#         comportamento='Bom',
-#         pontuacao='7.9',
-#         itens_especificacao='Usar dispositivos eletrônicos sem autorização.'
-#     )
-
