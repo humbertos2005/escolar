@@ -1758,15 +1758,15 @@ def fmd_novo_real(fmd_id):
 
 @disciplinar_bp.route('/enviar_email_fmd/<path:fmd_id>', methods=['POST'])
 def enviar_email_fmd(fmd_id):
-    from flask import redirect, url_for, flash
+    from flask import redirect, url_for, flash, current_app, session, render_template
     import datetime
     import sqlite3
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
-    from fpdf import FPDF
-    import os
     from email.mime.application import MIMEApplication
+    import os
+    import shutil
 
     db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
     db.row_factory = sqlite3.Row
@@ -1781,7 +1781,6 @@ def enviar_email_fmd(fmd_id):
     aluno = db.execute("SELECT * FROM alunos WHERE id = ?", (fmd['aluno_id'],)).fetchone()
     email_destinatario = aluno['email'] if aluno and 'email' in aluno.keys() and aluno['email'] else None
 
-    # SE NÃO existir e-mail cadastrado, retorna erro e não envia
     if not email_destinatario:
         flash('Não existe e-mail cadastrado para este aluno.', 'alert-danger')
         return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
@@ -1794,72 +1793,147 @@ def enviar_email_fmd(fmd_id):
     email_remetente = dados_escola['email_remetente']
     senha_email_app = dados_escola['senha_email_app']
 
-    # MONTE AQUI O CORPO DO E-MAIL (exemplo simples abaixo)
     assunto = "Ficha de Medida Disciplinar"
 
-    # Função utilitária para pegar campo ou retorno vazio
-    def get_fmd_field(row, key):
-        try:
-            return row[key]
-        except Exception:
-            return ''
+    # -------------- Monta contexto para renderização HTML --------------
+    from models import get_aluno_estado_atual
 
-    # Pegue o telefone em Python ANTES da string do e-mail
-    telefone_escola = dados_escola['telefone'] if 'telefone' in dados_escola.keys() else ''
+    aluno_dict = dict(aluno) if aluno else {}
+    fmd_dict = dict(fmd) if fmd else {}
 
-    corpo_html = f"""
-    <html>
-    <body>
-        <p>Prezado responsável,<br>
-        Segue a Ficha de Medida Disciplinar referente ao(a) aluno(a): <b>{aluno['nome']}</b>.
-        <br><br>
-        Tipo de falta: <b>{get_fmd_field(fmd,'tipo_falta')}</b><br>
-        Medida aplicada: <b>{get_fmd_field(fmd,'medida_aplicada')}</b><br>
-        {"Descrição: <b>{}</b><br>".format(get_fmd_field(fmd,'descricao_detalhada')) if get_fmd_field(fmd,'descricao_detalhada') else ""}
-        Status: <b>{get_fmd_field(fmd,'status')}</b><br>
-        <br>
-        <i>Favor entrar em contato com a escola caso necessário. Telefone: <b>{telefone_escola}</b></i>
-        </p>
-    </body>
-    </html>
-    """
+    estado = get_aluno_estado_atual(aluno['id']) if aluno and 'id' in aluno.keys() else {}
+    comportamento = estado.get('comportamento')
+    pontuacao = estado.get('pontuacao')
 
-    # ========== ENVIO REAL DO E-MAIL ==========
+    # Busca ocorrência relacionada
+    rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
+
+    # Busca descrição das faltas
+    item_descricoes_faltas = []
+    ids_faltas = []
+    if 'falta_disciplinar_id' in rfo.keys() and rfo['falta_disciplinar_id']:
+        ids_faltas.append(str(rfo['falta_disciplinar_id']))
+    elif 'falta_ids_csv' in rfo.keys() and rfo['falta_ids_csv']:
+        ids_faltas = [id.strip() for id in str(rfo['falta_ids_csv']).split(',') if id.strip()]
+    for falta_id in ids_faltas:
+        res = db.execute(
+            "SELECT id, descricao FROM faltas_disciplinares WHERE id = ?", 
+            (falta_id,)
+        ).fetchone()
+        if res:
+            item_descricoes_faltas.append(f"{res[0]} - {res[1]}")
+    item_descricao_falta = "<br>".join(item_descricoes_faltas) if item_descricoes_faltas else "-"
+
+    # Cabeçalho institucional
+    cabecalho = db.execute("SELECT * FROM cabecalhos LIMIT 1;").fetchone() or {}
+
+    # ----------- USAR CAMINHO IGUAL AO HTML NO NAVEGADOR PARA O LOGOTIPO ----------
+    # Não usar caminho absoluto de Windows!
+    logo_nome = cabecalho['logo_escola'] if ('logo_escola' in cabecalho.keys() and cabecalho['logo_escola']) else ''
+    if logo_nome:
+        logotipo_url = f'/static/uploads/cabecalhos/{logo_nome}'
+    else:
+        logotipo_url = ''
+
+    escola = {
+        'estado': cabecalho['estado'],
+        'secretaria': cabecalho['secretaria'],
+        'coordenacao': cabecalho['coordenacao'],
+        'nome': cabecalho['escola'],
+        'logotipo_url': logotipo_url
+    }
+
+    envio = {
+        'data_hora': fmd['email_enviado_data'] if 'email_enviado_data' in fmd.keys() and fmd['email_enviado_data'] else None,
+        'email_destinatario': fmd['email_enviado_para'] if 'email_enviado_para' in fmd.keys() and fmd['email_enviado_para'] else None,
+    }
+
+    # Busca usuário gestor para assinatura
+    usuario_id_registro = fmd['gestor_id'] or fmd['responsavel_id']
+    usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() or {}
+    usuario_sessao = db.execute("SELECT * FROM usuarios WHERE id = ?", (session.get('user_id'),)).fetchone()
+    nome_usuario = usuario_sessao['username'] if usuario_sessao and 'username' in usuario_sessao.keys() else '-'
+    cargo_usuario = usuario_sessao['cargo'] if usuario_sessao and 'cargo' in usuario_sessao.keys() else '-'
+
+    atenuantes = fmd['atenuantes'] or (rfo['circunstancias_atenuantes'] if rfo and 'circunstancias_atenuantes' in rfo.keys() else '')
+    agravantes = fmd['agravantes'] or (rfo['circunstancias_agravantes'] if rfo and 'circunstancias_agravantes' in rfo.keys() else '')
+
+    # -------------- Renderização do HTML para PDF --------------
+    html = render_template(
+        'disciplinar/fmd_novo.html',
+        escola=escola,
+        aluno=aluno_dict,
+        fmd=fmd_dict,
+        rfo=rfo,
+        nome_usuario=nome_usuario,
+        cargo_usuario=cargo_usuario,
+        envio=envio,
+        atenuantes=atenuantes,
+        agravantes=agravantes,
+        comportamento=comportamento,
+        pontuacao=pontuacao,
+        itens_especificacao=item_descricao_falta,
+    )
+
+    # Localiza o executável do wkhtmltopdf
+    wk_path = shutil.which('wkhtmltopdf')
+    if not wk_path:
+        wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+    if not os.path.isfile(wk_path):
+        flash(f"wkhtmltopdf não encontrado em: {wk_path}", "danger")
+        return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
+    config = pdfkit.configuration(wkhtmltopdf=wk_path)
+
+    options = {
+        'page-size': 'A4',
+        'encoding': 'UTF-8',
+        'enable-local-file-access': '',  # <-- ESSENCIAL: string vazia!
+        'print-media-type': '',
+        'margin-top': '10mm',
+        'margin-bottom': '10mm',
+        'margin-left': '10mm',
+        'margin-right': '10mm',
+    }
+
+    # Gera PDF idêntico ao da visualização
+    temp_dir = "tmp"
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    safe_fmd_id = str(fmd_id).replace('/', '_')
+    pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
+    pdf_bytes = pdfkit.from_string(html, False, configuration=config, options=options)
+    if not pdf_bytes:
+        flash("Falha ao gerar o PDF para anexo.", "danger")
+        return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
+    # Salva o PDF em arquivo temporário
+    with open(pdf_path, "wb") as f:
+        f.write(pdf_bytes)
+
     try:
-        # Gera o PDF da FMD
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        pdf.cell(0, 10, "Ficha de Medida Disciplinar", ln=True, align='C')
-        pdf.ln(10)
-        pdf.cell(0, 10, f"Aluno(a): {aluno['nome']}", ln=True)
-        pdf.cell(0, 10, f"Tipo de falta: {get_fmd_field(fmd,'tipo_falta')}", ln=True)
-        pdf.cell(0, 10, f"Medida aplicada: {get_fmd_field(fmd,'medida_aplicada')}", ln=True)
-        if get_fmd_field(fmd,'descricao_detalhada'):
-            pdf.cell(0, 10, f"Descrição: {get_fmd_field(fmd,'descricao_detalhada')}", ln=True)
-        pdf.cell(0, 10, f"Status: {get_fmd_field(fmd,'status')}", ln=True)
-        pdf.cell(0, 10, f"Telefone da escola: {telefone_escola}", ln=True)
-
-        temp_dir = "tmp"
-        if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
-        safe_fmd_id = str(fmd_id).replace('/', '_')
-        pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
-        pdf.output(pdf_path)
-
+        # Monta e envia o e-mail
         msg = MIMEMultipart()
         msg['From'] = email_remetente
         msg['To'] = email_destinatario
         msg['Subject'] = assunto
+
+        corpo_html = f"""
+        <html>
+        <body>
+            <p>Prezado responsável,<br>
+            Segue em anexo a Ficha de Medida Disciplinar referente ao(a) aluno(a): <b>{aluno_dict.get('nome')}</b>.
+            <br><br>
+            <i>Favor entrar em contato com a escola caso necessário.</i>
+            </p>
+        </body>
+        </html>
+        """
         msg.attach(MIMEText(corpo_html, 'html'))
 
-        # ----- ANEXO PDF -----
-        with open(pdf_path, "rb") as f:
-            part = MIMEApplication(f.read(), Name=os.path.basename(pdf_path))
+        with open(pdf_path, "rb") as anexofmd:
+            part = MIMEApplication(anexofmd.read(), Name=os.path.basename(pdf_path))
             part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_path)}"'
             msg.attach(part)
-        # ---------------------
-        
+
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(email_remetente, senha_email_app)
@@ -1873,5 +1947,9 @@ def enviar_email_fmd(fmd_id):
         flash("FMD enviada por e-mail com sucesso!", "success")
     except Exception as e:
         flash(f"Erro ao enviar o e-mail: {e}", "danger")
+
+    # Remove arquivo temporário
+    if os.path.exists(pdf_path):
+        os.remove(pdf_path)
 
     return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
