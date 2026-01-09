@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Relatório Disciplinar - PDF</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; }
+    h2, h3 { margin-top:16px; }
+    table { width:100%; border-collapse: collapse; margin-top:10px;}
+    td, th { border: 1px solid #444; padding: 4px; }
+    th { background: #eee; }
+    .center { text-align: center; }
+  </style>
+</head>
+<body>
+  <h2>Relatório Disciplinar</h2>
+  <p>Período: {{ data_inicio or '-' }} a {{ data_fim or '-' }}</p>
+
+  <h3>Resumo por Falta</h3>
+  <table>
+    <thead><tr>
+      <th>Falta</th><th>Quantidade</th>
+    </tr></thead>
+    <tbody>
+    {% for falta, quantidade in estatisticas.items() %}
+      <tr>
+        <td>{{ falta }}</td>
+        <td class="center">{{ quantidade }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Detalhamento das Ocorrências</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Aluno</th>
+        <th>Turma</th>
+        <th>Série</th>
+        <th>ID Falta</th>
+        <th>Natureza</th>
+        <th>Descrição</th>
+        <th>Medida Aplicada</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for oc in ocorrencias %}
+      <tr>
+        <td>{{ oc['data_ocorrencia'] }}</td>
+        <td>{{ oc['aluno_nome'] }}</td>
+        <td>{{ oc['turma'] }}</td>
+        <td>{{ oc['serie'] }}</td>
+        <td>{{ oc['falta_id'] }}</td>
+        <td>{{ oc['natureza'] }}</td>
+        <td>{{ oc['descricao'] }}</td>
+        <td>{{ oc['medida_aplicada'] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

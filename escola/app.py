@@ -18,6 +18,7 @@ from blueprints.formularios_prontuario import formularios_prontuario_bp
 from blueprints.formularios_tac import formularios_tac_bp
 from blueprints.visualizacoes import visualizacoes_bp
 from blueprints import utils
+from blueprints.relatorios_disciplinares import relatorios_disciplinares_bp
 
 # Configurar localizaÃ§Ã£o brasileira
 try:
@@ -34,6 +35,7 @@ except:
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave-secreta-gestao-escolar-2025-v2")
 app.config['DATABASE'] = DATABASE
+app.register_blueprint(relatorios_disciplinares_bp, url_prefix='/relatorios_disciplinares')
 
 from datetime import datetime
 
