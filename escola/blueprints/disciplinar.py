@@ -1644,6 +1644,7 @@ def fmd_teste_novo():
     )
 
 from flask import render_template, g
+from flask import request
 import sqlite3
 
 @disciplinar_bp.route('/fmd_novo_real/<path:fmd_id>')
@@ -1740,21 +1741,35 @@ def fmd_novo_real(fmd_id):
     nome_usuario = usuario_sessao['username'] if usuario_sessao and 'username' in usuario_sessao.keys() else '-'
     cargo_usuario = usuario_sessao['cargo'] if usuario_sessao and 'cargo' in usuario_sessao.keys() else '-'
 
-    return render_template(
-        'disciplinar/fmd_novo.html',
-        escola=escola,
-        aluno=aluno,
-        fmd=fmd,
-        rfo=rfo,
-        nome_usuario=nome_usuario,
-        cargo_usuario=cargo_usuario,
-        envio=envio,
-        atenuantes=atenuantes,
-        agravantes=agravantes,
-        comportamento=comportamento,
-        pontuacao=pontuacao,
-        itens_especificacao=item_descricao_falta,
-    )
+    contexto = {
+        'escola': escola,
+        'aluno': aluno,
+        'fmd': fmd,
+        'rfo': rfo,
+        'nome_usuario': nome_usuario,
+        'cargo_usuario': cargo_usuario,
+        'envio': envio,
+        'atenuantes': atenuantes,
+        'agravantes': agravantes,
+        'comportamento': comportamento,
+        'pontuacao': pontuacao,
+        'itens_especificacao': item_descricao_falta,
+    }
+
+    if request.args.get('salvar_pdf') == '1':
+        import pdfkit, os
+        html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
+        temp_dir = 'tmp'
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        safe_fmd_id = str(fmd_id).replace('/', '_')
+        pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
+        config = pdfkit.configuration(wkhtmltopdf=r'C:\Arquivos de Programas\wkhtmltopdf\bin\wkhtmltopdf.exe')
+        options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
+        pdfkit.from_string(html, pdf_path, configuration=config, options=options)
+    
+    return render_template('disciplinar/fmd_novo.html', **contexto)
+    
 
 @disciplinar_bp.route('/enviar_email_fmd/<path:fmd_id>', methods=['POST'])
 def enviar_email_fmd(fmd_id):
@@ -1764,7 +1779,6 @@ def enviar_email_fmd(fmd_id):
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
-    from fpdf import FPDF
     import os
     from email.mime.application import MIMEApplication
 
@@ -1826,26 +1840,12 @@ def enviar_email_fmd(fmd_id):
 
     # ========== ENVIO REAL DO E-MAIL ==========
     try:
-        # Gera o PDF da FMD
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        pdf.cell(0, 10, "Ficha de Medida Disciplinar", ln=True, align='C')
-        pdf.ln(10)
-        pdf.cell(0, 10, f"Aluno(a): {aluno['nome']}", ln=True)
-        pdf.cell(0, 10, f"Tipo de falta: {get_fmd_field(fmd,'tipo_falta')}", ln=True)
-        pdf.cell(0, 10, f"Medida aplicada: {get_fmd_field(fmd,'medida_aplicada')}", ln=True)
-        if get_fmd_field(fmd,'descricao_detalhada'):
-            pdf.cell(0, 10, f"Descrição: {get_fmd_field(fmd,'descricao_detalhada')}", ln=True)
-        pdf.cell(0, 10, f"Status: {get_fmd_field(fmd,'status')}", ln=True)
-        pdf.cell(0, 10, f"Telefone da escola: {telefone_escola}", ln=True)
-
         temp_dir = "tmp"
-        if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
-        pdf.output(pdf_path)
+        if not os.path.exists(pdf_path):
+            flash("O PDF da FMD ainda não foi gerado! Gere a FMD antes de enviar o e-mail.", "danger")
+            return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
         msg = MIMEMultipart()
         msg['From'] = email_remetente

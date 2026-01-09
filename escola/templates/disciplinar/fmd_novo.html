@@ -202,12 +202,40 @@ FMD {{ fmd.fmd_id.split('/')[0].replace('FMD-', '') }}_{{ fmd.fmd_id.split('/')[
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
             <!-- Este botão chama a action (passo 2 = Python) depois -->
-            <form method="post" action="{{ url_for('disciplinar_bp.enviar_email_fmd', fmd_id=fmd['fmd_id']) }}" style="display:inline;">
-                <button type="submit" class="btn btn-success">Sim, enviar agora</button>
+            <form id="formEnviarEmailFmd" method="post" action="{{ url_for('disciplinar_bp.enviar_email_fmd', fmd_id=fmd['fmd_id']) }}" style="display:inline;">
+                <button type="submit" id="btnEnviarPorEmail" class="btn btn-success">Sim, enviar agora</button>
             </form>
         </div>
         </div>
     </div>
     </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('formEnviarEmailFmd');
+        const btn = document.getElementById('btnEnviarPorEmail');
+        // Pega o id da FMD diretamente do próprio contexto python (jinja)
+        const fmdId = "{{ fmd['fmd_id'] }}";
+
+        if (btn && form) {
+            btn.addEventListener('click', function(ev) {
+                ev.preventDefault();
+                // 1. Faz o GET que dispara a geração do PDF correto
+                fetch(`/disciplinar/fmd_novo_real/${fmdId}?salvar_pdf=1`)
+                .then(function(response) {
+                    if (response.ok) {
+                        // 2. Quando terminar, faz o POST normalmente
+                        form.submit();
+                    } else {
+                        alert('Erro ao gerar o PDF antes de enviar por e-mail.');
+                    }
+                })
+                .catch(function(error) {
+                    alert('Erro ao gerar o PDF antes de enviar por e-mail!\n' + error);
+                });
+            });
+        }
+    });
+    </script>
 
 {% endblock %}
