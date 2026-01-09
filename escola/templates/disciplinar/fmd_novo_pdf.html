@@ -44,8 +44,8 @@
 <body>
 
     <div class="cabecalho-centro" style="margin-top:5px;">
-        {% if escola.logotipo_url %}
-            <img src="{{ escola.logotipo_url }}" alt="Logotipo da Escola" class="cabecalho-logo">
+        {% if logo_pdfkit_path %}
+            <img src="{{ logo_pdfkit_path }}" alt="Logotipo da Escola" class="cabecalho-logo">
         {% endif %}
         <div style="font-size:1.07em;">{{ escola.estado }}</div>
         <div>{{ escola.secretaria }}</div>

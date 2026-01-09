@@ -1758,16 +1758,29 @@ def fmd_novo_real(fmd_id):
 
     if request.args.get('salvar_pdf') == '1':
         import pdfkit, os
+        from urllib.parse import quote
+
+        # AJUSTE: monta o caminho absoluto do logo do PDF
+        logo_relativo = contexto.get('escola', {}).get('logotipo_url', '')
+        if logo_relativo:
+            logo_relativo = logo_relativo.lstrip("/")
+            caminho_absoluto = os.path.join(
+                r"C:\Users\Usuário\Documents\GitHub\escolar\escola", logo_relativo
+            )
+            contexto['logo_pdfkit_path'] = "file:///" + quote(caminho_absoluto.replace("\\", "/"))
+        else:
+            contexto['logo_pdfkit_path'] = ""
+
         html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
         temp_dir = 'tmp'
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         safe_fmd_id = str(fmd_id).replace('/', '_')
-        pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
+        pdf_path = os.path.join(temp_dir, f"{safe_fmd_id}.pdf")
         config = pdfkit.configuration(wkhtmltopdf=r'C:\Arquivos de Programas\wkhtmltopdf\bin\wkhtmltopdf.exe')
         options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
         pdfkit.from_string(html, pdf_path, configuration=config, options=options)
-    
+
     return render_template('disciplinar/fmd_novo.html', **contexto)
     
 
