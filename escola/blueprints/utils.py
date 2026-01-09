@@ -89,11 +89,11 @@ def login_required(f):
 
 
 def admin_required(f):
-    """Verifica se o usuário logado é Admin Geral (Nível 1)."""
+    """Verifica se o usuário logado é Admin Geral (Nível 1) ou Admin Secundário (Nível 2)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if session.get('nivel') != 1:
-            flash('Acesso negado. Apenas administradores gerais (TI) podem acessar esta área.', 'danger')
+        if session.get('nivel') not in [1, 2]:  # permite nível 1 E 2
+            flash('Acesso negado. Apenas administradores podem acessar esta área.', 'danger')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
