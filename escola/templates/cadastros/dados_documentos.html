@@ -15,7 +15,7 @@
     <!-- ABA 1: Dados Escola (listagem) -->
     <div id="tab-dados" class="manage-tab-panel" style="display:block;">
       <div style="margin-bottom:12px;">
-        <a href="#" id="btn-novo-dado" class="btn btn-primary">Novo</a>
+        <a href="{{ url_for('cadastros_bp.dados_escola_novo') }}" class="btn btn-primary">Novo</a>
       </div>
 
       <table class="table table-striped">
@@ -43,7 +43,6 @@
         </tbody>
       </table>
     </div>
-
     <!-- ABA 2: Novo Cabeçalho (formulário) -->
     <div id="tab-novo" class="manage-tab-panel" style="display:none;">
       <h3>Novo Cabeçalho</h3>

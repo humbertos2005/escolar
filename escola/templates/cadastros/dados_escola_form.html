@@ -29,6 +29,16 @@
     </div>
 
     <div class="mb-3">
+      <label class="form-label">Endereço do Sistema (URL de acesso)</label>
+      <input name="dominio_sistema" id="dominio_sistema" type="text" class="form-control"
+            value="{{ dados.dominio_sistema if dados else '' }}" autocomplete="off" required>
+      <small class="text-muted">
+        Informe o endereço pelo qual o sistema será acessado nesta escola. Ex: <b>http://localhost:5000</b> para um computador único, ou 
+        <b>http://192.168.0.10:5000</b> para rede local.
+      </small>
+    </div>
+
+    <div class="mb-3">
       <label class="form-label">Telefone da escola</label>
       <input name="telefone" id="telefone" type="text" class="form-control"
             value="{{ dados.telefone if dados else '' }}" autocomplete="off" maxlength="15" placeholder="(99) 99999-9999">
