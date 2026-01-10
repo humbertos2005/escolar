@@ -5,10 +5,61 @@ import sqlite3
 from datetime import datetime
 
 from .utils import login_required, admin_required, NIVEL_MAP
+from datetime import datetime, timedelta
+from .utils import gerar_token_seguro  # Se colocou lá a função acima
 
 # Definição da Blueprint
 auth_bp = Blueprint('auth_bp', __name__)
 
+@auth_bp.route('/recuperar_senha', methods=['GET', 'POST'])
+def recuperar_senha():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        db = get_db()
+        error = None
+        user = db.execute(
+            'SELECT * FROM usuarios WHERE email = ?', (email,)
+        ).fetchone()
+        if not email:
+            error = 'E-mail institucional é obrigatório.'
+        elif user is None:
+            error = 'E-mail não encontrado ou não cadastrado.'
+        else:
+            # 1. Gera e salva token
+            token = gerar_token_seguro()
+            expiracao = (datetime.now() + timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
+            db.execute("""
+                INSERT INTO recuperacao_senha_tokens (user_id, email, token, expiracao)
+                VALUES (?, ?, ?, ?)
+            """, (user['id'], email, token, expiracao))
+            db.commit()
+            
+            # 2. Buscar remetente e senha do app nos dados da escola
+            dados_escola = db.execute("SELECT email_institucional_envio, senha_app_email FROM dados_escola LIMIT 1").fetchone()
+            remetente = dados_escola['email_institucional_envio']
+            senha_app = dados_escola['senha_app_email']
+            
+            # 3. Montar mensagem e enviar o e-mail real
+            reset_link = url_for('auth_bp.resetar_senha', token=token, _external=True)
+            corpo_email = f"""Prezado(a),\n\nRecebemos uma solicitação de redefinição de senha para seu acesso ao sistema Gestão Escolar. 
+Para redefinir, clique no link abaixo (válido por 1 hora):\n\n{reset_link}\n\nSe não foi você, ignore este e-mail."""
+
+            try:
+                from .utils import enviar_email  # ajuste se necessário
+                enviar_email(
+                    destinatario=email,
+                    assunto="Recuperação de senha - Gestão Escolar",
+                    corpo=corpo_email,
+                    remetente=remetente,
+                    senha=senha_app
+                )
+                flash('Se o e-mail informado estiver cadastrado, você receberá as instruções para redefinir sua senha.', 'info')
+            except Exception as e:
+                flash('Houve um erro ao enviar o e-mail. Tente novamente mais tarde.', 'danger')
+
+            return redirect(url_for('auth_bp.login'))
+        flash(error, 'danger')
+    return render_template('recuperar_senha.html')
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -106,6 +157,51 @@ def cadastro_usuario():
         
     return render_template('cadastro_usuario.html', nivel_map=NIVEL_MAP)
 
+@auth_bp.route('/resetar_senha', methods=['GET', 'POST'])
+def resetar_senha():
+    token = request.args.get('token', '').strip()
+    db = get_db()
+
+    dados_token = db.execute(
+        "SELECT * FROM recuperacao_senha_tokens WHERE token = ? AND usado = 0",
+        (token,)
+    ).fetchone()
+
+    # Verifica se o token existe e não foi usado
+    if not dados_token:
+        flash('Token inválido, expirado ou já utilizado.', 'danger')
+        return redirect(url_for('auth_bp.login'))
+
+    # Verifica se expirou
+    from datetime import datetime
+    expiracao = datetime.strptime(dados_token['expiracao'], '%Y-%m-%d %H:%M:%S')
+    if datetime.now() > expiracao:
+        flash('Token expirado! Por favor, solicite nova recuperação.', 'danger')
+        return redirect(url_for('auth_bp.recuperar_senha'))
+
+    if request.method == 'POST':
+        nova_senha = request.form.get('nova_senha', '').strip()
+        confirma_senha = request.form.get('confirma_senha', '').strip()
+        if not nova_senha or len(nova_senha) < 6:
+            flash('A nova senha deve ter ao menos 6 caracteres.', 'danger')
+        elif nova_senha != confirma_senha:
+            flash('Senhas não coincidem.', 'danger')
+        else:
+            # Troca a senha do usuário
+            from werkzeug.security import generate_password_hash
+            db.execute(
+                "UPDATE usuarios SET password = ? WHERE id = ?",
+                (generate_password_hash(nova_senha), dados_token['user_id'])
+            )
+            db.execute(
+                "UPDATE recuperacao_senha_tokens SET usado = 1, data_uso = CURRENT_TIMESTAMP WHERE id = ?",
+                (dados_token['id'],)
+            )
+            db.commit()
+            flash('Senha redefinida com sucesso! Faça login com a nova senha.', 'success')
+            return redirect(url_for('auth_bp.login'))
+
+    return render_template('resetar_senha.html')
 
 @auth_bp.route('/gerenciar_usuarios')
 @admin_required
@@ -249,24 +345,3 @@ def excluir_usuario(user_id):
         
     return redirect(url_for('auth_bp.gerenciar_usuarios'))
 
-@auth_bp.route('/recuperar_senha', methods=['GET', 'POST'])
-def recuperar_senha():
-    """Formulário para solicitação de recuperação de senha."""
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip()
-        db = get_db()
-        error = None
-        user = db.execute(
-            'SELECT * FROM usuarios WHERE email = ?', (email,)
-        ).fetchone()
-        if not email:
-            error = 'E-mail institucional é obrigatório.'
-        elif user is None:
-            error = 'E-mail não encontrado ou não cadastrado.'
-        else:
-            # Aqui, em produção, você pode acionar envio de e-mail
-            # Ou salvar a solicitação para o admin_ti visualizar
-            flash('Solicitação enviada. O administrador do sistema entrará em contato.', 'info')
-            return redirect(url_for('auth_bp.login'))
-        flash(error, 'danger')
-    return render_template('recuperar_senha.html')

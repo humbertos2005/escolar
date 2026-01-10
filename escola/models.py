@@ -6,6 +6,29 @@ from database import get_db
 
 DB_NAME = 'escola.db'
 
+def criar_tabela_recuperacao_senha():
+    import sqlite3
+    conn = sqlite3.connect(DB_NAME)
+    try:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS recuperacao_senha_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                email TEXT NOT NULL,
+                token TEXT NOT NULL UNIQUE,
+                data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expiracao DATETIME,
+                usado INTEGER DEFAULT 0,
+                data_uso DATETIME,
+                FOREIGN KEY(user_id) REFERENCES usuarios(id)
+            );
+        ''')
+        conn.commit()
+    except Exception as e:
+        print(f"[ERRO] criando tabela de tokens: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 def get_proximo_rfo_id(incrementar=False):
     ano_atual = str(datetime.now().year)

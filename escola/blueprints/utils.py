@@ -1,5 +1,10 @@
 ﻿from flask import session, flash, redirect, url_for
 from functools import wraps
+import secrets
+
+def gerar_token_seguro(nbytes=32):
+    """Gera um token seguro para recuperação de senha"""
+    return secrets.token_urlsafe(nbytes)
 
 # --- DICIONÁRIOS DE CONFIGURAÇÃO DO SISTEMA ---
 
