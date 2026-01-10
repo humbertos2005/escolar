@@ -195,14 +195,15 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 
-def enviar_email(destinatario, assunto, corpo, remetente, senha):
+def enviar_email(destinatario, assunto, corpo, corpo_html, remetente, senha):
     msg = EmailMessage()
     msg["Subject"] = assunto
     msg["From"] = remetente
     msg["To"] = destinatario
-    msg.set_content(corpo)
 
-    # Desabilita a verificação SSL para testes (NÃO USAR EM PRODUÇÃO)
+    msg.set_content(corpo)
+    msg.add_alternative(corpo_html, subtype="html")
+
     context = ssl._create_unverified_context()
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
         server.login(remetente, senha)

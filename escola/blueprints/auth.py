@@ -34,28 +34,46 @@ def recuperar_senha():
             """, (user['id'], email, token, expiracao))
             db.commit()
             
-            # 2. Buscar remetente e senha do app nos dados da escola
-            dados_escola = db.execute("SELECT email_remetente, senha_email_app FROM dados_escola LIMIT 1").fetchone()
-            remetente = dados_escola['email_remetente']
-            senha_app = dados_escola['senha_email_app']
-            
-            # 3. Montar mensagem e enviar o e-mail real
-            reset_link = url_for('auth_bp.resetar_senha', token=token, _external=True)
-            corpo_email = f"""Prezado(a),\n\nRecebemos uma solicitação de redefinição de senha para seu acesso ao sistema Gestão Escolar. 
-Para redefinir, clique no link abaixo (válido por 1 hora):\n\n{reset_link}\n\nSe não foi você, ignore este e-mail."""
+            # 2. Buscar remetente, dom��nio e nome do sistema nos dados da escola
+            dados_escola = db.execute(
+                "SELECT email_remetente, senha_email_app, dominio_sistema, nome_sistema FROM dados_escola LIMIT 1"
+            ).fetchone()
 
+            remetente    = dados_escola['email_remetente']
+            senha_app    = dados_escola['senha_email_app']
+            dominio      = dados_escola['dominio_sistema']
+            nome_sistema = dados_escola['nome_sistema']
+
+            reset_link = f"{dominio}/auth/resetar_senha?token={token}"
+            corpo_email = (
+                f"Prezado(a),\n\n"
+                f"Recebemos uma solicitação de redefinição de senha para seu acesso ao sistema {nome_sistema}.\n"
+                f"Para redefinir, acesse o seguinte link (válido por 1 hora):\n\n"
+                f"{reset_link}\n\n"
+                f"Se não foi você, ignore este e-mail."
+            )
+            # Versão HTML para clientes modernos (Gmail, Outlook, etc)
+            corpo_email_html = (
+                f"<p>Prezado(a),</p>"
+                f"<p>Recebemos uma solicitação de redefinição de senha para seu acesso ao sistema <b>{nome_sistema}</b>.<br>"
+                f"Para redefinir, <a href=\"{reset_link}\">clique aqui</a> (válido por 1 hora).</p>"
+                f"<p style='color: #555;'>Se não foi você, ignore este e-mail.</p>"
+            )
+
+            # Envio do e-mail – enviar ambos (texto puro + HTML)
             try:
                 from .utils import enviar_email  # ajuste se necessário
                 enviar_email(
                     destinatario=email,
-                    assunto="Recuperação de senha - Gestão Escolar",
+                    assunto=f"Recuperação de senha - {nome_sistema}",
                     corpo=corpo_email,
+                    corpo_html=corpo_email_html,
                     remetente=remetente,
                     senha=senha_app
                 )
                 flash('Se o e-mail informado estiver cadastrado, você receberá as instruções para redefinir sua senha.', 'info')
             except Exception as e:
-                print("Erro detalhado ao enviar email:", e)  # <------ NOVO: print do erro!
+                print("Erro detalhado ao enviar email:", e)
                 flash('Houve um erro ao enviar o e-mail. Tente novamente mais tarde.', 'danger')
 
             return redirect(url_for('auth_bp.login'))
