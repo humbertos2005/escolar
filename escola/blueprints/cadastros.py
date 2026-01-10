@@ -534,13 +534,19 @@ def dados_escola_novo():
         # >>>>>>>>> NOVOS CAMPOS ADICIONADOS <<<<<<<<<<
         email_remetente = request.form.get('email_remetente','').strip()
         senha_email_app = request.form.get('senha_email_app','').strip()
+        dominio_sistema = request.form.get('dominio_sistema','').strip()  # <-- ADICIONADO
         # <<<<<<<< FIM DOS NOVOS CAMPOS <<<<<<<<<<
 
         try:
             db.execute('''
-            INSERT INTO dados_escola (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf, email_remetente, senha_email_app, telefone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf, email_remetente, senha_email_app, telefone))
+            INSERT INTO dados_escola (
+                cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf,
+                email_remetente, senha_email_app, dominio_sistema, telefone
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj,
+             diretor_nome, diretor_cpf, email_remetente, senha_email_app, dominio_sistema, telefone))
             db.commit()
             flash('Dados da Escola salvos.', 'success')
             return redirect(url_for('cadastros_bp.listar_dados_escola'))
@@ -586,13 +592,17 @@ def dados_escola_editar(id):
         # NOVOS CAMPOS
         email_remetente = request.form.get('email_remetente','').strip()
         senha_email_app = request.form.get('senha_email_app','').strip()
+        dominio_sistema = request.form.get('dominio_sistema','').strip()  # <-- ADICIONADO
 
         try:
             db.execute('''
-                UPDATE dados_escola SET cabecalho_id=?, escola=?, rua=?, numero=?, complemento=?, bairro=?, cidade=?, estado=?, cep=?, cnpj=?, diretor_nome=?, diretor_cpf=?, email_remetente=?, senha_email_app=?, telefone=? WHERE id=?
+                UPDATE dados_escola SET 
+                    cabecalho_id=?, escola=?, rua=?, numero=?, complemento=?, bairro=?, cidade=?, estado=?, cep=?, cnpj=?, 
+                    diretor_nome=?, diretor_cpf=?, email_remetente=?, senha_email_app=?, dominio_sistema=?, telefone=?
+                WHERE id=?
             ''', (
                 cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj,
-                diretor_nome, diretor_cpf, email_remetente, senha_email_app, telefone, id
+                diretor_nome, diretor_cpf, email_remetente, senha_email_app, dominio_sistema, telefone, id
             ))
             db.commit()
             flash('Dados da Escola atualizados.', 'success')
@@ -603,7 +613,6 @@ def dados_escola_editar(id):
             return redirect(url_for('cadastros_bp.dados_escola_editar', id=id))
 
     # GET: renderizar com dados preenchidos
-    # adicionar URLs ou nomes de origem se desejar
     return render_template('cadastros/dados_escola_form.html', dados=dados)
 
 @cadastros_bp.route('/dados_escola/excluir/<int:id>', methods=['POST'])
