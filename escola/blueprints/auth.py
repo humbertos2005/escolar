@@ -35,9 +35,9 @@ def recuperar_senha():
             db.commit()
             
             # 2. Buscar remetente e senha do app nos dados da escola
-            dados_escola = db.execute("SELECT email_institucional_envio, senha_app_email FROM dados_escola LIMIT 1").fetchone()
-            remetente = dados_escola['email_institucional_envio']
-            senha_app = dados_escola['senha_app_email']
+            dados_escola = db.execute("SELECT email_remetente, senha_email_app FROM dados_escola LIMIT 1").fetchone()
+            remetente = dados_escola['email_remetente']
+            senha_app = dados_escola['senha_email_app']
             
             # 3. Montar mensagem e enviar o e-mail real
             reset_link = url_for('auth_bp.resetar_senha', token=token, _external=True)
@@ -55,6 +55,7 @@ Para redefinir, clique no link abaixo (válido por 1 hora):\n\n{reset_link}\n\nS
                 )
                 flash('Se o e-mail informado estiver cadastrado, você receberá as instruções para redefinir sua senha.', 'info')
             except Exception as e:
+                print("Erro detalhado ao enviar email:", e)  # <------ NOVO: print do erro!
                 flash('Houve um erro ao enviar o e-mail. Tente novamente mais tarde.', 'danger')
 
             return redirect(url_for('auth_bp.login'))
