@@ -981,6 +981,20 @@ textarea {
     display: inline-block;
 }
 
+.forgot-link {
+    display: inline-block;
+    margin-top: 10px;
+    color: #667eea;
+    font-weight: 600;
+    font-size: 1em;
+    transition: color 0.3s;
+}
+
+.forgot-link:hover {
+    color: #764ba2;
+    text-decoration: underline;
+}
+
 /* ====================================================================
    GERENCIAMENTO DE USUÁRIOS
    ==================================================================== */

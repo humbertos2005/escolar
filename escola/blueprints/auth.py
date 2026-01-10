@@ -69,6 +69,7 @@ def cadastro_usuario():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
+        email = request.form.get('email', '').strip()
         nivel = request.form.get('nivel', type=int)
         cargo = request.form.get('cargo', '').strip()
         error = None
@@ -77,6 +78,8 @@ def cadastro_usuario():
             error = 'Nome de usuário inválido (mínimo 3 caracteres).'
         elif not password or len(password) < 6:
             error = 'Senha inválida (mínimo 6 caracteres).'
+        elif not email or '@' not in email:
+            error = 'E-mail institucional válido é obrigatório.'
         elif nivel not in NIVEL_MAP:
             error = 'Nível de acesso inválido.'
         elif not cargo:
@@ -89,8 +92,8 @@ def cadastro_usuario():
                 else:
                     # 2. Insere novo usuário com a data de criação
                     db.execute(
-                        'INSERT INTO usuarios (username, password, nivel, data_criacao, cargo) VALUES (?, ?, ?, ?, ?)',
-                        (username, generate_password_hash(password), nivel, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), cargo)
+                        'INSERT INTO usuarios (username, password, email, nivel, data_criacao, cargo) VALUES (?, ?, ?, ?, ?, ?)',
+                        (username, generate_password_hash(password), email, nivel, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), cargo)
                     )
                     db.commit()
                     flash(f'Usuário "{username}" cadastrado com sucesso!', 'success')
@@ -154,12 +157,15 @@ def editar_usuario(user_id):
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
+        email = request.form.get('email', '').strip()
         nivel = request.form.get('nivel_acesso', type=int)
         cargo = request.form.get('cargo', '').strip()
         error = None
 
         if not username or len(username) < 3:
             error = 'Nome de usuário inválido (mínimo 3 caracteres).'
+        elif not email or '@' not in email:
+            error = 'E-mail institucional válido é obrigatório.'
         elif nivel not in NIVEL_MAP:
             error = 'Nível de acesso inválido.'
         elif not cargo:
@@ -176,8 +182,8 @@ def editar_usuario(user_id):
                     error = f'O nome de usuário "{username}" já está em uso por outro usuário.'
                 else:
                     # Monta a query de atualização
-                    params = [username, nivel]
-                    set_clauses = ['username = ?', 'nivel = ?']
+                    params = [username, email, nivel]
+                    set_clauses = ['username = ?', 'email = ?', 'nivel = ?']
                     set_clauses.append('cargo = ?')
                     params.append(cargo)
                     
@@ -242,3 +248,25 @@ def excluir_usuario(user_id):
         flash(f'Erro ao excluir usuário: {e}', 'danger')
         
     return redirect(url_for('auth_bp.gerenciar_usuarios'))
+
+@auth_bp.route('/recuperar_senha', methods=['GET', 'POST'])
+def recuperar_senha():
+    """Formulário para solicitação de recuperação de senha."""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        db = get_db()
+        error = None
+        user = db.execute(
+            'SELECT * FROM usuarios WHERE email = ?', (email,)
+        ).fetchone()
+        if not email:
+            error = 'E-mail institucional é obrigatório.'
+        elif user is None:
+            error = 'E-mail não encontrado ou não cadastrado.'
+        else:
+            # Aqui, em produção, você pode acionar envio de e-mail
+            # Ou salvar a solicitação para o admin_ti visualizar
+            flash('Solicitação enviada. O administrador do sistema entrará em contato.', 'info')
+            return redirect(url_for('auth_bp.login'))
+        flash(error, 'danger')
+    return render_template('recuperar_senha.html')

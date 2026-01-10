@@ -91,10 +91,21 @@ def criar_tabelas():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE,
                 password TEXT NOT NULL,
+                email TEXT,
                 nivel INTEGER NOT NULL,
                 data_criacao TEXT DEFAULT CURRENT_TIMESTAMP
             );
         ''')
+
+        # Migração segura: adicionar coluna email se não existir
+        try:
+            c = conn.execute("PRAGMA table_info(usuarios);")
+            colunas = [col[1] for col in c.fetchall()]
+            if 'email' not in colunas:
+                conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT;")
+                print("   [MIGRAÇÃO] Coluna 'email' adicionada à tabela 'usuarios'.")
+        except sqlite3.OperationalError:
+            pass
 
         # Migração segura: adicionar coluna data_criacao se não existir
         try:
