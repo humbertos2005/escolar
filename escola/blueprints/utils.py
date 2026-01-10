@@ -190,3 +190,20 @@ def get_proximo_rfo_id(incrementar=False):
         year = datetime.utcnow().strftime('%Y')
         fallback_seq = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[-6:]
         return f"RFO-{fallback_seq}/{year}"
+
+import smtplib
+import ssl
+from email.message import EmailMessage
+
+def enviar_email(destinatario, assunto, corpo, remetente, senha):
+    msg = EmailMessage()
+    msg["Subject"] = assunto
+    msg["From"] = remetente
+    msg["To"] = destinatario
+    msg.set_content(corpo)
+
+    # Desabilita a verificação SSL para testes (NÃO USAR EM PRODUÇÃO)
+    context = ssl._create_unverified_context()
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        server.login(remetente, senha)
+        server.send_message(msg)
