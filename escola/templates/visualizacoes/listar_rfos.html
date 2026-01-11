@@ -89,9 +89,9 @@
                                 <span class="text-muted">Cancelado</span>
                             {% else %}
                                 {% if rfo.status and 'AGUARDANDO' in rfo.status %}
-                                    <a href="{{ url_for('formularios_bp.tratar_rfo', rfo_id=rfo.id) }}" class="btn btn-sm btn-warning" title="Tratar RFO">
-                                        <i class="fas fa-edit"></i> Tratar
-                                    </a>
+                                    <span class="badge-info">
+                                        <i class="fas fa-info-circle"></i> Aguardando tratamento
+                                    </span>
                                 {% endif %}
                                 <button class="btn btn-sm btn-outline-danger btn-cancel-rfo" data-id="{{ rfo.id }}">
                                     <i class="fas fa-ban"></i> Cancelar

@@ -551,7 +551,7 @@ def listar_rfos():
         """
 
         order_by = " ORDER BY o.data_ocorrencia DESC, o.id DESC"
-        # decidir WHERE conforme filtro de status
+        # construir query baseado no filtro de status
         if q_status.upper() == 'TODOS' or q_status == '':
             sql = base_sql + " WHERE (o.status = 'TRATADO' OR o.status = 'AGUARDANDO TRATAMENTO') " + order_by
             rows = db.execute(sql).fetchall()
@@ -561,7 +561,10 @@ def listar_rfos():
         else:
             sql = base_sql + " WHERE o.status = ? " + order_by
             rows = db.execute(sql, (q_status,)).fetchall()
-
+    except Exception:
+        current_app.logger.exception("Erro ao buscar ocorrencias para visualização")
+        rows = []
+        
     # mapear campos para o template de forma robusta
     rfos = []
     for r in rows:
