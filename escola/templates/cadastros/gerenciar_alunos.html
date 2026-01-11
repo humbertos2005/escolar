@@ -6,8 +6,11 @@
 <div class="manage-tabs" style="max-width:1200px;margin:20px auto;">
 
   <div class="manage-tabs-nav" style="display:flex;gap:10px;margin-bottom:15px;">
-    <button type="button" class="tab-btn active" data-tab="cadastrar" style="padding:10px 16px;border:1px solid #ddd;background:#fff;border-radius:6px;cursor:pointer;">Cadastrar Aluno</button>
-    <button type="button" class="tab-btn" data-tab="importar" style="padding:10px 16px;border:1px solid #ddd;background:#f7f7f7;border-radius:6px;cursor:pointer;">Importar Alunos</button>
+      <button type="button" class="tab-btn active" data-tab="cadastrar" style="padding:10px 16px;border:1px solid #ddd;background:#fff;border-radius:6px;cursor:pointer;">Cadastrar Aluno</button>
+      <button type="button" class="tab-btn" data-tab="importar" style="padding:10px 16px;border:1px solid #ddd;background:#f7f7f7;border-radius:6px;cursor:pointer;">Importar Alunos</button>
+      <a href="{{ url_for('visualizacoes_bp.listar_alunos') }}" class="btn btn-outline-primary" style="padding:9px 14px;height:39px;align-self:center;">
+          <i class="fas fa-eye"></i> Visualizar Alunos
+      </a>
   </div>
 
   <div class="manage-tabs-content">
