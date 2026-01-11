@@ -26,6 +26,8 @@ import pdfkit
 import shutil
 from werkzeug.utils import secure_filename
 from flask import Response, abort
+from dotenv import load_dotenv
+load_dotenv()
 
 # adicionar no topo do arquivo (junto com outros imports)
 from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
@@ -798,6 +800,10 @@ def imprimir_rfo(ocorrencia_id):
 @disciplinar_bp.route('/export_prontuario/<int:ocorrencia_id>')
 @admin_secundario_required
 def export_prontuario_pdf(ocorrencia_id):
+    from dotenv import load_dotenv
+    load_dotenv()
+    import os
+
     db = get_db()
 
     # Reutiliza a mesma consulta usada em visualizar_rfo/imprimir_rfo para obter dados
@@ -825,11 +831,10 @@ def export_prontuario_pdf(ocorrencia_id):
     rfo_dict = dict(rfo)
 
     # Renderizamos um template específico para o PDF (criaremos o template depois).
-    # Use, por exemplo, templates/disciplinar/prontuario_pdf.html
     html = render_template('disciplinar/prontuario_pdf.html', rfo=rfo_dict)
 
-    # Detecta wkhtmltopdf (procura no PATH, senão usa o local padrão do Windows)
-    wk_path = shutil.which('wkhtmltopdf')
+    # Detecta o caminho do wkhtmltopdf de forma flexível
+    wk_path = os.getenv('WKHTMLTOPDF_PATH') or shutil.which('wkhtmltopdf')
     if not wk_path:
         wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
 
@@ -1651,7 +1656,9 @@ import sqlite3
 def fmd_novo_real(fmd_id):
     from flask import session
     import sqlite3
-    db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
+    import os
+    db_path = os.getenv('DATABASE_PATH', 'escola.db')
+    db = g.db if hasattr(g, 'db') else sqlite3.connect(db_path)
     db.row_factory = sqlite3.Row
 
     # ==== 1. PEGA O USUÁRIO LOGADO NA SESSÃO ====
@@ -1764,9 +1771,9 @@ def fmd_novo_real(fmd_id):
         logo_relativo = contexto.get('escola', {}).get('logotipo_url', '')
         if logo_relativo:
             logo_relativo = logo_relativo.lstrip("/")
-            caminho_absoluto = os.path.join(
-                r"C:\Users\Usuário\Documents\GitHub\escolar\escola", logo_relativo
-            )
+            caminho_da_escola = os.path.dirname(os.path.abspath(__file__))
+            caminho_absoluto = os.path.join(caminho_da_escola, '..', logo_relativo)
+            caminho_absoluto = os.path.abspath(caminho_absoluto)
             contexto['logo_pdfkit_path'] = "file:///" + quote(caminho_absoluto.replace("\\", "/"))
         else:
             contexto['logo_pdfkit_path'] = ""
@@ -1777,7 +1784,13 @@ def fmd_novo_real(fmd_id):
             os.makedirs(temp_dir)
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"{safe_fmd_id}.pdf")
-        config = pdfkit.configuration(wkhtmltopdf=r'C:\Arquivos de Programas\wkhtmltopdf\bin\wkhtmltopdf.exe')
+        from dotenv import load_dotenv
+        import os
+
+        load_dotenv()  # carrega variáveis do arquivo .env
+
+        wkhtmltopdf_path = os.getenv('WKHTMLTOPDF_PATH')
+        config = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf_path)
         options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
         pdfkit.from_string(html, pdf_path, configuration=config, options=options)
 
@@ -1795,7 +1808,8 @@ def enviar_email_fmd(fmd_id):
     import os
     from email.mime.application import MIMEApplication
 
-    db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
+    db_path = os.getenv('DATABASE_PATH', 'escola.db')
+    db = g.db if hasattr(g, 'db') else sqlite3.connect(db_path)
     db.row_factory = sqlite3.Row
 
     # Busca os dados da FMD
