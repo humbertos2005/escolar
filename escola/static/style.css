@@ -1569,3 +1569,18 @@ label[for="turno"] {
   padding-bottom: 12px !important;
   height: 51.5556px !important;
 }
+
+.saudacao-usuario {
+    background: linear-gradient(90deg, #2b8de6, #ee0979);
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.17rem;
+    letter-spacing: 0.5px;
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(11,22,40,0.13);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}

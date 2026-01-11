@@ -76,14 +76,9 @@
         </div>
         <div class="sidebar-body p-0">
             {% if session.get('logged_in') %}
-                <div class="user-greeting">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-user me-2"></i>
-                        <div>
-                            <small>Olá, <span class="username fw-bold">{{ session.get('username') }}</span>!</small><br>
-                            <span class="badge bg-primary">{{ session.get('nivel_nome') }}</span>
-                        </div>
-                    </div>
+                <div class="saudacao-usuario mb-3">
+                    <i class="fas fa-user me-2"></i>
+                    Olá, <span class="username fw-bold">{{ session.get('username') }}</span>!
                 </div>
                 <div class="menu-section">
                     <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
