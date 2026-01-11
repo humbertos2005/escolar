@@ -37,27 +37,43 @@ body {
 }
 
 .dashboard-container {
-    max-width: 1400px;
+    max-width: 1420px;
     margin: 0 auto;
-    padding: 0 30px;
+    padding: 0 32px;
 }
 
-/* Cards de Estatísticas */
+.main-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 34px;
+    align-items: start;
+    margin-bottom: 40px;
+}
+
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 25px;
-    margin-bottom: 40px;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 22px;
+    align-items: stretch;
+    justify-items: stretch;
+    height: 100%;
+    min-width: 0;
 }
 
 .stat-card {
     background: white;
     border-radius: 20px;
-    padding: 30px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    position: relative;
-    overflow: hidden;
+    padding: 23px;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.09);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    min-width: 245px;
+    min-height: 150px;
+    max-width: 275px;
+    max-height: 180px;
 }
 
 .stat-card::before {
@@ -202,8 +218,16 @@ body {
 .content-card {
     background: white;
     border-radius: 20px;
-    padding: 30px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    padding: 26px 16px 16px 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.09);
+    width: 100%;
+    height: 100%;
+    min-width: 320px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
 }
 
 .content-card h3 {
@@ -247,23 +271,25 @@ body {
 /* Acesso Rápido */
 .quick-actions {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
+    grid-template-columns: 1fr 1fr;
+    gap: 13px;
+    padding: 0;
 }
 
 .action-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 18px 20px;
-    border-radius: 12px;
+    gap: 10px;
+    padding: 12px 0;
+    border-radius: 10px;
     font-size: 1rem;
     font-weight: 600;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.06);
     border: 2px solid transparent;
+    min-width: 120px;
+    max-width: 160px;
+    box-sizing: border-box;
 }
 
 .action-btn:hover {
