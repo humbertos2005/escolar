@@ -231,58 +231,27 @@
 
 
                     {% if session.get('nivel') in [1, 2] %}
-
-
                     <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="nav-link ps-4">
-
-
                         <i class="fas fa-hourglass-half"></i><span>RFOs Pendentes</span>
-
-
                     </a>
-
-
                     {% endif %}
-
-
                 </div>
 
 
-
-
-
-                {% if session.get('nivel') in [1, 2] %}
-
-
+                {# OCULTADO TEMPORARIAMENTE PELO ADMINISTRADOR #}
+                {# 
                 <div class="menu-section">
-
-
                     <div class="nav-link menu-title"><i class="fas fa-gavel"></i><span>Ficha Medida Disciplinar</span></div>
-
-
                     <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="nav-link ps-4">
-
-
                         <i class="fas fa-file-medical"></i><span>Registrar FMD</span>
-
-
                     </a>
-
-
                 </div>
-
-
-
+                #}
 
 
                 <div class="menu-section">
-
-
                     <div class="nav-link menu-title"><i class="fas fa-print"></i><span>Formulários</span></div>
-
-
                     <a href="{{ url_for('formularios_bp.tabela_disciplinar') }}" class="nav-link ps-4">
-
 
             <a href="{{ url_for('formularios_bp.tabela_disciplinar') }}" class="nav-link ps-4">
 
