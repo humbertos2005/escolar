@@ -175,11 +175,6 @@
                         <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
                     </a>
 
-                    <!-- Novo menu Relatórios Disciplinares -->
-                    <a href="{{ url_for('relatorios_disciplinares_bp.index') }}" class="nav-link">
-                        <i class="fas fa-chart-pie"></i><span>Relatórios Disciplinares</span>
-                    </a>
-                </div>
 
                 {% if session.get('nivel') in [1, 2] %}
                 <div class="menu-section">
@@ -234,12 +229,11 @@
                     <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="nav-link ps-4">
                         <i class="fas fa-hourglass-half"></i><span>RFOs Pendentes</span>
                     </a>
-                    {% endif %}
+                {% endif %}
                 </div>
 
-
                 {# OCULTADO TEMPORARIAMENTE PELO ADMINISTRADOR #}
-                {# 
+                {#
                 <div class="menu-section">
                     <div class="nav-link menu-title"><i class="fas fa-gavel"></i><span>Ficha Medida Disciplinar</span></div>
                     <a href="{{ url_for('disciplinar_bp.registrar_fmd') }}" class="nav-link ps-4">
@@ -248,91 +242,40 @@
                 </div>
                 #}
 
-
                 <div class="menu-section">
                     <div class="nav-link menu-title"><i class="fas fa-print"></i><span>Formulários</span></div>
+
                     <a href="{{ url_for('formularios_bp.tabela_disciplinar') }}" class="nav-link ps-4">
-
-            <a href="{{ url_for('formularios_bp.tabela_disciplinar') }}" class="nav-link ps-4">
-
-
-                <i class="fas fa-table"></i><span>Tabela Disciplinar</span>
-
-
-            </a>
-
-
-            <a href="{{ url_for('formularios_ata_bp.list_atas') }}" class="nav-link ps-4">
-
-
-                <i class="fas fa-file-alt"></i><span>ATA</span>
-
-
-            </a>
-
-
-            {# Link Prontu�rios no menu Formul�rios: apontando para a listagem, n�o para o formul�rio diretamente #}
-
-
-                    {# Link Prontuários no menu Formulários: apontando para a listagem, não para o formulário diretamente #}
-
-
+                        <i class="fas fa-table"></i><span>Tabela Disciplinar</span>
+                    </a>
+                    <a href="{{ url_for('formularios_ata_bp.list_atas') }}" class="nav-link ps-4">
+                        <i class="fas fa-file-alt"></i><span>ATA</span>
+                    </a>
+                    <!-- Link Prontuários no menu Formulários: apontando para a listagem, não para o formulário diretamente -->
                     <a href="{{ url_for('formularios_prontuario.listar_prontuarios') }}" class="nav-link ps-4">
-
-
                         <i class="fas fa-file-medical-alt"></i><span>Prontuários</span>
-
-
                     </a>
-
-
                     <a href="{{ url_for('formularios_tac_bp.listar_tacs') }}" class="nav-link ps-4">
-
-
                         <i class="fas fa-file-signature"></i><span>Termos de Adequação (TAC)</span>
-
-
                     </a>
-
-
+                    <!-- Novo menu Relatórios Disciplinares -->
+                    <a href="{{ url_for('relatorios_disciplinares_bp.index') }}" class="nav-link ps-4">
+                        <i class="fas fa-chart-pie"></i><span>Relatórios Disciplinares</span>
+                    </a>
                 </div>
 
-
-                {% endif %}
-
-
-
-
-
                 <div class="menu-section">
-
-
                     <div class="nav-link menu-title"><i class="fas fa-eye"></i><span>Visualizações</span></div>
 
-
                     {% if session.get('nivel') in [1, 2] %}
-
-
                     <a href="{{ url_for('visualizacoes_bp.listar_usuarios') }}" class="nav-link ps-4">
-
-
                         <i class="fas fa-users"></i><span>Usuários</span>
-
-
                     </a>
-
-
                     {% endif %}
 
-
                     <a href="{{ url_for('visualizacoes_bp.listar_alunos') }}" class="nav-link ps-4">
-
-
                         <i class="fas fa-user-graduate"></i><span>Alunos</span>
-
-
                     </a>
-
 
 
 
