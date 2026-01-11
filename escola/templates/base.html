@@ -111,15 +111,10 @@
                 </div>
                 {% endif %}
                 <div class="menu-section">
-                    <div class="nav-link menu-title"><i class="fas fa-file-alt"></i><span>RFO</span></div>
-                    <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="nav-link ps-4">
-                        <i class="fas fa-plus-circle"></i><span>Registrar RFO</span>
+                    <div class="nav-link menu-title"><i class="fas fa-file-alt"></i><span>Documentos</span></div>
+                    <a href="{{ url_for('documentos_bp.gerenciar_rfos') }}" class="nav-link ps-4">
+                        <i class="fas fa-folder-open"></i><span>Gerenciar RFOs</span>
                     </a>
-                    {% if session.get('nivel') in [1, 2] %}
-                    <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="nav-link ps-4">
-                        <i class="fas fa-hourglass-half"></i><span>RFOs Pendentes</span>
-                    </a>
-                    {% endif %}
                 </div>
                 {% if session.get('nivel') in [1, 2] %}
                 <div class="menu-section">

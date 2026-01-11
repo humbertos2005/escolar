@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Gerenciar RFOs{% endblock %}
+{% block content %}
+
+<h2>Gerenciar RFOs</h2>
+<div style="display:flex; gap: 18px; margin-bottom: 25px; flex-wrap:wrap;">
+    <a href="{{ url_for('disciplinar_bp.registrar_rfo') }}" class="btn btn-primary">
+        <i class="fas fa-plus-circle"></i> Registrar Novo RFO
+    </a>
+    <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="btn btn-warning">
+        <i class="fas fa-hourglass-half"></i> RFOs Tratamento
+    </a>
+    <a href="{{ url_for('visualizacoes_bp.listar_rfos') }}" class="btn btn-info">
+        <i class="fas fa-clipboard-list"></i> Visualizar RFOs
+    </a>
+</div>
+
+{% endblock %}

@@ -7,12 +7,7 @@
     <form method="GET" class="search-form d-inline-block">
         <select name="status" class="form-control" onchange="this.form.submit()">
             <option value="TODOS" {% if status_filter == 'TODOS' %}selected{% endif %}>Todos os Status</option>
-            <option value="AGUARDANDO TRATAMENTO" {% if status_filter == 'AGUARDANDO TRATAMENTO' %}selected{% endif %}>
-                Aguardando Tratamento
-            </option>
-            <option value="TRATADO" {% if status_filter == 'TRATADO' %}selected{% endif %}>
-                Tratado
-            </option>
+            <option value="TRATADO" {% if status_filter == 'TRATADO' %}selected{% endif %}>Tratado</option>
         </select>
     </form>
 

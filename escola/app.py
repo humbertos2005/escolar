@@ -19,6 +19,7 @@ from blueprints.formularios_tac import formularios_tac_bp
 from blueprints.visualizacoes import visualizacoes_bp
 from blueprints import utils
 from blueprints.relatorios_disciplinares import relatorios_disciplinares_bp
+from blueprints.documentos import documentos_bp
 
 # Configurar localizaÃ§Ã£o brasileira
 try:
@@ -81,6 +82,8 @@ app.register_blueprint(formularios_bp, url_prefix='/formularios')
 
 app.register_blueprint(visualizacoes_bp, url_prefix='/visualizacoes')
 app.register_blueprint(bimestres_bp)
+app.register_blueprint(documentos_bp, url_prefix="/documentos")
+
 
 # Registrar rota para aplicar FMDs a partir de RFOs
 try:

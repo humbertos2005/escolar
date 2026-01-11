@@ -553,20 +553,14 @@ def listar_rfos():
         order_by = " ORDER BY o.data_ocorrencia DESC, o.id DESC"
         # decidir WHERE conforme filtro de status
         if q_status.upper() == 'TODOS' or q_status == '':
-            sql = base_sql + order_by
+            sql = base_sql + " WHERE (o.status = 'TRATADO' OR o.status = 'AGUARDANDO TRATAMENTO') " + order_by
             rows = db.execute(sql).fetchall()
-        elif q_status.upper() == 'AGUARDANDO TRATAMENTO' or 'AGUARDANDO' in q_status.upper():
-            sql = base_sql + " WHERE COALESCE(o.status,'') LIKE ? " + order_by
-            rows = db.execute(sql, ('%AGUARDANDO%',)).fetchall()
         elif q_status.upper() == 'TRATADO':
-            sql = base_sql + " WHERE COALESCE(o.status,'') NOT LIKE ? " + order_by
-            rows = db.execute(sql, ('%AGUARDANDO%',)).fetchall()
+            sql = base_sql + " WHERE o.status = ? " + order_by
+            rows = db.execute(sql, ('TRATADO',)).fetchall()
         else:
-            sql = base_sql + " WHERE COALESCE(o.status,'') LIKE ? " + order_by
-            rows = db.execute(sql, (f"%{q_status}%",)).fetchall()
-    except Exception:
-        current_app.logger.exception("Erro ao buscar ocorrencias para visualização")
-        rows = []
+            sql = base_sql + " WHERE o.status = ? " + order_by
+            rows = db.execute(sql, (q_status,)).fetchall()
 
     # mapear campos para o template de forma robusta
     rfos = []
