@@ -73,6 +73,12 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-body p-0">
             {% if session.get('logged_in') %}
+                <a href="{{ url_for('dashboard') }}" 
+                class="nav-link ps-4 {% if request.endpoint == 'dashboard' %}active{% endif %}" 
+                style="margin-bottom: 18px; display: block;">
+                    <i class="fas fa-home"></i>
+                    <span>Página Inicial</span>
+                </a>
                 {% if session.get('nivel') in [1, 2] %}
                 <div class="menu-section">
                     <div class="nav-link menu-title"><i class="fas fa-folder-plus"></i><span>Cadastros</span></div>
