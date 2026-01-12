@@ -1,19 +1,10 @@
 ﻿from flask import Blueprint, render_template, request, jsonify, current_app, redirect, url_for, flash
 import os, json, datetime
-from dotenv import load_dotenv
-load_dotenv()
 
 formularios_ata_ui_bp = Blueprint("formularios_ata_ui_bp", __name__)
 
 def data_path(filename):
-    # Permite configuração do diretório pelo .env (ATA_DATA_DIR=data), padrão é a pasta "data" no root do app
-    ata_data_dir = os.getenv('ATA_DATA_DIR')
-    if ata_data_dir:
-        base_dir = os.path.abspath(ata_data_dir)
-    else:
-        base_dir = os.path.join(current_app.root_path, "data")
-    os.makedirs(base_dir, exist_ok=True)
-    return os.path.join(base_dir, filename)
+    return os.path.join(current_app.root_path, "data", filename)
 
 def load_json_file(filename):
     path = data_path(filename)

@@ -18,8 +18,6 @@ import os
 import sys
 import subprocess
 from flask import Blueprint, request, jsonify, current_app
-from dotenv import load_dotenv
-load_dotenv()
 
 # tentar importar o decorator de login do projeto (suporte a diferentes import styles)
 try:
@@ -33,12 +31,7 @@ except Exception:
 bp_apply_fmds = Blueprint("apply_fmds_bp", __name__)
 
 def _find_cli_script():
-    # Primeiro, verifica se um caminho foi definido via .env
-    cli_path_env = os.getenv('APPLY_FMDS_CLI_PATH')
-    if cli_path_env and os.path.exists(cli_path_env):
-        return os.path.abspath(cli_path_env)
-
-    # Caminhos padrão (mantém toda a lógica anterior)
+    # blueprint está em blueprints/, queremos o apply_rfo_create_fmds.py na raiz do projeto
     base = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     candidates = [
         os.path.join(base, "apply_rfo_create_fmds.py"),
