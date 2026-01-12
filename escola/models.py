@@ -112,11 +112,15 @@ def criar_tabelas():
         conn.execute('''
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT,
                 username TEXT NOT NULL UNIQUE,
                 password TEXT NOT NULL,
                 email TEXT,
                 nivel INTEGER NOT NULL,
-                data_criacao TEXT DEFAULT CURRENT_TIMESTAMP
+                situacao TEXT,
+                data_cadastro TEXT DEFAULT CURRENT_TIMESTAMP,
+                ultimo_login TEXT,
+                cargo TEXT
             );
         ''')
 
