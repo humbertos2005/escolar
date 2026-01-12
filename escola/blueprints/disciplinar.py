@@ -833,15 +833,20 @@ def export_prontuario_pdf(ocorrencia_id):
     # Renderizamos um template específico para o PDF (criaremos o template depois).
     html = render_template('disciplinar/prontuario_pdf.html', rfo=rfo_dict)
 
-    # Detecta o caminho do wkhtmltopdf de forma flexível
+    # Detecta o caminho do wkhtmltopdf de forma flexível e portátil
     wk_path = os.getenv('WKHTMLTOPDF_PATH') or shutil.which('wkhtmltopdf')
-    if not wk_path:
-        wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
 
-    if not os.path.isfile(wk_path):
-        abort(500, description=f"wkhtmltopdf não encontrado em: {wk_path}")
+    if not wk_path or not os.path.isfile(wk_path):
+        # Mensagem amigável e multiplataforma
+        msg = (
+            "wkhtmltopdf não encontrado no sistema. "
+            "Você deve instalá-lo e garantir que o executável esteja no PATH ou definir a variável de ambiente WKHTMLTOPDF_PATH "
+            "(Exemplos de caminhos usuais no Linux: /usr/bin/wkhtmltopdf ; no Windows: instale e configure o PATH)."
+        )
+        abort(500, description=msg)
 
     config = pdfkit.configuration(wkhtmltopdf=wk_path)
+
 
     options = {
         'page-size': 'A4',
@@ -1779,11 +1784,12 @@ def fmd_novo_real(fmd_id):
             contexto['logo_pdfkit_path'] = ""
 
         html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
-        temp_dir = 'tmp'
+        temp_dir = os.path.join(current_app.root_path, 'tmp')
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"{safe_fmd_id}.pdf")
+
         from dotenv import load_dotenv
         import os
 
@@ -1835,9 +1841,6 @@ def enviar_email_fmd(fmd_id):
     email_remetente = dados_escola['email_remetente']
     senha_email_app = dados_escola['senha_email_app']
 
-    # MONTE AQUI O CORPO DO E-MAIL (exemplo simples abaixo)
-    assunto = "Ficha de Medida Disciplinar"
-
     # Função utilitária para pegar campo ou retorno vazio
     def get_fmd_field(row, key):
         try:
@@ -1867,17 +1870,24 @@ def enviar_email_fmd(fmd_id):
 
     # ========== ENVIO REAL DO E-MAIL ==========
     try:
-        temp_dir = "tmp"
+        # Caminho do PDF na pasta temporária:
+        temp_dir = os.path.join(current_app.root_path, 'tmp')
+        if not os.path.isdir(temp_dir):
+            os.makedirs(temp_dir, exist_ok=True)
+
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
-        if not os.path.exists(pdf_path):
+
+        # ATENÇÃO: verifica se o arquivo existe ANTES de enviar
+        if not os.path.isfile(pdf_path):
             flash("O PDF da FMD ainda não foi gerado! Gere a FMD antes de enviar o e-mail.", "danger")
             return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
+        # -------------------------------
         msg = MIMEMultipart()
         msg['From'] = email_remetente
         msg['To'] = email_destinatario
-        msg['Subject'] = assunto
+        msg['Subject'] = "Ficha de Medida Disciplinar"
         msg.attach(MIMEText(corpo_html, 'html'))
 
         # ----- ANEXO PDF -----
@@ -1886,13 +1896,15 @@ def enviar_email_fmd(fmd_id):
             part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_path)}"'
             msg.attach(part)
         # ---------------------
-        
+
+        # ENVIO (ajustável se for usar outro SMTP)
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(email_remetente, senha_email_app)
         server.sendmail(email_remetente, email_destinatario, msg.as_string())
         server.quit()
 
+        # Marca no banco a data/hora e destinatário
         data_envio = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
         db.execute("UPDATE ficha_medida_disciplinar SET email_enviado_data=?, email_enviado_para=? WHERE fmd_id=?",
                    (data_envio, email_destinatario, fmd_id))
