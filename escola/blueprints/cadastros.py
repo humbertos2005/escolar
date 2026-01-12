@@ -226,8 +226,17 @@ UPLOAD_SUBDIR = os.path.join('static', 'uploads', 'cabecalhos')
 def _allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXT
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 def _ensure_upload_dir():
-    upload_dir = os.path.join(current_app.root_path, UPLOAD_SUBDIR)
+    # Permite configuração pelo .env (UPLOAD_DIR), mas mantém padrão relativo ao projeto
+    upload_dir_env = os.getenv('UPLOAD_DIR')
+    if upload_dir_env:
+        upload_dir = os.path.abspath(upload_dir_env)
+    else:
+        upload_dir = os.path.join(current_app.root_path, UPLOAD_SUBDIR)
     os.makedirs(upload_dir, exist_ok=True)
     return upload_dir
 
@@ -278,7 +287,11 @@ def cabecalho_novo():
                 raw = secure_filename(f.filename)
                 ext = raw.rsplit('.', 1)[1].lower()
                 logo_estado_filename = f"estado_{int(datetime.utcnow().timestamp())}.{ext}"
-                f.save(os.path.join(upload_dir, logo_estado_filename))
+
+                # Usa caminho absoluto do diretório calculado em _ensure_upload_dir(),
+                # SEM concatenar nenhum caminho absoluto hardcoded
+                caminho_destino = os.path.join(upload_dir, logo_estado_filename)
+                f.save(caminho_destino)
 
         # processar logo_prefeitura (novo)
         if 'logo_prefeitura' in request.files:
@@ -338,13 +351,20 @@ def cabecalho_editar(id):
                 raw = secure_filename(f.filename)
                 ext = raw.rsplit('.', 1)[1].lower()
                 logo_estado_filename = f"estado_{int(datetime.utcnow().timestamp())}.{ext}"
-                f.save(os.path.join(upload_dir, logo_estado_filename))
-                # remover anterior se existir
-                if cabecalho.get('logo_estado'):
-                    try:
-                        os.remove(os.path.join(upload_dir, cabecalho['logo_estado']))
-                    except Exception:
-                        pass
+
+                # Caminho absoluto do novo arquivo
+                caminho_destino = os.path.join(upload_dir, logo_estado_filename)
+                f.save(caminho_destino)
+
+                # Remover anterior se existir (deleta apenas se arquivo realmente existe)
+                logo_antigo = cabecalho.get('logo_estado')
+                if logo_antigo:
+                    caminho_logo_antigo = os.path.join(upload_dir, logo_antigo)
+                    if os.path.isfile(caminho_logo_antigo):
+                        try:
+                            os.remove(caminho_logo_antigo)
+                        except Exception:
+                            pass
                 cabecalho['logo_estado'] = logo_estado_filename
 
         # processar logo_prefeitura (novo)
@@ -418,21 +438,18 @@ def cabecalho_excluir(id):
         try:
             # remover arquivos associados
             upload_dir = _ensure_upload_dir()
-            if row.get('logo_estado'):
-                try:
-                    os.remove(os.path.join(upload_dir, row['logo_estado']))
-                except Exception:
-                    pass
-            if row.get('logo_escola'):
-                try:
-                    os.remove(os.path.join(upload_dir, row['logo_escola']))
-                except Exception:
-                    pass
-            if row.get('logo_prefeitura'):
-                try:
-                    os.remove(os.path.join(upload_dir, row['logo_prefeitura']))
-                except Exception:
-                    pass
+
+            # Lista todos os possíveis arquivos de logo para apagar
+            for logo_campo in ['logo_estado', 'logo_escola', 'logo_prefeitura']:
+                nome_arquivo = row.get(logo_campo)
+                if nome_arquivo:
+                    caminho_logo = os.path.join(upload_dir, nome_arquivo)
+                    if os.path.isfile(caminho_logo):
+                        try:
+                            os.remove(caminho_logo)
+                        except Exception:
+                            pass
+
             db.execute('DELETE FROM cabecalhos WHERE id = ?', (id,))
             db.commit()
             flash('Cabeçalho excluído.', 'success')

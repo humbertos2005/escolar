@@ -1,6 +1,12 @@
 import sqlite3
+import os
+from dotenv import load_dotenv
 
-conn = sqlite3.connect('escola.db')
+load_dotenv()
+
+db_path = os.getenv('DATABASE_PATH', 'escola.db')
+
+conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
 cursor.execute("PRAGMA table_info(dados_escola);")
