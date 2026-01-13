@@ -21,8 +21,11 @@ from blueprints import utils
 from blueprints.relatorios_disciplinares import relatorios_disciplinares_bp
 from blueprints.documentos import documentos_bp
 from migrations.init_db import init_db
+from dotenv import load_dotenv
+load_dotenv()
 
-init_db("escola.db")  # Ajuste o nome/caminho do banco conforme seu padrão
+db_path = os.environ.get("DATABASE_FILE", "escola.db")
+init_db(db_path)
 
 # Configurar localizaÃ§Ã£o brasileira
 try:

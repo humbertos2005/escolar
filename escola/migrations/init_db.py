@@ -324,6 +324,7 @@ def init_db(db_path):
     conn.close()
     print("Banco inicializado com sucesso!")
 
-# Para rodar manualmente: python migrations/init_db.py
+import os
 if __name__ == "__main__":
-    init_db("escola.db")
+    db_path = os.environ.get("DATABASE_FILE", "escola.db")
+    init_db(db_path)

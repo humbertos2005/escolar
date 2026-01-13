@@ -4,7 +4,8 @@ from datetime import datetime
 from flask import current_app, g
 from database import get_db
 
-DB_NAME = 'escola.db'
+import os
+DB_NAME = os.environ.get("DATABASE_FILE", "escola.db")
 
 def criar_tabela_recuperacao_senha():
     import sqlite3

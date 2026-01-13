@@ -14,7 +14,8 @@ except:
         except:
             print("   [AVISO] NÃ£o foi possÃ­vel configurar localizaÃ§Ã£o PT-BR")
 
-DATABASE = 'escola.db'
+import os
+DATABASE = os.environ.get("DATABASE_FILE", "escola.db")
 
 def get_db():
     """

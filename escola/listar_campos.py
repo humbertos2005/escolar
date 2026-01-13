@@ -1,6 +1,8 @@
 import sqlite3
 
-conn = sqlite3.connect('escola.db')
+import os
+db_path = os.environ.get("DATABASE_FILE", "escola.db")
+conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
 cursor.execute("PRAGMA table_info(dados_escola);")
