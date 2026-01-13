@@ -508,9 +508,6 @@ def listar_dados_escola():
 @cadastros_bp.route('/dados_escola/novo', methods=['GET', 'POST'])
 @admin_secundario_required
 def dados_escola_novo():
-    import os
-    from werkzeug.utils import secure_filename
-
     db = get_db()
     telefone = request.form.get('telefone', '').strip()
     if request.method == 'POST':
@@ -540,44 +537,17 @@ def dados_escola_novo():
         dominio_sistema = request.form.get('dominio_sistema','').strip()  # <-- ADICIONADO
         # <<<<<<<< FIM DOS NOVOS CAMPOS <<<<<<<<<<
 
-        # SUPORTE À LOGO
-        logo_url = None
-        logo_folder = os.path.join(current_app.static_folder, "logos_escola")
-        if not os.path.exists(logo_folder):
-            os.makedirs(logo_folder)
-        if 'logo' in request.files:
-            logo = request.files['logo']
-            if logo and logo.filename:
-                ext = os.path.splitext(logo.filename)[1].lower()
-                if ext in {'.png', '.jpg', '.jpeg'}:
-                    # Defina nome depois do commit (assim pega o id certo) - salvar temporário
-                    logo_temp = os.path.join(logo_folder, "temp_logo"+ext)
-                    logo.save(logo_temp)
-                    logo_url = "temp_logo"+ext
-                else:
-                    flash('Só é permitido PNG ou JPG na logo.', 'danger')
-                    return redirect(url_for('cadastros_bp.dados_escola_novo'))
-
         try:
-            cur = db.execute('''
+            db.execute('''
             INSERT INTO dados_escola (
                 cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf,
-                email_remetente, senha_email_app, dominio_sistema, telefone, logo_url
+                email_remetente, senha_email_app, dominio_sistema, telefone
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj,
-             diretor_nome, diretor_cpf, email_remetente, senha_email_app, dominio_sistema, telefone, None))
+             diretor_nome, diretor_cpf, email_remetente, senha_email_app, dominio_sistema, telefone))
             db.commit()
-            novo_id = cur.lastrowid
-            # Se veio logo, renomear/atribuir corretamente
-            if 'logo' in request.files and logo_url:
-                _, ext = os.path.splitext(logo_url)
-                nome_final = f"escola_{novo_id}{ext}"
-                final_path = os.path.join(logo_folder, nome_final)
-                os.rename(os.path.join(logo_folder, logo_url), final_path)
-                db.execute("UPDATE dados_escola SET logo_url=? WHERE id=?", (nome_final, novo_id))
-                db.commit()
             flash('Dados da Escola salvos.', 'success')
             return redirect(url_for('cadastros_bp.listar_dados_escola'))
         except Exception:
@@ -591,9 +561,6 @@ def dados_escola_novo():
 @cadastros_bp.route('/dados_escola/editar/<int:id>', methods=['GET', 'POST'])
 @admin_secundario_required
 def dados_escola_editar(id):
-    import os
-    from werkzeug.utils import secure_filename
-
     db = get_db()
     telefone = request.form.get('telefone', '').strip()
     row = db.execute("SELECT * FROM dados_escola WHERE id = ?", (id,)).fetchone()
@@ -601,7 +568,6 @@ def dados_escola_editar(id):
         flash('Registro não encontrado.', 'warning')
         return redirect(url_for('cadastros_bp.listar_dados_escola'))
     dados = dict(row)
-
     if request.method == 'POST':
         cabecalho_id = request.form.get('cabecalho_id') or None
         escola = request.form.get('escola','').strip()
@@ -628,42 +594,15 @@ def dados_escola_editar(id):
         senha_email_app = request.form.get('senha_email_app','').strip()
         dominio_sistema = request.form.get('dominio_sistema','').strip()  # <-- ADICIONADO
 
-        # === SUPORTE À LOGO ===
-        logo_url = dados.get('logo_url', None)
-        logo_folder = os.path.join(current_app.static_folder, "logos_escola")
-        if not os.path.exists(logo_folder):
-            os.makedirs(logo_folder)
-
-        # Remover logo se solicitado
-        if request.form.get('remover_logo'):
-            if logo_url:
-                logo_path = os.path.join(logo_folder, logo_url)
-                if os.path.exists(logo_path):
-                    os.remove(logo_path)
-                logo_url = None
-
-        # Upload de nova logo
-        if 'logo' in request.files:
-            logo = request.files['logo']
-            if logo and logo.filename:
-                ext = os.path.splitext(logo.filename)[1].lower()
-                if ext in {'.png', '.jpg', '.jpeg'}:
-                    nome_final = f"escola_{id}{ext}"
-                    logo.save(os.path.join(logo_folder, nome_final))
-                    logo_url = nome_final
-                else:
-                    flash('Só é permitido PNG ou JPG na logo.', 'danger')
-                    return redirect(url_for('cadastros_bp.dados_escola_editar', id=id))
-
         try:
             db.execute('''
                 UPDATE dados_escola SET 
                     cabecalho_id=?, escola=?, rua=?, numero=?, complemento=?, bairro=?, cidade=?, estado=?, cep=?, cnpj=?, 
-                    diretor_nome=?, diretor_cpf=?, email_remetente=?, senha_email_app=?, dominio_sistema=?, telefone=?, logo_url=?
+                    diretor_nome=?, diretor_cpf=?, email_remetente=?, senha_email_app=?, dominio_sistema=?, telefone=?
                 WHERE id=?
             ''', (
                 cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj,
-                diretor_nome, diretor_cpf, email_remetente, senha_email_app, dominio_sistema, telefone, logo_url, id
+                diretor_nome, diretor_cpf, email_remetente, senha_email_app, dominio_sistema, telefone, id
             ))
             db.commit()
             flash('Dados da Escola atualizados.', 'success')
