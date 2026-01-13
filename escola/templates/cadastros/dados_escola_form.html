@@ -3,8 +3,22 @@
 <h2>{% if dados %}Editar{% else %}Novo{% endif %} - Dados da Escola</h2>
 
 <div class="form-card" style="background:#fff; padding:20px; border-radius:8px;">
-  <form method="post" id="form-dados-escola">
+  <form method="post" id="form-dados-escola" enctype="multipart/form-data">
     <input type="hidden" name="cabecalho_id" id="cabecalho_id" value="{{ dados.cabecalho_id if dados else '' }}">
+
+    {% if dados and dados.logo_url %}
+      <div style="margin-bottom:15px;">
+        <label class="form-label">Logo atual:</label><br>
+        <img src="{{ url_for('static', filename='logos_escola/' ~ dados.logo_url) }}" alt="Logo da escola" height="90" style="border:1px solid #ccc; background:#fff; padding:4px; border-radius:5px; max-width:220px;">
+        <button type="submit" name="remover_logo" value="1" class="btn btn-outline-danger btn-sm" style="margin-left:10px;">Remover Logo</button>
+      </div>
+    {% endif %}
+
+    <div class="mb-3">
+      <label class="form-label">Logo da Escola</label>
+      <input type="file" name="logo" id="logo" accept="image/png,image/jpeg" class="form-control">
+      <small class="text-muted">Formatos permitidos: PNG, JPEG (máx. 2MB).</small>
+    </div>
 
     <div class="mb-3">
       <label class="form-label">Escola (autocomplete)</label>
