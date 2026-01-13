@@ -7,5 +7,7 @@ CREATE TABLE IF NOT EXISTS cabecalhos (
     escola TEXT,
     logo_estado TEXT,
     logo_escola TEXT,
+    logo_prefeitura TEXT,
+    descricao TEXT,
     created_at TEXT
 );

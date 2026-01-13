@@ -116,9 +116,15 @@ def criar_tabelas():
                 password TEXT NOT NULL,
                 email TEXT,
                 nivel INTEGER NOT NULL,
+                cargo TEXT,
                 data_criacao TEXT DEFAULT CURRENT_TIMESTAMP
             );
         ''')
+        # Migração automática: garante que coluna 'cargo' exista
+        try:
+            conn.execute("ALTER TABLE usuarios ADD COLUMN cargo TEXT;")
+        except Exception:
+            pass
 
         # Migração segura: adicionar coluna email se não existir
         try:

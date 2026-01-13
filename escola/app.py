@@ -20,6 +20,9 @@ from blueprints.visualizacoes import visualizacoes_bp
 from blueprints import utils
 from blueprints.relatorios_disciplinares import relatorios_disciplinares_bp
 from blueprints.documentos import documentos_bp
+from migrations.init_db import init_db
+
+init_db("escola.db")  # Ajuste o nome/caminho do banco conforme seu padrão
 
 # Configurar localizaÃ§Ã£o brasileira
 try:
