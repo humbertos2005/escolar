@@ -38,7 +38,13 @@
                                 {{ nivel_map.get(user.nivel, 'Desconhecido') }}
                             </span>
                         </td>
-                        <td>{{ user.data_cadastro if user.data_cadastro else 'N/A' }}</td>
+                        <td>
+                            {% if user.data_criacao %}
+                                {{ user.data_criacao[:10].split('-')[2] }}/{{ user.data_criacao[:10].split('-')[1] }}/{{ user.data_criacao[:10].split('-')[0] }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
                         <td class="actions">
                             <a href="{{ url_for('auth_bp.editar_usuario', user_id=user.id) }}" class="button btn-sm btn-info" title="Editar Usuário">
                                 <i class="fas fa-edit"></i> Editar
