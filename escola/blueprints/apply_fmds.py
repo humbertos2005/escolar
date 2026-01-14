@@ -71,6 +71,30 @@ def apply_fmds():
     medida = data.get("medida", "Medida automática")
     apply_flag = bool(data.get("apply", False))
 
+    # --- INÍCIO DO CÓDIGO INSERIDO ---
+    # Importação atrasada para evitar circularidade em ambiente Flask
+    import sqlite3
+
+    # Obtenha caminho correto do banco (ajuste caso use SQLAlchemy/diferente)
+    db_path = os.environ.get("DATABASE_FILE") or os.path.join(current_app.root_path, "..", "escola.db")
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    tipo_rfo = None
+    try:
+        # Busca o tipo_rfo pela coluna correspondente (ajuste se necessário)
+        cur = conn.cursor()
+        cur.execute("SELECT tipo_rfo FROM ocorrencias WHERE rfo_id = ?", (rfo_id,))
+        row = cur.fetchone()
+        if row:
+            tipo_rfo = row["tipo_rfo"]
+    except Exception:
+        tipo_rfo = None
+    finally:
+        conn.close()
+    if tipo_rfo and str(tipo_rfo).strip().lower() == "elogio":
+        return jsonify({"ok": False, "error": "Este RFO é um elogio e não gera FMD automaticamente."}), 200
+    # --- FIM DO CÓDIGO INSERIDO ---
+
     # build command
     pyexe = sys.executable or "python"
     script_path = _find_cli_script()
