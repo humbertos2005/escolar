@@ -71,57 +71,63 @@ def process_aluno_data(data_source):
 @alunos_bp.route('/listar_alunos')
 @login_required
 def listar_alunos():
-    """Exibe a lista completa de alunos."""
-    db = get_db()
+    """Redireciona para a visualização completa dos alunos."""
+    return redirect(url_for('visualizacoes_bp.listar_alunos'))
+
+# @alunos_bp.route('/listar_alunos')
+# @login_required
+# def listar_alunos():
+#     """Exibe a lista completa de alunos."""
+#     db = get_db()
     
-    # Paginação simples
-    page = request.args.get('page', 1, type=int)
-    per_page = 50
-    offset = (page - 1) * per_page
+#     # Paginação simples
+#     page = request.args.get('page', 1, type=int)
+#     per_page = 50
+#     offset = (page - 1) * per_page
     
-    # Busca por nome ou matrícula
-    search = request.args.get('search', '').strip()
+#     # Busca por nome ou matrícula
+#     search = request.args.get('search', '').strip()
     
-    if search:
-        search_like = f'%{search}%'
-        alunos = db.execute('''
-            SELECT * FROM alunos 
-            WHERE nome LIKE ? OR matricula LIKE ?
-            ORDER BY nome ASC
-            LIMIT ? OFFSET ?
-        ''', (search_like, search_like, per_page, offset)).fetchall()
+#     if search:
+#         search_like = f'%{search}%'
+#         alunos = db.execute('''
+#             SELECT * FROM alunos 
+#             WHERE nome LIKE ? OR matricula LIKE ?
+#             ORDER BY nome ASC
+#             LIMIT ? OFFSET ?
+#         ''', (search_like, search_like, per_page, offset)).fetchall()
         
-        total = db.execute('''
-            SELECT COUNT(*) as total FROM alunos 
-            WHERE nome LIKE ? OR matricula LIKE ?
-        ''', (search_like, search_like)).fetchone()['total']
-    else:
-        alunos = db.execute('''
-            SELECT * FROM alunos 
-            ORDER BY nome ASC
-            LIMIT ? OFFSET ?
-        ''', (per_page, offset)).fetchall()
+#         total = db.execute('''
+#             SELECT COUNT(*) as total FROM alunos 
+#             WHERE nome LIKE ? OR matricula LIKE ?
+#         ''', (search_like, search_like)).fetchone()['total']
+#     else:
+#         alunos = db.execute('''
+#             SELECT * FROM alunos 
+#             ORDER BY nome ASC
+#             LIMIT ? OFFSET ?
+#         ''', (per_page, offset)).fetchall()
         
-        total = db.execute('SELECT COUNT(*) as total FROM alunos').fetchone()['total']
+#         total = db.execute('SELECT COUNT(*) as total FROM alunos').fetchone()['total']
     
-    total_pages = (total + per_page - 1) // per_page
+#     total_pages = (total + per_page - 1) // per_page
     
-    # NOVO: Processa telefones para exibição separada
-    alunos_processados = []
-    for aluno in alunos:
-        aluno_dict = dict(aluno)
-        # Separa telefones
-        telefones = aluno_dict.get('telefone', '').split(',') if aluno_dict.get('telefone') else []
-        aluno_dict['telefone_1'] = telefones[0].strip() if len(telefones) > 0 else '-'
-        aluno_dict['telefone_2'] = telefones[1].strip() if len(telefones) > 1 else '-'
-        aluno_dict['telefone_3'] = telefones[2].strip() if len(telefones) > 2 else '-'
-        alunos_processados.append(aluno_dict)
+#     # NOVO: Processa telefones para exibição separada
+#     alunos_processados = []
+#     for aluno in alunos:
+#         aluno_dict = dict(aluno)
+#         # Separa telefones
+#         telefones = aluno_dict.get('telefone', '').split(',') if aluno_dict.get('telefone') else []
+#         aluno_dict['telefone_1'] = telefones[0].strip() if len(telefones) > 0 else '-'
+#         aluno_dict['telefone_2'] = telefones[1].strip() if len(telefones) > 1 else '-'
+#         aluno_dict['telefone_3'] = telefones[2].strip() if len(telefones) > 2 else '-'
+#         alunos_processados.append(aluno_dict)
     
-    return render_template('index.html', 
-                         alunos=alunos_processados, 
-                         page=page, 
-                         total_pages=total_pages,
-                         search=search)
+#     return render_template('index.html', 
+#                          alunos=alunos_processados, 
+#                          page=page, 
+#                          total_pages=total_pages,
+#                          search=search)
 
 
 @alunos_bp.route('/adicionar_aluno', methods=['GET', 'POST'])
