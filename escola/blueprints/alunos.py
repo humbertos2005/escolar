@@ -20,7 +20,7 @@ def process_aluno_data(data_source):
     """
     campos = [
         'matricula', 'nome', 'serie', 'turma', 'turno', 'pai', 'mae',
-        'responsavel', 'email', 'rua', 'numero', 'complemento', 'bairro', 'cidade', 'estado'
+        'responsavel', 'email', 'rua', 'numero', 'complemento', 'bairro', 'cidade', 'estado', 'data_matricula'
     ]
 
     # Extrai valores com strip (funciona com form/CSV: espera get(key))
@@ -49,13 +49,22 @@ def process_aluno_data(data_source):
 
     data['telefone'] = ', '.join(telefones) if telefones else ''
 
-    # Normaliza para MAIÚSCULAS (Unicode-aware) EXCETO email
+    # Normaliza para MAIÚSCULAS (Unicode-aware) EXCETO email e data_matricula
     for k, v in list(data.items()):
-        if k == 'email':
-            # preserva exatamente como foi informado
+        if k in ('email', 'data_matricula'):
             continue
         if isinstance(v, str) and v != '':
             data[k] = v.upper()
+
+    # Conversão data_matricula para formato ISO (YYYY-MM-DD) se necessário
+    from datetime import datetime
+    if data.get('data_matricula'):
+        try:
+            # Só converte se vier no formato brasileiro
+            if '/' in data['data_matricula']:
+                data['data_matricula'] = datetime.strptime(data['data_matricula'], '%d/%m/%Y').strftime('%Y-%m-%d')
+        except Exception:
+            pass
 
     return data
 
@@ -211,13 +220,13 @@ def editar_aluno(aluno_id):
                     UPDATE alunos SET 
                     matricula = ?, nome = ?, serie = ?, turma = ?, turno = ?, pai = ?, mae = ?, 
                     responsavel = ?, telefone = ?, email = ?, rua = ?, numero = ?, complemento = ?, 
-                    bairro = ?, cidade = ?, estado = ? 
+                    bairro = ?, cidade = ?, estado = ?, data_matricula = ?
                     WHERE id = ?
                     ''',
                     (data['matricula'], data['nome'], data['serie'], data['turma'], data['turno'], 
-                     data['pai'], data['mae'], data['responsavel'], data['telefone'], data['email'], 
-                     data['rua'], data['numero'], data['complemento'], data['bairro'], data['cidade'], 
-                     data['estado'], aluno_id)
+                    data['pai'], data['mae'], data['responsavel'], data['telefone'], data['email'], 
+                    data['rua'], data['numero'], data['complemento'], data['bairro'], data['cidade'], 
+                    data['estado'], data['data_matricula'], aluno_id)
                 )
                 db.commit()
                 flash(f'Dados do aluno "{data["nome"]}" atualizados com sucesso!', 'success')

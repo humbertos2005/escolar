@@ -159,10 +159,10 @@
     </div>
 {% endif %}
 
-<!-- Modal: Visualizar Aluno (mantido para todos) -->
 <div id="modal-view-aluno" class="modal" style="display:none;">
     <div class="modal-content">
         <span class="modal-close" id="close-view-modal">&times;</span>
+        <button type="button" class="button btn-secondary" id="btn-sair-modal-view" style="margin-bottom:15px;">Sair</button>
         <h3>Visualizar Aluno</h3>
         <div id="view-aluno-body">
             <!-- Conteúdo preenchido por JS -->
@@ -254,6 +254,18 @@
 .select-aluno { width:18px; height:18px; }
 #select-all-checkbox { width:18px; height:18px; }
 .d-none { display:none !important; }
+
+#modal-view-aluno img {
+    max-width: 320px;
+    max-height: 320px;
+    width: auto;
+    height: auto;
+    display: block;
+    margin: 0 auto 16px auto;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
 </style>
 
 {% endblock %}

@@ -24,7 +24,7 @@
         .then(data => {
             if (data.error) { alert(data.error); return; }
             const a = data.aluno;
-            const photoHtml = a.photo_url ? '<div style="margin-bottom:10px;"><img src="'+a.photo_url+'" alt="Foto do Aluno"></div>' : '';
+            const photoHtml = a.photo_url ? '<div style="margin-bottom:10px;"><img src="'+a.photo_url+'" alt="Foto do Aluno" style="max-width:320px;max-height:320px;display:block;margin:0 auto 16px auto;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.07);"></div>' : '';
             const html = photoHtml +
                 '<table style="width:100%;">' +
                 '<tr><td><strong>Nome:</strong></td><td>'+ (a.nome||'-') +'</td></tr>' +
@@ -86,6 +86,12 @@
     // fechar modais existentes
     const closeView = document.getElementById('close-view-modal');
     if (closeView) closeView.addEventListener('click', function(){ const m = document.getElementById('modal-view-aluno'); if (m) m.style.display='none'; });
+
+    const btnSairModalView = document.getElementById('btn-sair-modal-view');
+    if (btnSairModalView) btnSairModalView.addEventListener('click', function(){
+        const m = document.getElementById('modal-view-aluno');
+        if (m) m.style.display = 'none';
+    });
 
     const closeUpload = document.getElementById('close-upload-modal');
     if (closeUpload) closeUpload.addEventListener('click', function(){ const m = document.getElementById('modal-upload-photo'); if (m) m.style.display='none'; });
