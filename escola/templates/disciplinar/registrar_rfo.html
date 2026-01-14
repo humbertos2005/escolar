@@ -144,14 +144,14 @@
 <div id="alunos-container" class="mb-2">
   <div class="aluno-entry d-flex align-items-start mb-2">
     <div style="flex:1">
-      <!-- reaproveita o input existente (preserva id/name para o JS atual) -->
       <input type="text" id="aluno_busca" name="aluno_busca" class="form-control aluno-search"
              placeholder="Digite matrícula ou nome para buscar..." autocomplete="off" required>
       <input type="hidden" name="aluno_id" class="aluno-id" />
       <p class="aluno-info info-display mb-0"></p>
     </div>
     <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">
-      <button type="button" class="btn btn-outline-primary add-aluno-btn" title="Adicionar outro aluno" aria-label="Adicionar outro aluno">+</button>
+      <!-- Classe MODIFICADA -->
+      <button type="button" class="btn add-aluno-principal-btn" title="Adicionar outro aluno" aria-label="Adicionar outro aluno">+</button>
     </div>
   </div>
 </div>
@@ -458,41 +458,38 @@ document.addEventListener('DOMContentLoaded', function(){
   // Delegação de cliques para adicionar/remover
   if (container){
     container.addEventListener('click', function(e){
-      if (e.target.closest('.add-aluno-btn')) {
+      // ALTERAÇÃO: agora só o botão principal (classe exclusiva) adiciona nova entrada
+      if (e.target.closest('.add-aluno-principal-btn')) {
+        // Adiciona somente UM campo extra por clique
         const newEntry = makeEntry();
         container.appendChild(newEntry);
-// Trecho a colar IMEDIATAMENTE APÓS container.appendChild(newEntry);
-setTimeout(function(){
-  try {
-    // referências aos elementos dentro da nova entrada
-    const input = newEntry.querySelector('.aluno-search');
-    const hidden = newEntry.querySelector('.aluno-id');
-    const info  = newEntry.querySelector('.aluno-info');
 
-    // remover flags que impedem rebind (se houver)
-    try { delete input._alunoSearchInit; } catch(e){}
-    try { delete input._autocompleteBound; } catch(e){}
-    try { delete input._alunoSearchInitialized; } catch(e){}
-    try { delete input._internalBound; } catch(e){}
+        setTimeout(function(){
+          try {
+            const input = newEntry.querySelector('.aluno-search');
+            const hidden = newEntry.querySelector('.aluno-id');
+            const info  = newEntry.querySelector('.aluno-info');
 
-    // chamar inicializador global conhecido (tenta variações)
-    if (typeof window.initAlunoSearch === 'function') {
-      window.initAlunoSearch(input, hidden, info);
-    } else if (typeof window.setupAlunoSearch === 'function') {
-      window.setupAlunoSearch(input, hidden, info);
-    } else if (typeof window.bindAlunoSearch === 'function') {
-      window.bindAlunoSearch(input, hidden, info);
-    }
-  } catch(e){
-    console.error('rebind aluno-search failed', e);
-  }
-}, 40);
+            delete input._alunoSearchInit;
+            delete input._autocompleteBound;
+            delete input._alunoSearchInitialized;
+            delete input._internalBound;
+
+            if (typeof window.initAlunoSearch === 'function') {
+              window.initAlunoSearch(input, hidden, info);
+            } else if (typeof window.setupAlunoSearch === 'function') {
+              window.setupAlunoSearch(input, hidden, info);
+            } else if (typeof window.bindAlunoSearch === 'function') {
+              window.bindAlunoSearch(input, hidden, info);
+            }
+          } catch(e){
+            console.error('rebind aluno-search failed', e);
+          }
+        }, 40);
 
         const input = newEntry.querySelector('.aluno-search');
-        // init bindings (try external, fallback to internal)
         initFor(input);
 
-        // ensure external gets another chance shortly (some modules attach after mutation)
         setTimeout(function(){ tryExternalInit(input, newEntry.querySelector('.aluno-id'), newEntry.querySelector('.aluno-info')); }, 350);
         try { input.focus(); } catch(e){}
         if (e.preventDefault) e.preventDefault();
@@ -530,11 +527,10 @@ setTimeout(function(){
             <div class="form-group">
                 <label for="tipo_ocorrencia_id">Tipo de Ocorrência <span class="required">*</span></label>
                 <select id="tipo_ocorrencia_id" name="tipo_ocorrencia_id" class="form-control" required>
-                    <option value="">Selecione o Tipo</option>
-                    {% for tipo in tipos_ocorrencia %}
-                    <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
-                    {% endfor %}
-                </select>
+                  <option value="">Selecione o Tipo</option>
+                  <option value="sala">Relato de Fato Observado em Sala de Aula</option>
+                  <option value="ambiente">Relato de Fato Observado em Ambiente Escolar</option>
+              </select>
             </div>
             <div class="form-group">
                 <label for="data_ocorrencia">Data da Ocorrência <span class="required">*</span></label>
