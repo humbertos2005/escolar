@@ -55,6 +55,39 @@
     const resultEl = document.getElementById('reincidenciaResult');
     const reclassifyContainer = document.getElementById('reclassifyContainer');
     const form = document.getElementById('form-tratar-rfo');
+    const btnReprovar = document.getElementById('btn-reprovar');
+    if (btnReprovar && form) {
+        btnReprovar.addEventListener('click', function(e) {
+            e.preventDefault();
+            window._modoReprovacao = true;
+
+            // GARANTE QUE O BACKEND RECEBA. REMOVE se já existir, sempre insira:
+            let reprovarInput = form.querySelector('[name="reprovar"]');
+            if (reprovarInput) {
+                reprovarInput.value = '1';
+            } else {
+                reprovarInput = document.createElement('input');
+                reprovarInput.type = 'hidden';
+                reprovarInput.name = 'reprovar';
+                reprovarInput.value = '1';
+                form.appendChild(reprovarInput);
+            }
+
+            // Limpa arrays, renders, required, valores
+            selectedTipos = [];
+            selectedFaltas = [];
+            renderTipos();
+            renderFaltas();
+            if (tipoHidden) tipoHidden.value = '';
+            if (faltaHidden) faltaHidden.value = '';
+            if (medidaSelect) medidaSelect.removeAttribute('required');
+            document.getElementById('despacho_gestor')?.setAttribute('required', 'required');
+            document.getElementById('data_despacho')?.setAttribute('required', 'required');
+
+            form.submit();
+        });
+    }
+
     // -- Inserir imediatamente após: const form = document.getElementById('form-tratar-rfo');
     if (form) {
       form.addEventListener('submit', function (ev) {
@@ -700,7 +733,7 @@
 
       // ... aqui dentro termina toda a lógica principal ...
 
-            // validate on submit — agora condicional para elogio/reprovação/disciplinar
+      // validate on submit — agora condicional para elogio/reprovação/disciplinar
       form.addEventListener('submit', function (e) {
           const elog = isElogio();
           const isReprovar = !!window._modoReprovacao;
@@ -715,12 +748,22 @@
                   alert('A descrição da falta é obrigatória. Adicione pelo menos um item/descrição.');
                   return false;
               }
+          } else if (isReprovar) {
+              // MODO REPROVAR: limpa os campos de falta/tipo e arrays JS,
+              // só mantém despacho do gestor e data obrigatórios, libera o submit!
+              selectedTipos = [];
+              selectedFaltas = [];
+              if (tipoHidden) tipoHidden.value = '';
+              if (faltaHidden) faltaHidden.value = '';
+              if (medidaSelect) medidaSelect.removeAttribute('required');
+              // manter despacho gestor/data despachor como obrigatórios (required no HTML)
           } else {
-              // Elogio ou REPROVAÇÃO: limpar campos para não bloquear o envio
+              // Elogio: limpeza como antes
               if (tipoHidden) tipoHidden.value = '';
               if (faltaHidden) faltaHidden.value = '';
               if (medidaSelect) medidaSelect.removeAttribute('required');
           }
+
           if (tipoHidden) tipoHidden.value = selectedTipos.join(',');
           if (faltaHidden) faltaHidden.value = selectedFaltas.map(i => i.id).join(',');
 

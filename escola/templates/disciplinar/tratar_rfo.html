@@ -326,17 +326,22 @@ document.addEventListener("DOMContentLoaded", function() {
     const form = document.getElementById('form-tratar-rfo');
     if (btnReprovar && form) {
         btnReprovar.addEventListener('click', function(e) {
+            e.preventDefault();
             window._modoReprovacao = true;
-            // Remove required dos campos não obrigatórios para REPROVAR medida disciplinar
-            ['tipo_falta_list', 'falta_search', 'falta_disciplinar_ids', 'medida_aplicada', 'tratamento_classificacao']
-              .forEach(id => {
-                  const el = document.getElementById(id);
-                  if (el) el.required = false;
-              });
-            // Garante required só nos dois campos essenciais
+            // Remove required e limpa os campos obrigatórios para reprovação
+            ['tipo_falta_list', 'falta_search', 'falta_disciplinar_ids', 'medida_aplicada', 'tratamento_classificacao'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.required = false;
+                    if (el.type === 'text' || el.type === 'hidden' || el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                        el.value = '';
+                    }
+                }
+            });
+            // Só mantém required nos dois campos essenciais
             document.getElementById('despacho_gestor')?.setAttribute('required', 'required');
             document.getElementById('data_despacho')?.setAttribute('required', 'required');
-            // Agora dispara o submit programaticamente
+            // Submit programático
             form.submit();
         });
     }
