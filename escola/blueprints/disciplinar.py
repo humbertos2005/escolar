@@ -963,11 +963,11 @@ def tratar_rfo(ocorrencia_id):
         if request.form.get("reprovar") == "1":
             despacho_gestor = request.form.get('despacho_gestor', '').strip()
             data_despacho = request.form.get('data_despacho', '').strip()
-
+            # Apenas exige despacho e data em caso de reprovação tipo medida disciplinar
             if not despacho_gestor or not data_despacho:
                 flash('Para reprovar, preencha os campos Despacho do Gestor e Data do Despacho.', 'danger')
                 return redirect(request.url)
-
+            # Não processa pontuação nem comportamento
             db.execute('''
                 UPDATE ocorrencias
                 SET status = ?, despacho_gestor = ?, data_despacho = ?

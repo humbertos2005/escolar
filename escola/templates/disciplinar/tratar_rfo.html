@@ -326,8 +326,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const form = document.getElementById('form-tratar-rfo');
     if (btnReprovar && form) {
         btnReprovar.addEventListener('click', function(e) {
-            window._modoReprovar = true;
-            // Remove required dos campos não obrigatórios
+            window._modoReprovacao = true;
+            // Remove required dos campos não obrigatórios para REPROVAR medida disciplinar
             ['tipo_falta_list', 'falta_search', 'falta_disciplinar_ids', 'medida_aplicada', 'tratamento_classificacao']
               .forEach(id => {
                   const el = document.getElementById(id);

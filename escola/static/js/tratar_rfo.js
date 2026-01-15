@@ -700,7 +700,7 @@
 
       // ... aqui dentro termina toda a lógica principal ...
 
-      // validate on submit — agora condicional para elogio/reprovação/disciplinar
+            // validate on submit — agora condicional para elogio/reprovação/disciplinar
       form.addEventListener('submit', function (e) {
           const elog = isElogio();
           const isReprovar = !!window._modoReprovacao;
@@ -716,7 +716,7 @@
                   return false;
               }
           } else {
-              // Elogio ou Reprovação: limpar campos para não bloquear o envio
+              // Elogio ou REPROVAÇÃO: limpar campos para não bloquear o envio
               if (tipoHidden) tipoHidden.value = '';
               if (faltaHidden) faltaHidden.value = '';
               if (medidaSelect) medidaSelect.removeAttribute('required');
