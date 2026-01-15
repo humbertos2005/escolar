@@ -960,6 +960,23 @@ def tratar_rfo(ocorrencia_id):
     medidas_map = MEDIDAS_MAP
 
     if request.method == 'POST':
+        if request.form.get("reprovar") == "1":
+            despacho_gestor = request.form.get('despacho_gestor', '').strip()
+            data_despacho = request.form.get('data_despacho', '').strip()
+
+            if not despacho_gestor or not data_despacho:
+                flash('Para reprovar, preencha os campos Despacho do Gestor e Data do Despacho.', 'danger')
+                return redirect(request.url)
+
+            db.execute('''
+                UPDATE ocorrencias
+                SET status = ?, despacho_gestor = ?, data_despacho = ?
+                WHERE id = ?
+            ''', ('REPROVADO', despacho_gestor, data_despacho, ocorrencia_id))
+            db.commit()
+            flash('RFO foi reprovado e não afetará pontuação nem comportamento do aluno.', 'warning')
+            return redirect(url_for('disciplinar_bp.listar_rfo'))
+    
         # (mantive todo o fluxo POST como estava; só adaptado para usar ocorrencia_dict após)
         tipos_raw = request.form.get('tipo_falta_list', '').strip()
         if tipos_raw:
@@ -1018,8 +1035,8 @@ def tratar_rfo(ocorrencia_id):
                 medida_aplicada = (tratamento_classificacao or tipo_rfo_post or oc_tipo or '').strip()
         # --- FIM: detecção de ELOGIO ---
         error = None
-        # somente exigir campos de falta/medida quando NÃO for elogio
-        if not is_elogio:
+        # somente exigir campos de falta/medida quando NÃO for elogio e NÃO for reprovação
+        if not is_elogio and request.form.get('reprovar') != '1':
             if not tipos_csv:
                 error = 'Tipo de falta é obrigatório.'
             elif not falta_ids_list:

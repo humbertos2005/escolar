@@ -698,49 +698,58 @@
         }));
       }
 
-      // validate on submit — now conditional on whether RFO is Elogio
+      // ... aqui dentro termina toda a lógica principal ...
+
+      // validate on submit — agora condicional para elogio/reprovação/disciplinar
       form.addEventListener('submit', function (e) {
-        const elog = isElogio();
-        if (!elog) {
-          if (!selectedTipos || selectedTipos.length === 0) {
-            e.preventDefault();
-            alert('Por favor, adicione ao menos um Tipo de Falta antes de salvar o tratamento.');
-            return false;
+          const elog = isElogio();
+          const isReprovar = !!window._modoReprovacao;
+          if (!elog && !isReprovar) {
+              if (!selectedTipos || selectedTipos.length === 0) {
+                  e.preventDefault();
+                  alert('Por favor, adicione ao menos um Tipo de Falta antes de salvar o tratamento.');
+                  return false;
+              }
+              if (!selectedFaltas || selectedFaltas.length === 0) {
+                  e.preventDefault();
+                  alert('A descrição da falta é obrigatória. Adicione pelo menos um item/descrição.');
+                  return false;
+              }
+          } else {
+              // Elogio ou Reprovação: limpar campos para não bloquear o envio
+              if (tipoHidden) tipoHidden.value = '';
+              if (faltaHidden) faltaHidden.value = '';
+              if (medidaSelect) medidaSelect.removeAttribute('required');
           }
-          if (!selectedFaltas || selectedFaltas.length === 0) {
-            e.preventDefault();
-            alert('A descrição da falta é obrigatória. Adicione pelo menos um item/descrição.');
-            return false;
-          }
-        } else {
-          // Elogio: ensure hidden fields don't block server-side assumptions
-          if (tipoHidden) tipoHidden.value = '';
-          if (faltaHidden) faltaHidden.value = '';
-          if (medidaSelect) medidaSelect.removeAttribute('required');
-        }
-        if (tipoHidden) tipoHidden.value = selectedTipos.join(',');
-        if (faltaHidden) faltaHidden.value = selectedFaltas.map(i => i.id).join(',');
-        return true;
+          if (tipoHidden) tipoHidden.value = selectedTipos.join(',');
+          if (faltaHidden) faltaHidden.value = selectedFaltas.map(i => i.id).join(',');
+
+          // Sempre resetar o modo reprovação após o envio do formulário
+          window._modoReprovacao = false;
+          return true;
       });
-    }
 
-    // LISTENERS: radio Reincidencia change -> re-check
-    const reincRadios = qsa('input[name="reincidencia"]');
-    if (reincRadios && reincRadios.length) {
-      reincRadios.forEach(r => r.addEventListener('change', function () {
-        // Delay a little to allow radio to set before checking
-        setTimeout(() => debouncedCheck.run(), 120);
-      }));
-    }
+      // ... outros listeners ou blocos ...
 
-    // initial check
-    debouncedCheck.run();
-  }
+      // LISTENERS: radio Reincidencia change -> re-check
+      const reincRadios = qsa('input[name="reincidencia"]');
+      if (reincRadios && reincRadios.length) {
+        reincRadios.forEach(r => r.addEventListener('change', function () {
+          // Delay a little to allow radio to set before checking
+          setTimeout(() => debouncedCheck.run(), 120);
+        }));
+      }
 
-  // Initialize when DOM ready
+      // initial check
+      debouncedCheck.run();
+    } // <--- fecha bloco de tipos
+    // ... não coloque outro fechamento aqui, só finalize a função init() abaixo! ...
+  }  // <--- fecha a função init()
+
+  // Inicialização quando DOM estiver pronto
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
-})();
+})();   // <--- fechamento ÚNICO do IIFE, apenas UMA VEZ!
