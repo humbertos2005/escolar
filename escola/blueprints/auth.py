@@ -1,15 +1,14 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g
 from database import get_db
 from werkzeug.security import check_password_hash, generate_password_hash
-import sqlite3
-from datetime import datetime
-
-from .utils import login_required, admin_required, NIVEL_MAP
 from datetime import datetime, timedelta
-from .utils import gerar_token_seguro  # Se colocou lá a função acima
+
+from .utils import login_required, admin_required, NIVEL_MAP, gerar_token_seguro  # Consolidado aqui
 
 # Definição da Blueprint
 auth_bp = Blueprint('auth_bp', __name__)
+
+from models_sqlalchemy import Usuario, RecuperacaoSenhaToken, DadosEscola
 
 @auth_bp.route('/recuperar_senha', methods=['GET', 'POST'])
 def recuperar_senha():
@@ -17,9 +16,7 @@ def recuperar_senha():
         email = request.form.get('email', '').strip()
         db = get_db()
         error = None
-        user = db.execute(
-            'SELECT * FROM usuarios WHERE email = ?', (email,)
-        ).fetchone()
+        user = db.query(Usuario).filter_by(email=email).first()
         if not email:
             error = 'E-mail institucional é obrigatório.'
         elif user is None:
@@ -27,22 +24,23 @@ def recuperar_senha():
         else:
             # 1. Gera e salva token
             token = gerar_token_seguro()
-            expiracao = (datetime.now() + timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
-            db.execute("""
-                INSERT INTO recuperacao_senha_tokens (user_id, email, token, expiracao)
-                VALUES (?, ?, ?, ?)
-            """, (user['id'], email, token, expiracao))
+            expiracao = datetime.now() + timedelta(hours=1)
+            novo_token = RecuperacaoSenhaToken(
+                user_id=user.id,
+                email=email,
+                token=token,
+                expiracao=expiracao
+            )
+            db.add(novo_token)
             db.commit()
             
-            # 2. Buscar remetente, dom��nio e nome do sistema nos dados da escola
-            dados_escola = db.execute(
-                "SELECT email_remetente, senha_email_app, dominio_sistema, nome_sistema FROM dados_escola LIMIT 1"
-            ).fetchone()
+            # 2. Buscar remetente, domínio e nome do sistema nos dados da escola
+            dados_escola = db.query(DadosEscola).first()
 
-            remetente    = dados_escola['email_remetente']
-            senha_app    = dados_escola['senha_email_app']
-            dominio      = dados_escola['dominio_sistema']
-            nome_sistema = dados_escola['nome_sistema']
+            remetente    = dados_escola.email_remetente
+            senha_app    = dados_escola.senha_email_app
+            dominio      = dados_escola.dominio_sistema
+            nome_sistema = dados_escola.nome_sistema
 
             reset_link = f"{dominio}/auth/resetar_senha?token={token}"
             corpo_email = (
@@ -52,7 +50,6 @@ def recuperar_senha():
                 f"{reset_link}\n\n"
                 f"Se não foi você, ignore este e-mail."
             )
-            # Versão HTML para clientes modernos (Gmail, Outlook, etc)
             corpo_email_html = (
                 f"<p>Prezado(a),</p>"
                 f"<p>Recebemos uma solicitação de redefinição de senha para seu acesso ao sistema <b>{nome_sistema}</b>.<br>"
@@ -80,6 +77,8 @@ def recuperar_senha():
         flash(error, 'danger')
     return render_template('recuperar_senha.html')
 
+from models_sqlalchemy import Usuario
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Lógica de login e autenticação de usuário."""
@@ -97,29 +96,26 @@ def login():
         elif not password:
             error = 'Senha é obrigatória.'
         else:
-            user = db.execute(
-                'SELECT * FROM usuarios WHERE username = ?', (username,)
-            ).fetchone()
+            user = db.query(Usuario).filter_by(username=username).first()
 
             if user is None:
                 error = 'Nome de usuário incorreto ou não cadastrado.'
-            elif not check_password_hash(user['password'], password):
+            elif not check_password_hash(user.password, password):
                 error = 'Senha incorreta.'
 
         if error is None:
             session.clear()
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            session['nivel'] = user['nivel']
-            session['nivel_nome'] = NIVEL_MAP.get(user['nivel'], 'Desconhecido')
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['nivel'] = user.nivel
+            session['nivel_nome'] = NIVEL_MAP.get(user.nivel, 'Desconhecido')
             session['logged_in'] = True
-            flash(f'Bem-vindo(a), {user["username"]}!', 'success')
+            flash(f'Bem-vindo(a), {user.username}!', 'success')
             return redirect(url_for('dashboard'))
         
         flash(error, 'danger')
 
     return render_template('login.html')
-
 
 @auth_bp.route('/logout')
 @login_required
@@ -129,6 +125,8 @@ def logout():
     flash('Você foi desconectado.', 'info')
     return redirect(url_for('auth_bp.login'))
 
+
+from models_sqlalchemy import Usuario
 
 @auth_bp.route('/cadastro_usuario', methods=['GET', 'POST'])
 @admin_required
@@ -157,18 +155,23 @@ def cadastro_usuario():
         if error is None:
             try:
                 # 1. Checa se o usuário já existe
-                if db.execute('SELECT id FROM usuarios WHERE username = ?', (username,)).fetchone() is not None:
+                if db.query(Usuario).filter_by(username=username).first() is not None:
                     error = f'O nome de usuário "{username}" já está em uso.'
                 else:
                     # 2. Insere novo usuário com a data de criação
-                    db.execute(
-                        'INSERT INTO usuarios (username, password, email, nivel, data_criacao, cargo) VALUES (?, ?, ?, ?, ?, ?)',
-                        (username, generate_password_hash(password), email, nivel, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), cargo)
+                    novo_usuario = Usuario(
+                        username=username,
+                        password=generate_password_hash(password),
+                        email=email,
+                        nivel=nivel,
+                        data_criacao=datetime.now(),
+                        cargo=cargo
                     )
+                    db.add(novo_usuario)
                     db.commit()
                     flash(f'Usuário "{username}" cadastrado com sucesso!', 'success')
                     return redirect(url_for('auth_bp.gerenciar_usuarios'))
-            except sqlite3.Error as e:
+            except Exception as e:
                 db.rollback()
                 error = f'Erro ao cadastrar usuário: {e}'
         
@@ -176,15 +179,19 @@ def cadastro_usuario():
         
     return render_template('cadastro_usuario.html', nivel_map=NIVEL_MAP)
 
+from models_sqlalchemy import Usuario, RecuperacaoSenhaToken
+from werkzeug.security import generate_password_hash
+
 @auth_bp.route('/resetar_senha', methods=['GET', 'POST'])
 def resetar_senha():
     token = request.args.get('token', '').strip()
     db = get_db()
 
-    dados_token = db.execute(
-        "SELECT * FROM recuperacao_senha_tokens WHERE token = ? AND usado = 0",
-        (token,)
-    ).fetchone()
+    dados_token = (
+        db.query(RecuperacaoSenhaToken)
+        .filter_by(token=token, usado=0)
+        .first()
+    )
 
     # Verifica se o token existe e não foi usado
     if not dados_token:
@@ -192,8 +199,7 @@ def resetar_senha():
         return redirect(url_for('auth_bp.login'))
 
     # Verifica se expirou
-    from datetime import datetime
-    expiracao = datetime.strptime(dados_token['expiracao'], '%Y-%m-%d %H:%M:%S')
+    expiracao = dados_token.expiracao
     if datetime.now() > expiracao:
         flash('Token expirado! Por favor, solicite nova recuperação.', 'danger')
         return redirect(url_for('auth_bp.recuperar_senha'))
@@ -206,55 +212,44 @@ def resetar_senha():
         elif nova_senha != confirma_senha:
             flash('Senhas não coincidem.', 'danger')
         else:
-            # Troca a senha do usuário
-            from werkzeug.security import generate_password_hash
-            db.execute(
-                "UPDATE usuarios SET password = ? WHERE id = ?",
-                (generate_password_hash(nova_senha), dados_token['user_id'])
-            )
-            db.execute(
-                "UPDATE recuperacao_senha_tokens SET usado = 1, data_uso = CURRENT_TIMESTAMP WHERE id = ?",
-                (dados_token['id'],)
-            )
+            user = db.query(Usuario).filter_by(id=dados_token.user_id).first()
+            if user:
+                user.password = generate_password_hash(nova_senha)
+            dados_token.usado = 1
+            dados_token.data_uso = datetime.now()
             db.commit()
             flash('Senha redefinida com sucesso! Faça login com a nova senha.', 'success')
             return redirect(url_for('auth_bp.login'))
 
     return render_template('resetar_senha.html')
 
+from models_sqlalchemy import Usuario
+
 @auth_bp.route('/gerenciar_usuarios')
 @admin_required
 def gerenciar_usuarios():
     """Lista todos os usuários e permite gerenciamento pelo Admin Geral (TI)."""
     db = get_db()
-    
-    # CORREÇÃO: Selecionar a coluna 'data_criacao'
     try:
-        usuarios = db.execute('''
-            SELECT id, username, nivel, cargo, data_criacao 
-            FROM usuarios 
-            ORDER BY nivel, username
-        ''').fetchall()
-    except sqlite3.OperationalError as e:
-        # Fallback para o caso de a coluna data_criacao ainda não ter sido migrada
-        # Isso não deve ocorrer após rodar o servidor, pois models.py cuida da migração
-        # mas adiciona robustez.
-        if "no such column: data_criacao" in str(e):
-             usuarios = db.execute('''
-                SELECT id, username, nivel, cargo
-                FROM usuarios 
-                ORDER BY nivel, username
-            ''').fetchall()
-        else:
-            raise
+        usuarios = (
+            db.query(Usuario)
+            .order_by(Usuario.nivel, Usuario.username)
+            .all()
+        )
+    except Exception as e:
+        usuarios = []
 
     # Transforma os resultados em lista de dicionários para facilitar o uso no template
-    usuarios_list = [dict(u) for u in usuarios]
+    usuarios_list = []
+    for u in usuarios:
+        usuario_dict = {c.name: getattr(u, c.name) for c in Usuario.__table__.columns}
+        usuarios_list.append(usuario_dict)
     
     return render_template('gerenciar_usuarios.html', 
                            usuarios=usuarios_list,
                            nivel_map=NIVEL_MAP)
 
+from models_sqlalchemy import Usuario
 
 @auth_bp.route('/editar_usuario/<int:user_id>', methods=['GET', 'POST'])
 @admin_required
@@ -262,12 +257,12 @@ def editar_usuario(user_id):
     """Permite a edição de um usuário pelo Admin Geral (TI)."""
     db = get_db()
     
-    user = db.execute('SELECT id, username, nivel, cargo FROM usuarios WHERE id = ?', (user_id,)).fetchone()
+    user = db.query(Usuario).filter_by(id=user_id).first()
     if user is None:
         flash('Usuário não encontrado.', 'danger')
         return redirect(url_for('auth_bp.gerenciar_usuarios'))
         
-    user_dict = dict(user)
+    user_dict = {c.name: getattr(user, c.name) for c in Usuario.__table__.columns}
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -287,31 +282,18 @@ def editar_usuario(user_id):
             error = 'Cargo é obrigatório.'
         if error is None:
             try:
-                # Verifica se o novo username já está em uso por outro usuário
-                check_user = db.execute(
-                    'SELECT id FROM usuarios WHERE username = ? AND id != ?', 
-                    (username, user_id)
-                ).fetchone()
+                check_user = db.query(Usuario).filter(Usuario.username == username, Usuario.id != user_id).first()
                 
                 if check_user is not None:
                     error = f'O nome de usuário "{username}" já está em uso por outro usuário.'
                 else:
-                    # Monta a query de atualização
-                    params = [username, email, nivel]
-                    set_clauses = ['username = ?', 'email = ?', 'nivel = ?']
-                    set_clauses.append('cargo = ?')
-                    params.append(cargo)
-                    
+                    user.username = username
+                    user.email = email
+                    user.nivel = nivel
+                    user.cargo = cargo
                     if password and len(password) >= 6:
-                        set_clauses.append('password = ?')
-                        params.append(generate_password_hash(password))
+                        user.password = generate_password_hash(password)
                     
-                    params.append(user_id)
-                    
-                    db.execute(
-                        f'UPDATE usuarios SET {", ".join(set_clauses)} WHERE id = ?',
-                        params
-                    )
                     db.commit()
                     
                     # Se o usuário editado for o logado, atualiza a sessão
@@ -323,7 +305,7 @@ def editar_usuario(user_id):
                     flash(f'Usuário "{username}" atualizado com sucesso!', 'success')
                     return redirect(url_for('auth_bp.gerenciar_usuarios'))
 
-            except sqlite3.Error as e:
+            except Exception as e:
                 db.rollback()
                 error = f'Erro ao atualizar usuário: {e}'
 
@@ -333,13 +315,15 @@ def editar_usuario(user_id):
     return render_template('editar_usuario.html', user=user_dict, acessos=acessos)
 
 
+from models_sqlalchemy import Usuario
+
 @auth_bp.route('/excluir_usuario/<int:user_id>', methods=['POST'])
 @admin_required
 def excluir_usuario(user_id):
     """Permite a exclusão de um usuário pelo Admin Geral (TI)."""
     db = get_db()
     
-    user = db.execute('SELECT nivel, username FROM usuarios WHERE id = ?', (user_id,)).fetchone()
+    user = db.query(Usuario).filter_by(id=user_id).first()
     if user is None:
         flash('Usuário não encontrado.', 'danger')
         return redirect(url_for('auth_bp.gerenciar_usuarios'))
@@ -350,15 +334,16 @@ def excluir_usuario(user_id):
         return redirect(url_for('auth_bp.gerenciar_usuarios'))
     
     # Proteção: Não permite excluir outro Admin Geral (Nível 1)
-    if user['nivel'] == 1:
+    if user.nivel == 1:
         flash('Você não pode excluir outro Admin Geral (TI).', 'danger')
         return redirect(url_for('auth_bp.gerenciar_usuarios'))
         
     try:
-        db.execute('DELETE FROM usuarios WHERE id = ?', (user_id,))
+        username_excluido = user.username
+        db.delete(user)
         db.commit()
-        flash(f'Usuário "{user["username"]}" excluído com sucesso.', 'success')
-    except sqlite3.Error as e:
+        flash(f'Usuário "{username_excluido}" excluído com sucesso.', 'success')
+    except Exception as e:
         db.rollback()
         flash(f'Erro ao excluir usuário: {e}', 'danger')
         

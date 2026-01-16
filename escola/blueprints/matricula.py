@@ -11,8 +11,6 @@ Retorno JSON:
   { "ok": True/False, "updated": True/False, "data_matricula_stored": "YYYY-MM-DD" }
 """
 from flask import Blueprint, request, jsonify, current_app
-import sqlite3
-import os
 from datetime import datetime
 
 bp_matricula = Blueprint("matricula_bp", __name__)
@@ -23,9 +21,6 @@ try:
     login_required = getattr(_utils_mod, "login_required", lambda f: f)
 except Exception:
     login_required = lambda f: f
-
-# caminho relativo ao arquivo do projeto (assume escola.db na raiz do repo)
-DB_PATH = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "escola.db")
 
 def br_to_iso(date_str):
     """Converte dd/mm/aaaa -> YYYY-MM-DD. Se já for ISO, retorna como está."""
@@ -45,6 +40,9 @@ def br_to_iso(date_str):
     except Exception:
         return None
 
+from models_sqlalchemy import Aluno
+from database import get_db
+
 @bp_matricula.route("/alunos/<int:aluno_id>/matricula", methods=["POST"])
 @login_required
 def update_data_matricula(aluno_id):
@@ -58,27 +56,15 @@ def update_data_matricula(aluno_id):
     if raw and not iso:
         return jsonify({"ok": False, "error": "Formato de data inválido. Use dd/mm/aaaa ou YYYY-MM-DD."}), 400
 
-    if not os.path.exists(DB_PATH):
-        return jsonify({"ok": False, "error": f"DB não encontrado em {DB_PATH}"}), 500
-
+    db = get_db()
     try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-        # verifica se aluno existe
-        r = cur.execute("SELECT id FROM alunos WHERE id = ?", (aluno_id,)).fetchone()
-        if not r:
+        aluno = db.query(Aluno).filter_by(id=aluno_id).first()
+        if not aluno:
             return jsonify({"ok": False, "error": "Aluno não encontrado"}), 404
 
-        # atualiza (pode ser NULL)
-        cur.execute("UPDATE alunos SET data_matricula = ? WHERE id = ?", (iso, aluno_id))
-        conn.commit()
+        aluno.data_matricula = iso
+        db.commit()
         return jsonify({"ok": True, "updated": True, "data_matricula_stored": iso}), 200
     except Exception as e:
         current_app.logger.exception("Erro update data_matricula")
         return jsonify({"ok": False, "error": str(e)}), 500
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass

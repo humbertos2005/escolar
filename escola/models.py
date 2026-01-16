@@ -1,4 +1,11 @@
-﻿import sqlite3
+﻿# =============================================================================
+# AVISO: Arquivo LEGADO!
+# Não usar para novos desenvolvimentos.
+# Sistema migrado para SQLAlchemy (ver models_sqlalchemy.py).
+# Este arquivo permanece apenas por referência/histórico.
+# =============================================================================
+
+import sqlite3
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 from flask import current_app, g

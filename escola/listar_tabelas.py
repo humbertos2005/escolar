@@ -1,15 +1,11 @@
-import sqlite3
-
 import os
-db_path = os.environ.get("DATABASE_FILE", "escola.db")
-conn = sqlite3.connect(db_path)
-cursor = conn.cursor()
+from sqlalchemy import create_engine, inspect
 
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-tabelas = cursor.fetchall()
+# Caminho do banco pelo ambiente ou padrão
+db_path = os.environ.get("DATABASE_FILE", "escola.db")
+engine = create_engine(f"sqlite:///{db_path}")
+inspector = inspect(engine)
 
 print("Tabelas encontradas:")
-for tabela in tabelas:
-    print("-", tabela[0])
-
-conn.close()
+for tabela in inspector.get_table_names():
+    print("-", tabela)

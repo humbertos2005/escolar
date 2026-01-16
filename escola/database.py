@@ -1,8 +1,6 @@
-﻿import sqlite3
-from flask import g
-import locale
+﻿import locale
 
-# Tentar configurar localizaÃ§Ã£o brasileira
+# Tentar configurar localização brasileira
 try:
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 except:
@@ -12,73 +10,59 @@ except:
         try:
             locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil')
         except:
-            print("   [AVISO] NÃ£o foi possÃ­vel configurar localizaÃ§Ã£o PT-BR")
+            print("   [AVISO] Não foi possível configurar localização PT-BR")
 
-import os
-DATABASE = os.environ.get("DATABASE_FILE", "escola.db")
+from flask import g
+from .db_config import SessionLocal, engine
 
 def get_db():
     """
-    Retorna a conexÃ£o com o banco de dados. 
-    Cria uma nova se nÃ£o existir no contexto de requisiÃ§Ã£o.
+    Retorna a sessão do banco de dados. Cria uma nova se não existir no contexto da requisição.
     """
-    db = getattr(g, '_database', None)
+    db = getattr(g, "_session_db", None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        # Permite acesso Ã s colunas como atributos de dicionÃ¡rio
-        db.row_factory = sqlite3.Row
-        # Habilita chaves estrangeiras para integridade referencial
-        db.execute('PRAGMA foreign_keys = ON')
+        db = g._session_db = SessionLocal()
     return db
-
-def init_db():
-    """
-    FunÃ§Ã£o de inicializaÃ§Ã£o bÃ¡sica do banco de dados.
-    Garante que o arquivo exista e cria as tabelas.
-    """
-    # ImportaÃ§Ã£o local para evitar circularidade, jÃ¡ que models.py importa get_db de database.py
-    from models import criar_tabelas
-    criar_tabelas()
 
 def close_db(e=None):
     """
-    Fecha a conexÃ£o com o banco de dados se ela tiver sido aberta no contexto.
-    Usada principalmente com @app.teardown_appcontext.
+    Fecha a sessão do banco de dados, se aberta no contexto.
+    Usado com @app.teardown_appcontext.
     """
-    db = getattr(g, '_database', None)
+    db = getattr(g, "_session_db", None)
     if db is not None:
         db.close()
 
+def init_db():
+    """
+    Inicializa o banco de dados criando todas as tabelas a partir dos models (ORM).
+    """
+    from .models_sqlalchemy import Base  # Garanta que Base está em models_sqlalchemy.py
+    Base.metadata.create_all(bind=engine)
 
-def executar_query(query, params=(), fetch_one=False, fetch_all=False):
+def executar_query(query_fn, fetch_one=False, fetch_all=False):
     """
-    FunÃ§Ã£o auxiliar para executar queries com tratamento de erro.
-    Ãštil para operaÃ§Ãµes que nÃ£o estÃ£o no contexto de requisiÃ§Ã£o Flask.
+    Executa função recebendo uma sessão SQLAlchemy, retornando resultado.
+    Exemplo de uso:
+        def exemplo(sess):
+            return sess.query(Tabela).filter(...).first()
+        dado = executar_query(exemplo, fetch_one=True)
     """
-    conn = None
+    db = SessionLocal()
+    result = None
     try:
-        conn = sqlite3.connect(DATABASE)
-        conn.row_factory = sqlite3.Row
-        conn.execute('PRAGMA foreign_keys = ON')
-        cursor = conn.cursor()
-        cursor.execute(query, params)
-        
+        data = query_fn(db)
         if fetch_one:
-            result = cursor.fetchone()
+            result = data if data else None
         elif fetch_all:
-            result = cursor.fetchall()
+            result = data if data else []
         else:
-            result = cursor
-            
-        conn.commit()
+            result = data
+        db.commit()
         return result
-        
-    except sqlite3.Error as e:
-        if conn:
-            conn.rollback()
+    except Exception as e:
+        db.rollback()
         print(f"Erro ao executar query: {e}")
         return None
-        
     finally:
-        if conn:
-            conn.close()
+        db.close()
