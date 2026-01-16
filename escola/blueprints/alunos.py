@@ -48,14 +48,14 @@ def process_aluno_data(data_source):
 
     data['telefone'] = ', '.join(telefones) if telefones else ''
 
-    # Normaliza para MAI�SCULAS (Unicode-aware) EXCETO email e data_matricula
+    # Normaliza para MAI�SCULAS (Unicode-aware) EXCETO email e data_matrícula
     for k, v in list(data.items()):
         if k in ('email', 'data_matricula'):
             continue
         if isinstance(v, str) and v != '':
             data[k] = v.upper()
 
-    # Convers�o data_matricula para formato ISO (YYYY-MM-DD) se necess�rio
+    # Convers�o data_matrícula para formato ISO (YYYY-MM-DD) se necess�rio
     from datetime import datetime
     if data.get('data_matricula'):
         try:
@@ -133,9 +133,9 @@ def adicionar_aluno():
 
         # Valida��es
         if not data['matricula']:
-            error = 'A matr�cula � obrigat�ria.'
+            error = 'A matrícula é obrigatória.'
         elif not validar_matricula(data['matricula']):
-            error = 'Matr�cula inv�lida. Deve ter no m�nimo 3 caracteres.'
+            error = 'Matrícula inválida. Deve ter no mínimo 3 caracteres.'
         elif not data['nome']:
             error = 'O nome do aluno � obrigat�rio.'
         elif len(data['nome']) < 3:

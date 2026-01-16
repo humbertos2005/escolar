@@ -87,7 +87,7 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('logged_in'):
-            flash('Voc� precisa fazer login para acessar esta p�gina.', 'warning')
+            flash('Você precisa fazer login para acessar esta página.', 'warning')
             return redirect(url_for('auth_bp.login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -97,8 +97,8 @@ def admin_required(f):
     """Verifica se o usu�rio logado � Admin Geral (N�vel 1) ou Admin Secund�rio (N�vel 2)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if session.get('nivel') not in [1, 2]:  # permite n�vel 1 E 2
-            flash('Acesso negado. Apenas administradores podem acessar esta �rea.', 'danger')
+        if session.get('nivel') not in [1, 2, '1', '2']:
+            flash('Acesso negado. Apenas administradores podem acessar esta área.', 'danger')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
@@ -108,7 +108,7 @@ def admin_secundario_required(f):
     """Verifica se o usu�rio logado � Admin Geral (1) ou Admin Secund�rio (2)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if session.get('nivel') not in [1, 2]:
+        if session.get('nivel') not in [1, 2, '1', '2']:
             flash('RFO encaminhada para tratamento.', 'success')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
