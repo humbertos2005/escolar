@@ -2,7 +2,6 @@ import sqlite3
 
 def init_db(db_path):
     conn = sqlite3.connect(db_path)
-    conn.execute('PRAGMA foreign_keys = ON')
     cursor = conn.cursor()
 
     # USUARIOS
@@ -24,14 +23,8 @@ def init_db(db_path):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT,
             nascimento DATE,
-            turma TEXT,
-            responsavel TEXT,
-            cpf TEXT,
-            usuario_cadastro_id INTEGER,
-            email TEXT,
-            telefone TEXT,
-            data_matricula TEXT,
-            FOREIGN KEY (usuario_cadastro_id) REFERENCES usuarios(id)
+            turma TEXT
+            -- acrescente outros campos conforme sua lógica, ex: responsavel, cpf, etc
         );
     ''')
 
@@ -40,24 +33,23 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS telefones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             aluno_id INTEGER,
-            numero TEXT,
-            FOREIGN KEY(aluno_id) REFERENCES alunos(id) ON DELETE CASCADE
+            numero TEXT
         );
     ''')
 
     # RFO_SEQUENCIA
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS rfo_sequencia (
-            ano TEXT PRIMARY KEY,
-            numero INTEGER NOT NULL
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            descricao TEXT
         );
     ''')
 
     # FMD_SEQUENCIA
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS fmd_sequencia (
-            ano TEXT PRIMARY KEY,
-            numero INTEGER NOT NULL
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            descricao TEXT
         );
     ''')
 
@@ -73,9 +65,8 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS faltas_disciplinares (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            natureza TEXT,
-            descricao TEXT,
-            data_criacao TEXT
+            nome TEXT,
+            descricao TEXT
         );
     ''')
 
@@ -86,8 +77,7 @@ def init_db(db_path):
             aluno_id INTEGER,
             tipo TEXT,
             descricao TEXT,
-            data_criacao TEXT,
-            FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE
+            data TEXT
         );
     ''')
 
@@ -96,42 +86,10 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS ocorrencias (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             aluno_id INTEGER,
-            tipo_ocorrencia_id INTEGER,
-            data_ocorrencia TEXT,
-            observador_id INTEGER,
-            relato_observador TEXT,
-            advertencia_oral TEXT,
-            material_recolhido TEXT,
-            data_registro TEXT,
-            hora_ocorrencia TEXT,
-            local_ocorrencia TEXT,
-            infracao_id INTEGER,
-            descricao_detalhada TEXT,
-            status TEXT,
-            data_tratamento TEXT,
-            tipo_falta TEXT,
-            medida_aplicada TEXT,
-            observacao_tratamento TEXT,
-            reincidencia INTEGER,
-            responsavel_registro_id INTEGER,
-            observador_nome TEXT,
-            relato_estudante TEXT,
-            despacho_gestor TEXT,
-            data_despacho TEXT,
-            falta_disciplinar_id INTEGER,
-            tipo_ocorrencia_text TEXT,
-            subtipo_elogio TEXT,
-            tratamento_tipo TEXT,
-            observador_advertencia_oral TEXT,
-            pontos_aplicados INTEGER,
-            falta_ids_csv TEXT,
-            circunstancias_atenuantes TEXT,
-            circunstancias_agravantes TEXT,
-            FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE,
-            FOREIGN KEY (tipo_ocorrencia_id) REFERENCES tipos_ocorrencia(id),
-            FOREIGN KEY (falta_disciplinar_id) REFERENCES faltas_disciplinares(id),
-            FOREIGN KEY (responsavel_registro_id) REFERENCES usuarios(id),
-            FOREIGN KEY (observador_id) REFERENCES usuarios(id)
+            tipo_id INTEGER,
+            data TEXT,
+            descricao TEXT
+            -- Adicione novas colunas conforme seu banco: circunstâncias, atenuantes, agravantes, etc
         );
     ''')
 
@@ -139,45 +97,10 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS ficha_medida_disciplinar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fmd_id TEXT,
             aluno_id INTEGER,
-            rfo_id TEXT,
-            data_fmd TEXT,
-            tipo_falta TEXT,
-            medida_aplicada TEXT,
-            descricao_falta TEXT,
-            observacoes TEXT,
-            responsavel_id INTEGER,
-            data_registro TEXT,
-            status TEXT,
-            data_falta TEXT,
-            falta_disciplinar_ids TEXT,
-            tipo_falta_list TEXT,
-            relato TEXT,
-            medida_aplicada_outra TEXT,
-            comportamento_id INTEGER,
-            pontuacao_id INTEGER,
-            comparecimento TEXT,
-            prazo_comparecimento TEXT,
-            atenuantes_id TEXT,
-            agravantes_id TEXT,
-            gestor_id INTEGER,
-            created_at TEXT,
-            updated_at TEXT,
-            baixa INTEGER,
-            relato_faltas TEXT,
-            itens_faltas_ids TEXT,
-            comparecimento_responsavel TEXT,
-            atenuantes TEXT,
-            agravantes TEXT,
-            pontos_aplicados INTEGER,
-            email_enviado_data TEXT,
-            email_enviado_para TEXT,
-            FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE,
-            FOREIGN KEY (responsavel_id) REFERENCES usuarios(id),
-            FOREIGN KEY (comportamento_id) REFERENCES comportamentos(id),
-            FOREIGN KEY (pontuacao_id) REFERENCES pontuacao_bimestral(id),
-            FOREIGN KEY (gestor_id) REFERENCES usuarios(id)
+            medida TEXT,
+            data TEXT
+            -- acrescente campos para: data_falta, falta_disciplinar_ids, relato, comparecimento, etc
         );
     ''')
 
@@ -185,9 +108,7 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS comportamentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            descricao TEXT,
-            pontuacao INTEGER,
-            data_criacao TEXT
+            descricao TEXT
         );
     ''')
 
@@ -195,9 +116,7 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS circunstancias (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo TEXT,
-            descricao TEXT,
-            data_criacao TEXT
+            descricao TEXT
         );
     ''')
 
@@ -206,10 +125,7 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS ocorrencias_alunos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             aluno_id INTEGER,
-            ocorrencia_id INTEGER,
-            criado_em TEXT,
-            FOREIGN KEY(aluno_id) REFERENCES alunos(id) ON DELETE CASCADE,
-            FOREIGN KEY(ocorrencia_id) REFERENCES ocorrencias(id) ON DELETE CASCADE
+            ocorrencia_id INTEGER
         );
     ''')
 
@@ -218,13 +134,12 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS pontuacao_bimestral (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             aluno_id INTEGER NOT NULL,
-            ano TEXT NOT NULL,
+            ano INTEGER NOT NULL,
             bimestre INTEGER NOT NULL,
             pontuacao_inicial REAL NOT NULL DEFAULT 8.0,
             pontuacao_atual REAL NOT NULL DEFAULT 8.0,
-            atualizado_em TEXT,
-            UNIQUE(aluno_id, ano, bimestre),
-            FOREIGN KEY(aluno_id) REFERENCES alunos(id) ON DELETE CASCADE
+            atualizado_em DATETIME DEFAULT (datetime('now')),
+            UNIQUE(aluno_id, ano, bimestre)
         );
     ''')
 
@@ -233,17 +148,14 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS pontuacao_historico (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             aluno_id INTEGER NOT NULL,
-            ano TEXT,
+            ano INTEGER,
             bimestre INTEGER,
             ocorrencia_id INTEGER,
             fmd_id INTEGER,
             tipo_evento TEXT,
             valor_delta REAL NOT NULL,
             observacao TEXT,
-            criado_em TEXT,
-            FOREIGN KEY(aluno_id) REFERENCES alunos(id),
-            FOREIGN KEY(ocorrencia_id) REFERENCES ocorrencias(id),
-            FOREIGN KEY(fmd_id) REFERENCES ficha_medida_disciplinar(id)
+            criado_em DATETIME DEFAULT (datetime('now'))
         );
     ''')
 
@@ -254,7 +166,7 @@ def init_db(db_path):
             chave TEXT UNIQUE NOT NULL,
             valor REAL NOT NULL,
             descricao TEXT,
-            atualizado_em TEXT
+            atualizado_em DATETIME DEFAULT (datetime('now'))
         );
     ''')
 
@@ -262,14 +174,13 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS bimestres (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ano TEXT NOT NULL,
+            ano INTEGER NOT NULL,
             numero INTEGER NOT NULL,
-            inicio TEXT,
-            fim TEXT,
+            inicio DATE,
+            fim DATE,
             responsavel_id INTEGER,
-            criado_em TEXT,
-            UNIQUE(ano, numero),
-            FOREIGN KEY (responsavel_id) REFERENCES usuarios(id)
+            criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(ano, numero)
         );
     ''')
 
@@ -310,8 +221,7 @@ def init_db(db_path):
             senha_email_app TEXT,
             telefone TEXT,
             dominio_sistema TEXT,
-            nome_sistema TEXT,
-            FOREIGN KEY(cabecalho_id) REFERENCES cabecalhos(id)
+            nome_sistema TEXT
         );
     ''')
 
@@ -320,13 +230,8 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS prontuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             aluno_id INTEGER,
-            registros_fatos TEXT,
-            circunstancias_atenuantes TEXT,
-            circunstancias_agravantes TEXT,
-            created_at TEXT,
-            numero TEXT,
-            deleted INTEGER,
-            FOREIGN KEY(aluno_id) REFERENCES alunos(id) ON DELETE CASCADE
+            descricao TEXT,
+            data TEXT
         );
     ''')
 
@@ -335,9 +240,7 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS ocorrencias_faltas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ocorrencia_id INTEGER,
-            falta_id INTEGER,
-            FOREIGN KEY(ocorrencia_id) REFERENCES ocorrencias(id) ON DELETE CASCADE,
-            FOREIGN KEY(falta_id) REFERENCES faltas_disciplinares(id) ON DELETE CASCADE
+            falta_id INTEGER
         );
     ''')
 
@@ -345,10 +248,9 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS ocorrencias_removidas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            original_id INTEGER,
+            ocorrencia_id INTEGER,
             motivo TEXT,
-            removed_at TEXT,
-            FOREIGN KEY(original_id) REFERENCES ocorrencias(id)
+            data_remocao TEXT
         );
     ''')
 
@@ -358,8 +260,7 @@ def init_db(db_path):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             prontuario_id INTEGER,
             descricao TEXT,
-            data TEXT,
-            FOREIGN KEY(prontuario_id) REFERENCES prontuarios(id) ON DELETE CASCADE
+            data TEXT
         );
     ''')
 
@@ -367,21 +268,9 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tacs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            numero TEXT,
-            aluno_id INTEGER,
-            cabecalho_id INTEGER,
-            escola_text TEXT,
-            serie TEXT,
-            turma TEXT,
-            responsavel TEXT, 
-            diretor_nome TEXT,
-            fato TEXT,
-            prazo TEXT,
-            created_at TEXT,
-            updated_at TEXT,
-            deleted INTEGER,
-            FOREIGN KEY(aluno_id) REFERENCES alunos(id),
-            FOREIGN KEY(cabecalho_id) REFERENCES cabecalhos(id)
+            descricao TEXT,
+            data TEXT,
+            baixa INTEGER DEFAULT 0
         );
     ''')
 
@@ -390,9 +279,7 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS tac_obrigacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tac_id INTEGER,
-            descricao TEXT,
-            ordem INTEGER,
-            FOREIGN KEY(tac_id) REFERENCES tacs(id) ON DELETE CASCADE
+            obrigacao TEXT
         );
     ''')
 
@@ -401,10 +288,7 @@ def init_db(db_path):
         CREATE TABLE IF NOT EXISTS tac_participantes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tac_id INTEGER,
-            nome TEXT,
-            cargo TEXT,
-            ordem INTEGER,
-            FOREIGN KEY(tac_id) REFERENCES tacs(id) ON DELETE CASCADE
+            nome TEXT
         );
     ''')
 
@@ -412,17 +296,8 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS atas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            aluno_id INTEGER,
-            aluno_nome TEXT,
-            serie_turma TEXT,
-            numero TEXT,
-            ano TEXT,
-            conteudo TEXT,
-            created_at TEXT,
-            updated_at TEXT,
-            created_by TEXT,
-            participants_json TEXT,
-            FOREIGN KEY(aluno_id) REFERENCES alunos(id)
+            descricao TEXT,
+            data TEXT
         );
     ''')
 
@@ -430,11 +305,8 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS prontuario_rfo (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ocorrencia_id INTEGER,
             prontuario_id INTEGER,
-            created_at TEXT,
-            FOREIGN KEY(prontuario_id) REFERENCES prontuarios(id),
-            FOREIGN KEY(ocorrencia_id) REFERENCES ocorrencias(id)
+            rfo TEXT
         );
     ''')
 
@@ -442,14 +314,9 @@ def init_db(db_path):
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS recuperacao_senha_tokens (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            email TEXT,
+            usuario_id INTEGER,
             token TEXT,
-            data_criacao TEXT,
-            expiracao TEXT,
-            usado INTEGER,
-            data_uso TEXT,
-            FOREIGN KEY(user_id) REFERENCES usuarios(id)
+            data_criacao TEXT
         );
     ''')
 

@@ -240,10 +240,6 @@
                 <button type="submit" class="button btn-success btn-lg">
                     <i class="fas fa-check"></i> Aprovar
                 </button>
-                <!-- INCLUSÃO ABAIXO -->
-                <button type="button" name="reprovar" value="1" class="button btn-danger btn-lg" id="btn-reprovar" style="margin-left:10px;">
-                    <i class="fas fa-times"></i> Reprovar
-                </button>
                 <a href="{{ url_for('disciplinar_bp.listar_rfo') }}" class="button btn-secondary btn-lg">
                     <i class="fas fa-arrow-left"></i> Voltar
                 </a>
@@ -259,7 +255,6 @@
     </div>
 
 </div>
-{% endblock %}
 
 <style>
 /* Visuais e helpers */
@@ -320,34 +315,10 @@
 {% block scripts %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/tratar_rfo.js') }}?v={{ range(1,100000) | random }}"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const btnReprovar = document.getElementById('btn-reprovar');
-    const form = document.getElementById('form-tratar-rfo');
-    if (btnReprovar && form) {
-        btnReprovar.addEventListener('click', function(e) {
-            e.preventDefault();
-            window._modoReprovacao = true;
-            // Remove required e limpa os campos obrigatórios para reprovação
-            ['tipo_falta_list', 'falta_search', 'falta_disciplinar_ids', 'medida_aplicada', 'tratamento_classificacao'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.required = false;
-                    if (el.type === 'text' || el.type === 'hidden' || el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-                        el.value = '';
-                    }
-                }
-            });
-            // Só mantém required nos dois campos essenciais
-            document.getElementById('despacho_gestor')?.setAttribute('required', 'required');
-            document.getElementById('data_despacho')?.setAttribute('required', 'required');
-            // Submit programático
-            form.submit();
-        });
-    }
-});
-</script>
 {% endblock %}
+
+{% endblock %}
+
 
 
 

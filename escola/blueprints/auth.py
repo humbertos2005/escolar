@@ -262,7 +262,7 @@ def editar_usuario(user_id):
     """Permite a edição de um usuário pelo Admin Geral (TI)."""
     db = get_db()
     
-    user = db.execute('SELECT id, username, nivel, cargo, email FROM usuarios WHERE id = ?', (user_id,)).fetchone()
+    user = db.execute('SELECT id, username, nivel, cargo FROM usuarios WHERE id = ?', (user_id,)).fetchone()
     if user is None:
         flash('Usuário não encontrado.', 'danger')
         return redirect(url_for('auth_bp.gerenciar_usuarios'))

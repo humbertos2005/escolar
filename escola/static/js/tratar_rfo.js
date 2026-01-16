@@ -55,39 +55,6 @@
     const resultEl = document.getElementById('reincidenciaResult');
     const reclassifyContainer = document.getElementById('reclassifyContainer');
     const form = document.getElementById('form-tratar-rfo');
-    const btnReprovar = document.getElementById('btn-reprovar');
-    if (btnReprovar && form) {
-        btnReprovar.addEventListener('click', function(e) {
-            e.preventDefault();
-            window._modoReprovacao = true;
-
-            // GARANTE QUE O BACKEND RECEBA. REMOVE se já existir, sempre insira:
-            let reprovarInput = form.querySelector('[name="reprovar"]');
-            if (reprovarInput) {
-                reprovarInput.value = '1';
-            } else {
-                reprovarInput = document.createElement('input');
-                reprovarInput.type = 'hidden';
-                reprovarInput.name = 'reprovar';
-                reprovarInput.value = '1';
-                form.appendChild(reprovarInput);
-            }
-
-            // Limpa arrays, renders, required, valores
-            selectedTipos = [];
-            selectedFaltas = [];
-            renderTipos();
-            renderFaltas();
-            if (tipoHidden) tipoHidden.value = '';
-            if (faltaHidden) faltaHidden.value = '';
-            if (medidaSelect) medidaSelect.removeAttribute('required');
-            document.getElementById('despacho_gestor')?.setAttribute('required', 'required');
-            document.getElementById('data_despacho')?.setAttribute('required', 'required');
-
-            form.submit();
-        });
-    }
-
     // -- Inserir imediatamente após: const form = document.getElementById('form-tratar-rfo');
     if (form) {
       form.addEventListener('submit', function (ev) {
@@ -731,68 +698,49 @@
         }));
       }
 
-      // ... aqui dentro termina toda a lógica principal ...
-
-      // validate on submit — agora condicional para elogio/reprovação/disciplinar
+      // validate on submit — now conditional on whether RFO is Elogio
       form.addEventListener('submit', function (e) {
-          const elog = isElogio();
-          const isReprovar = !!window._modoReprovacao;
-          if (!elog && !isReprovar) {
-              if (!selectedTipos || selectedTipos.length === 0) {
-                  e.preventDefault();
-                  alert('Por favor, adicione ao menos um Tipo de Falta antes de salvar o tratamento.');
-                  return false;
-              }
-              if (!selectedFaltas || selectedFaltas.length === 0) {
-                  e.preventDefault();
-                  alert('A descrição da falta é obrigatória. Adicione pelo menos um item/descrição.');
-                  return false;
-              }
-          } else if (isReprovar) {
-              // MODO REPROVAR: limpa os campos de falta/tipo e arrays JS,
-              // só mantém despacho do gestor e data obrigatórios, libera o submit!
-              selectedTipos = [];
-              selectedFaltas = [];
-              if (tipoHidden) tipoHidden.value = '';
-              if (faltaHidden) faltaHidden.value = '';
-              if (medidaSelect) medidaSelect.removeAttribute('required');
-              // manter despacho gestor/data despachor como obrigatórios (required no HTML)
-          } else {
-              // Elogio: limpeza como antes
-              if (tipoHidden) tipoHidden.value = '';
-              if (faltaHidden) faltaHidden.value = '';
-              if (medidaSelect) medidaSelect.removeAttribute('required');
+        const elog = isElogio();
+        if (!elog) {
+          if (!selectedTipos || selectedTipos.length === 0) {
+            e.preventDefault();
+            alert('Por favor, adicione ao menos um Tipo de Falta antes de salvar o tratamento.');
+            return false;
           }
-
-          if (tipoHidden) tipoHidden.value = selectedTipos.join(',');
-          if (faltaHidden) faltaHidden.value = selectedFaltas.map(i => i.id).join(',');
-
-          // Sempre resetar o modo reprovação após o envio do formulário
-          window._modoReprovacao = false;
-          return true;
+          if (!selectedFaltas || selectedFaltas.length === 0) {
+            e.preventDefault();
+            alert('A descrição da falta é obrigatória. Adicione pelo menos um item/descrição.');
+            return false;
+          }
+        } else {
+          // Elogio: ensure hidden fields don't block server-side assumptions
+          if (tipoHidden) tipoHidden.value = '';
+          if (faltaHidden) faltaHidden.value = '';
+          if (medidaSelect) medidaSelect.removeAttribute('required');
+        }
+        if (tipoHidden) tipoHidden.value = selectedTipos.join(',');
+        if (faltaHidden) faltaHidden.value = selectedFaltas.map(i => i.id).join(',');
+        return true;
       });
+    }
 
-      // ... outros listeners ou blocos ...
+    // LISTENERS: radio Reincidencia change -> re-check
+    const reincRadios = qsa('input[name="reincidencia"]');
+    if (reincRadios && reincRadios.length) {
+      reincRadios.forEach(r => r.addEventListener('change', function () {
+        // Delay a little to allow radio to set before checking
+        setTimeout(() => debouncedCheck.run(), 120);
+      }));
+    }
 
-      // LISTENERS: radio Reincidencia change -> re-check
-      const reincRadios = qsa('input[name="reincidencia"]');
-      if (reincRadios && reincRadios.length) {
-        reincRadios.forEach(r => r.addEventListener('change', function () {
-          // Delay a little to allow radio to set before checking
-          setTimeout(() => debouncedCheck.run(), 120);
-        }));
-      }
+    // initial check
+    debouncedCheck.run();
+  }
 
-      // initial check
-      debouncedCheck.run();
-    } // <--- fecha bloco de tipos
-    // ... não coloque outro fechamento aqui, só finalize a função init() abaixo! ...
-  }  // <--- fecha a função init()
-
-  // Inicialização quando DOM estiver pronto
+  // Initialize when DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
-})();   // <--- fechamento ÚNICO do IIFE, apenas UMA VEZ!
+})();

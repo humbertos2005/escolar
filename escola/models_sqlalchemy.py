@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
+# Usuários do sistema
 class Usuario(Base):
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True)
@@ -13,6 +14,7 @@ class Usuario(Base):
     cargo = Column(String)
     email = Column(String)
 
+# Alunos
 class Aluno(Base):
     __tablename__ = "alunos"
     id = Column(Integer, primary_key=True)
@@ -32,28 +34,32 @@ class Aluno(Base):
     cidade = Column(String)
     estado = Column(String)
     data_cadastro = Column(String)
-    usuario_cadastro_id = Column(Integer, ForeignKey("usuarios.id"))  # Agora é FK
+    usuario_cadastro_id = Column(Integer)
     telefone = Column(String)
     photo = Column(String)
     data_matricula = Column(String)
     data_nascimento = Column(String)
 
+# Telefones
 class Telefone(Base):
     __tablename__ = "telefones"
     id = Column(Integer, primary_key=True)
     aluno_id = Column(Integer, ForeignKey("alunos.id"))
     numero = Column(String)
 
+# Sequência do RFO
 class RFOSequencia(Base):
     __tablename__ = "rfo_sequencia"
     ano = Column(String, primary_key=True)
     numero = Column(Integer)
 
+# Tipos de ocorrência
 class TipoOcorrencia(Base):
     __tablename__ = "tipos_ocorrencia"
     id = Column(Integer, primary_key=True)
     nome = Column(String)
 
+# Ocorrências
 class Ocorrencia(Base):
     __tablename__ = "ocorrencias"
     id = Column(Integer, primary_key=True)
@@ -69,7 +75,7 @@ class Ocorrencia(Base):
     hora_ocorrencia = Column(String)
     local_ocorrencia = Column(String)
     tipo_ocorrencia = Column(String)
-    infracao_id = Column(Integer)  # Sem tabela definida
+    infracao_id = Column(Integer)
     descricao_detalhada = Column(String)
     status = Column(String)
     data_tratamento = Column(String)
@@ -92,12 +98,14 @@ class Ocorrencia(Base):
     circunstancias_atenuantes = Column(String)
     circunstancias_agravantes = Column(String)
 
+# Sequência FMD
 class FMDSequencia(Base):
     __tablename__ = "fmd_sequencia"
     ano = Column(String, primary_key=True)
     numero = Column(Integer)
     seq = Column(Integer)
 
+# Faltas Disciplinares
 class FaltaDisciplinar(Base):
     __tablename__ = "faltas_disciplinares"
     id = Column(Integer, primary_key=True)
@@ -105,6 +113,7 @@ class FaltaDisciplinar(Base):
     descricao = Column(String)
     data_criacao = Column(String)
 
+# Elogios
 class Elogio(Base):
     __tablename__ = "elogios"
     id = Column(Integer, primary_key=True)
@@ -112,6 +121,7 @@ class Elogio(Base):
     descricao = Column(String)
     data_criacao = Column(String)
 
+# Comportamentos
 class Comportamento(Base):
     __tablename__ = "comportamentos"
     id = Column(Integer, primary_key=True)
@@ -119,6 +129,7 @@ class Comportamento(Base):
     pontuacao = Column(Integer)
     data_criacao = Column(String)
 
+# Circunstâncias
 class Circunstancia(Base):
     __tablename__ = "circunstancias"
     id = Column(Integer, primary_key=True)
@@ -126,6 +137,7 @@ class Circunstancia(Base):
     descricao = Column(String)
     data_criacao = Column(String)
 
+# Bimestres
 class Bimestre(Base):
     __tablename__ = "bimestres"
     id = Column(Integer, primary_key=True)
@@ -133,9 +145,10 @@ class Bimestre(Base):
     numero = Column(Integer)
     inicio = Column(String)
     fim = Column(String)
-    responsavel_id = Column(Integer, ForeignKey("usuarios.id"))
+    responsavel_id = Column(Integer)
     criado_em = Column(String)
 
+# Tabela Disciplinar Config
 class TabelaDisciplinarConfig(Base):
     __tablename__ = "tabela_disciplinar_config"
     id = Column(Integer, primary_key=True)
@@ -144,6 +157,7 @@ class TabelaDisciplinarConfig(Base):
     descricao = Column(String)
     atualizado_em = Column(String)
 
+# Pontuação Bimestral
 class PontuacaoBimestral(Base):
     __tablename__ = "pontuacao_bimestral"
     id = Column(Integer, primary_key=True)
@@ -154,6 +168,7 @@ class PontuacaoBimestral(Base):
     pontuacao_atual = Column(Integer)
     atualizado_em = Column(String)
 
+# Pontuação Histórico
 class PontuacaoHistorico(Base):
     __tablename__ = "pontuacao_historico"
     id = Column(Integer, primary_key=True)
@@ -161,12 +176,13 @@ class PontuacaoHistorico(Base):
     ano = Column(String)
     bimestre = Column(Integer)
     ocorrencia_id = Column(Integer, ForeignKey("ocorrencias.id"))
-    fmd_id = Column(Integer, ForeignKey("ficha_medida_disciplinar.id"))
+    fmd_id = Column(Integer)
     tipo_evento = Column(String)
     valor_delta = Column(Integer)
     observacao = Column(String)
     criado_em = Column(String)
 
+# Cabeçalhos
 class Cabecalho(Base):
     __tablename__ = "cabecalhos"
     id = Column(Integer, primary_key=True)
@@ -179,12 +195,14 @@ class Cabecalho(Base):
     created_at = Column(String)
     logo_prefeitura = Column(String)
 
+# Ocorrências Faltas
 class OcorrenciaFalta(Base):
     __tablename__ = "ocorrencias_faltas"
     id = Column(Integer, primary_key=True)
     ocorrencia_id = Column(Integer, ForeignKey("ocorrencias.id"))
     falta_id = Column(Integer, ForeignKey("faltas_disciplinares.id"))
 
+# Prontuários
 class Prontuario(Base):
     __tablename__ = "prontuarios"
     id = Column(Integer, primary_key=True)
@@ -201,20 +219,27 @@ class Prontuario(Base):
     circunstancias_agravantes = Column(String)
     created_at = Column(String)
     numero = Column(String)
-    deleted = Column(Integer)
+    deleted = Column(String)
 
+# Ocorrências Removidas
 class OcorrenciaRemovida(Base):
     __tablename__ = "ocorrencias_removidas"
     id = Column(Integer, primary_key=True)
-    original_id = Column(Integer, ForeignKey("ocorrencias.id"))
+    original_id = Column(Integer)
     data = Column(String)
     removed_at = Column(String)
 
-# Não há campos na tabela 'prontuarios__history', então ela será criada só com a PK 'id'.
+# Histórico de Prontuários
 class ProntuarioHistory(Base):
-    __tablename__ = "prontuarios__history"
+    __tablename__ = "prontuarios_history"
     id = Column(Integer, primary_key=True)
+    prontuario_id = Column(Integer, ForeignKey("prontuarios.id"))
+    action = Column(String)
+    changed_by = Column(String)
+    changed_at = Column(String)
+    payload_json = Column(String)
 
+# Dados da Escola
 class DadosEscola(Base):
     __tablename__ = "dados_escola"
     id = Column(Integer, primary_key=True)
@@ -237,6 +262,7 @@ class DadosEscola(Base):
     dominio_sistema = Column(String)
     nome_sistema = Column(String)
 
+# TACs
 class TAC(Base):
     __tablename__ = "tacs"
     id = Column(Integer, primary_key=True)
@@ -248,11 +274,11 @@ class TAC(Base):
     turma = Column(String)
     responsavel = Column(String)
     diretor_nome = Column(String)
-    fato = Column(String)
+    fato = Column(Text)
     prazo = Column(String)
     created_at = Column(String)
     updated_at = Column(String)
-    deleted = Column(Integer)
+    deleted = Column(String)
 
 class TACObrigacao(Base):
     __tablename__ = "tac_obrigacoes"
@@ -269,18 +295,19 @@ class TACParticipante(Base):
     cargo = Column(String)
     ordem = Column(Integer)
 
+# Ficha Medida Disciplinar
 class FichaMedidaDisciplinar(Base):
     __tablename__ = "ficha_medida_disciplinar"
     id = Column(Integer, primary_key=True)
-    fmd_id = Column(String)
+    fmd_id = Column(Integer)
     aluno_id = Column(Integer, ForeignKey("alunos.id"))
-    rfo_id = Column(String)
+    rfo_id = Column(Integer)
     data_fmd = Column(String)
     tipo_falta = Column(String)
     medida_aplicada = Column(String)
     descricao_falta = Column(String)
     observacoes = Column(String)
-    responsavel_id = Column(Integer, ForeignKey("usuarios.id"))
+    responsavel_id = Column(Integer)
     data_registro = Column(String)
     status = Column(String)
     data_falta = Column(String)
@@ -289,15 +316,15 @@ class FichaMedidaDisciplinar(Base):
     relato = Column(String)
     medida_aplicada_outra = Column(String)
     comportamento_id = Column(Integer, ForeignKey("comportamentos.id"))
-    pontuacao_id = Column(Integer, ForeignKey("pontuacao_bimestral.id"))
+    pontuacao_id = Column(Integer)
     comparecimento = Column(String)
     prazo_comparecimento = Column(String)
     atenuantes_id = Column(String)
     agravantes_id = Column(String)
-    gestor_id = Column(Integer, ForeignKey("usuarios.id"))
+    gestor_id = Column(Integer)
     created_at = Column(String)
     updated_at = Column(String)
-    baixa = Column(Integer)
+    baixa = Column(String)
     relato_faltas = Column(String)
     itens_faltas_ids = Column(String)
     comparecimento_responsavel = Column(String)
@@ -307,6 +334,7 @@ class FichaMedidaDisciplinar(Base):
     email_enviado_data = Column(String)
     email_enviado_para = Column(String)
 
+# Ocorrências/Alunos (relação N para N)
 class OcorrenciaAluno(Base):
     __tablename__ = "ocorrencias_alunos"
     id = Column(Integer, primary_key=True)
@@ -314,6 +342,7 @@ class OcorrenciaAluno(Base):
     aluno_id = Column(Integer, ForeignKey("alunos.id"))
     criado_em = Column(String)
 
+# Atas
 class Ata(Base):
     __tablename__ = "atas"
     id = Column(Integer, primary_key=True)
@@ -322,12 +351,13 @@ class Ata(Base):
     serie_turma = Column(String)
     numero = Column(String)
     ano = Column(String)
-    conteudo = Column(String)
+    conteudo = Column(Text)
     created_at = Column(String)
     updated_at = Column(String)
     created_by = Column(String)
     participants_json = Column(String)
 
+# Prontuario RFO
 class ProntuarioRFO(Base):
     __tablename__ = "prontuario_rfo"
     id = Column(Integer, primary_key=True)
@@ -335,6 +365,7 @@ class ProntuarioRFO(Base):
     prontuario_id = Column(Integer, ForeignKey("prontuarios.id"))
     created_at = Column(String)
 
+# Recuperação de senha
 class RecuperacaoSenhaToken(Base):
     __tablename__ = "recuperacao_senha_tokens"
     id = Column(Integer, primary_key=True)
@@ -343,5 +374,5 @@ class RecuperacaoSenhaToken(Base):
     token = Column(String)
     data_criacao = Column(String)
     expiracao = Column(String)
-    usado = Column(Integer)
+    usado = Column(String)
     data_uso = Column(String)
