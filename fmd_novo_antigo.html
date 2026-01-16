@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Notificação de Medida Disciplinar {{ fmd.fmd_id }}</title>
+    <style>
+        body { font-family: Arial, serif; margin: 40px; }
+        hr { border: 1px solid #999; margin: 24px 0; }
+        .section { margin-bottom: 24px; }
+        .label { font-weight: bold; }
+        .destaque { font-weight: bold; color: #900; }
+        .box { border: 1px solid #888; border-radius: 6px; padding: 15px; margin-top: 15px; }
+        .footer { text-align: center; }
+        .assinatura { margin-top: 35px; text-align: center; }
+        .cabecalho-linha {
+            display: flex; align-items: flex-start; gap: 24px; margin-bottom: 5px;
+        }
+        .cabecalho-logo {
+            max-width: 110px; max-height: 110px;
+        }
+        .cabecalho-centro {
+            width: 100%;
+            text-align: center;
+        }
+        .titulo-central {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Cabeçalho com logo lateral e texto centralizado -->
+    <div class="cabecalho-linha">
+        {% if escola.logotipo_url %}
+            <img src="{{ escola.logotipo_url }}" alt="Logotipo da Escola" class="cabecalho-logo">
+        {% endif %}
+        <div class="cabecalho-centro">
+            <div>{{ escola.estado }}</div>
+            <div>{{ escola.secretaria }}</div>
+            <div>{{ escola.coordenacao }}</div>
+            <div style="font-weight:bold;">{{ escola.nome }}</div>
+        </div>
+    </div>
+    <hr>
+    <div class="titulo-central">
+        <div class="destaque">FICHA DE MEDIDA DISCIPLINAR</div>
+        <div>Notificação de Medida Disciplinar Número: {{ fmd.fmd_id }}</div>
+    </div>
+
+    <div class="section">
+        <span class="label">Estudante:</span> {{ aluno.nome }}<br>
+        <span class="label">Série/Turma:</span> {{ aluno.serie }}/{{ aluno.turma }}
+    </div>
+
+    <div class="section">
+        <p>
+            Senhor(a) responsável, informamos que no dia <b>
+            {%- if rfo.data_ocorrencia -%}
+                {{ rfo.data_ocorrencia | datetimeformat("%d/%m/%Y") }}
+            {%- endif -%}
+            </b>,
+            o estudante recebeu uma Notificação de Medida Disciplinar de Natureza <b>{{ fmd.medida_aplicada }}</b>,
+            que poderá ocasionar perda de créditos. O período recursal está previsto no Regulamento Disciplinar das EECM.
+            A defesa poderá ser feita por escrito, no prazo de <b>3 (três) dias úteis</b> a contar do recebimento da Notificação.
+            A Medida Disciplinar será efetivada ou arquivada conforme despacho do gestor competente.
+        </p>
+        <p>
+            O estudante supracitado cometeu a seguinte falta disciplinar: <span class="destaque">{{ rfo.relato_observador }}</span>
+        </p>
+    </div>
+
+    <div class="section box">
+        <span class="label">Em razão disso, foi enquadrado no(s) item(ns) abaixo:</span><br>
+        <span class="label">Itens/Especificação:</span> {{ itens_especificacao|safe if itens_especificacao != '-' else '-' }}<br>
+        <span class="label">Comportamento:</span> {{ comportamento or '-' }}<br>
+        <span class="label">Pontuação:</span> {{ pontuacao or '-' }}<br>
+    </div>
+
+    <div class="section">
+        <span class="label">Há necessidade de comparecimento do responsável?</span>
+        {% if fmd.comparecimento_responsavel %}
+            ( X ) sim   (   ) não
+            <br><span class="label">Prazo para comparecimento: </span> {{ fmd.prazo_comparecimento or '-' }}
+        {% else %}
+            (   ) sim   ( X ) não
+        {% endif %}
+    </div>
+
+    <div class="section box">
+        <span class="label">Circunstâncias atenuantes:</span> {{ atenuantes or 'Não há' }}<br>
+        <span class="label">Circunstâncias agravantes:</span> {{ agravantes or 'Não há' }}
+    </div>
+
+    <!-- Assinatura centralizada -->
+    <div class="assinatura" style="text-align: center; margin-top: 35px;">
+        <span style="font-weight: bold;">{{ nome_usuario }}</span><br>
+        <span>{{ cargo_usuario }}</span>
+    </div>
+
+    <div class="footer">
+        <hr>
+        Enviado por e-mail: {{ envio.data_hora or "-" }} — {{ envio.email_destinatario or "-" }}
+    </div>
+
+    <!-- ====== CSS e scripts para Bootstrap (coloque só se ainda NÃO estiver incluído em seu projeto) ====== -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/css/bootstrap.min.css"/>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+    @media print {
+        .acoes-impressao {
+            display: none !important;
+        }
+    }
+    .acoes-impressao {
+        margin-top: 40px;
+        text-align: center;
+    }
+    .btn-fmd {
+        display: inline-block;
+        font-size: 1.15rem;
+        font-weight: 600;
+        padding: 13px 38px;
+        margin: 0 12px;
+        border-radius: 9px;
+        border: none;
+        text-decoration: none;
+        color: #fff !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.11);
+        transition: background 0.22s, transform 0.22s;
+        cursor: pointer;
+    }
+    .btn-fmd.btn-print { background: linear-gradient(90deg, #2ecc40 60%, #27ae60 100%); }
+    .btn-fmd.btn-print:hover { background: linear-gradient(90deg, #27ae60 60%, #2ecc40 100%); transform: translateY(-2px) scale(1.065); }
+    .btn-fmd.btn-voltar { background: linear-gradient(90deg, #3498db 60%, #206694 100%); }
+    .btn-fmd.btn-voltar:hover { background: linear-gradient(90deg, #206694 60%, #3498db 100%); transform: translateY(-2px) scale(1.065); }
+    .btn-fmd.btn-email { background: linear-gradient(90deg, #8e44ad 60%, #6c3483 100%); }
+    .btn-fmd.btn-email:hover { background: linear-gradient(90deg, #6c3483 60%, #8e44ad 100%); transform: translateY(-2px) scale(1.065); }
+    </style>
+
+    <!-- ====== Campo "Enviado por e-mail" (exibe só se envio ocorreu) ====== -->
+    {% if envio.data_hora %}
+    <div class="text-center" style="margin-bottom:12px; margin-top:8px;">
+        <small style="font-size:1.08em; color:#444;">
+            <strong>Enviado por e-mail:</strong>
+            {{ envio.data_hora }}, {{ envio.email_destinatario }}
+        </small>
+    </div>
+    {% endif %}
+
+    <!-- ====== Mensagens de status ====== -->
+    {% if mensagem_status %}
+    <div class="container" style="max-width:600px;">
+        <div class="alert {{ mensagem_tipo }} alert-dismissible fade show mt-3" role="alert">
+            {{ mensagem_status }}
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ====== Botões Ações (Imprimir / Salvar, Voltar, ENVIAR POR E-MAIL) ====== -->
+    <div class="acoes-impressao">
+        <button onclick="window.print()" class="btn-fmd btn-print">
+            <i class="fas fa-print"></i> Imprimir / Salvar
+        </button>
+        <a href="{{ url_for('visualizacoes_bp.listar_fmds') }}" class="btn-fmd btn-voltar">
+            <i class="fas fa-arrow-left"></i> Voltar
+        </a>
+        <button type="button" class="btn-fmd btn-email" data-toggle="modal" data-target="#modalConfEmail">
+            <i class="fas fa-envelope"></i> Enviar por e-mail
+        </button>
+    </div>
+
+    <!-- ====== Modal BootStrap para confirmação de envio ====== -->
+    <div class="modal fade" id="modalConfEmail" tabindex="-1" role="dialog" aria-labelledby="modalConfEmailLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="modalConfEmailLabel">
+                Confirmar envio por e-mail
+            </h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
+            <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            Deseja realmente enviar esta Ficha de Medida Disciplinar por e-mail ao responsável/cadastrado?
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+            <!-- Este botão chama a action (passo 2 = Python) depois -->
+            <form method="post" action="{{ url_for('disciplinar_bp.enviar_email_fmd', fmd_id=fmd['fmd_id']) }}" style="display:inline;">
+                <button type="submit" class="btn btn-success">Sim, enviar agora</button>
+            </form>
+        </div>
+        </div>
+    </div>
+    </div>
