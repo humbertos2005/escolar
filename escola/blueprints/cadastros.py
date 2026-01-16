@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
-from database import get_db
+from escola.database import get_db
 import sqlite3
 from .utils import login_required, admin_secundario_required
 import re
@@ -215,7 +215,7 @@ def excluir_elogio(elogio_id):
 # BLOCO A SER INSERIDO NO FINAL DE blueprints/cadastros.py
 from flask import current_app, request, redirect, url_for, flash, jsonify, send_from_directory, render_template
 from werkzeug.utils import secure_filename
-from database import get_db
+from escola.database import get_db
 from datetime import datetime
 import os
 
@@ -656,7 +656,7 @@ def cabecalho_by_id():
 
 # [adicione este trecho ao final do arquivo blueprints/cadastros.py]
 from flask import jsonify, request
-from database import get_db
+from escola.database import get_db
 # ... (se já tiver essas importações no topo do arquivo, ignore duplicates)
 
 @cadastros_bp.route('/api/dados_escola_by_cabecalho')

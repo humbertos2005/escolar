@@ -1,6 +1,6 @@
-﻿import locale
+import locale
 
-# Tentar configurar localização brasileira
+# Tentar configurar localiza��o brasileira
 try:
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 except:
@@ -10,14 +10,14 @@ except:
         try:
             locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil')
         except:
-            print("   [AVISO] Não foi possível configurar localização PT-BR")
+            print("   [AVISO] N�o foi poss�vel configurar localiza��o PT-BR")
 
 from flask import g
 from .db_config import SessionLocal, engine
 
 def get_db():
     """
-    Retorna a sessão do banco de dados. Cria uma nova se não existir no contexto da requisição.
+    Retorna a sess�o do banco de dados. Cria uma nova se n�o existir no contexto da requisi��o.
     """
     db = getattr(g, "_session_db", None)
     if db is None:
@@ -26,7 +26,7 @@ def get_db():
 
 def close_db(e=None):
     """
-    Fecha a sessão do banco de dados, se aberta no contexto.
+    Fecha a sess�o do banco de dados, se aberta no contexto.
     Usado com @app.teardown_appcontext.
     """
     db = getattr(g, "_session_db", None)
@@ -37,12 +37,12 @@ def init_db():
     """
     Inicializa o banco de dados criando todas as tabelas a partir dos models (ORM).
     """
-    from .models_sqlalchemy import Base  # Garanta que Base está em models_sqlalchemy.py
+    from .models_sqlalchemy import Base  # Garanta que Base est� em models_sqlalchemy.py
     Base.metadata.create_all(bind=engine)
 
 def executar_query(query_fn, fetch_one=False, fetch_all=False):
     """
-    Executa função recebendo uma sessão SQLAlchemy, retornando resultado.
+    Executa fun��o recebendo uma sess�o SQLAlchemy, retornando resultado.
     Exemplo de uso:
         def exemplo(sess):
             return sess.query(Tabela).filter(...).first()

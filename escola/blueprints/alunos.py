@@ -1,5 +1,5 @@
-﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, jsonify
-from database import get_db
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, jsonify
+from escola.database import get_db
 import csv
 import io
 import pandas as pd
@@ -7,14 +7,14 @@ from datetime import datetime
 
 from .utils import login_required, admin_required, admin_secundario_required, validar_matricula, validar_email
 
-# Definição da Blueprint
+# Defini��o da Blueprint
 alunos_bp = Blueprint('alunos_bp', __name__)
 
 
 def process_aluno_data(data_source):
     """
-    Extrai e sanitiza dados de aluno de um dicionário (form ou linha CSV/XLSX).
-    Unifica a lógica de telefones e normaliza os campos textuais para MAIÚSCULAS,
+    Extrai e sanitiza dados de aluno de um dicion�rio (form ou linha CSV/XLSX).
+    Unifica a l�gica de telefones e normaliza os campos textuais para MAI�SCULAS,
     preservando o campo 'email'.
     """
     campos = [
@@ -39,7 +39,7 @@ def process_aluno_data(data_source):
             telefones = [t.strip() for t in data_source.getlist('telefone') if t.strip()]
     except Exception:
         telefones = []
-    # Caso seja de IMPORTAÇÃO (CSV/XLSX) - chaves "TELEFONE 1/2/3"
+    # Caso seja de IMPORTA��O (CSV/XLSX) - chaves "TELEFONE 1/2/3"
     if not telefones:
         for i in range(1, 4):
             key = f'TELEFONE {i}'
@@ -48,18 +48,18 @@ def process_aluno_data(data_source):
 
     data['telefone'] = ', '.join(telefones) if telefones else ''
 
-    # Normaliza para MAIÚSCULAS (Unicode-aware) EXCETO email e data_matricula
+    # Normaliza para MAI�SCULAS (Unicode-aware) EXCETO email e data_matricula
     for k, v in list(data.items()):
         if k in ('email', 'data_matricula'):
             continue
         if isinstance(v, str) and v != '':
             data[k] = v.upper()
 
-    # Conversão data_matricula para formato ISO (YYYY-MM-DD) se necessário
+    # Convers�o data_matricula para formato ISO (YYYY-MM-DD) se necess�rio
     from datetime import datetime
     if data.get('data_matricula'):
         try:
-            # Só converte se vier no formato brasileiro
+            # S� converte se vier no formato brasileiro
             if '/' in data['data_matricula']:
                 data['data_matricula'] = datetime.strptime(data['data_matricula'], '%d/%m/%Y').strftime('%Y-%m-%d')
         except Exception:
@@ -67,7 +67,7 @@ def process_aluno_data(data_source):
 
     return data
 
-from models_sqlalchemy import Aluno
+from escola.models_sqlalchemy import Aluno
 
 @alunos_bp.route('/listar_alunos')
 @login_required
@@ -75,12 +75,12 @@ def listar_alunos():
     """Exibe a lista completa de alunos."""
     db = get_db()
 
-    # Paginação simples
+    # Pagina��o simples
     page = request.args.get('page', 1, type=int)
     per_page = 50
     offset = (page - 1) * per_page
 
-    # Busca por nome ou matrícula
+    # Busca por nome ou matr�cula
     search = request.args.get('search', '').strip()
 
     if search:
@@ -119,7 +119,7 @@ def listar_alunos():
                            total_pages=total_pages,
                            search=search)
 
-from models_sqlalchemy import Aluno
+from escola.models_sqlalchemy import Aluno
 
 @alunos_bp.route('/adicionar_aluno', methods=['GET', 'POST'])
 @admin_secundario_required
@@ -131,19 +131,19 @@ def adicionar_aluno():
         
         data = process_aluno_data(request.form)
 
-        # Validações
+        # Valida��es
         if not data['matricula']:
-            error = 'A matrícula é obrigatória.'
+            error = 'A matr�cula � obrigat�ria.'
         elif not validar_matricula(data['matricula']):
-            error = 'Matrícula inválida. Deve ter no mínimo 3 caracteres.'
+            error = 'Matr�cula inv�lida. Deve ter no m�nimo 3 caracteres.'
         elif not data['nome']:
-            error = 'O nome do aluno é obrigatório.'
+            error = 'O nome do aluno � obrigat�rio.'
         elif len(data['nome']) < 3:
-            error = 'O nome do aluno deve ter no mínimo 3 caracteres.'
+            error = 'O nome do aluno deve ter no m�nimo 3 caracteres.'
         elif data['email'] and not validar_email(data['email']):
-            error = 'E-mail inválido.'
+            error = 'E-mail inv�lido.'
         elif db.query(Aluno).filter_by(matricula=data['matricula']).first() is not None:
-            error = f"A matrícula '{data['matricula']}' já está cadastrada."
+            error = f"A matr�cula '{data['matricula']}' j� est� cadastrada."
 
         if error is None:
             try:
@@ -178,17 +178,17 @@ def adicionar_aluno():
 
     return render_template('adicionar_aluno.html')
 
-from models_sqlalchemy import Aluno
+from escola.models_sqlalchemy import Aluno
 
 @alunos_bp.route('/editar_aluno/<int:aluno_id>', methods=['GET', 'POST'])
 @admin_secundario_required
 def editar_aluno(aluno_id):
-    """Permite a edição dos dados de um aluno."""
+    """Permite a edi��o dos dados de um aluno."""
     db = get_db()
     aluno = db.query(Aluno).filter_by(id=aluno_id).first()
     
     if aluno is None:
-        flash('Aluno não encontrado.', 'danger')
+        flash('Aluno n�o encontrado.', 'danger')
         return redirect(url_for('alunos_bp.listar_alunos'))
         
     aluno_dict = {c.name: getattr(aluno, c.name) for c in Aluno.__table__.columns}
@@ -197,23 +197,23 @@ def editar_aluno(aluno_id):
         error = None
         data = process_aluno_data(request.form)
         
-        # Validações
+        # Valida��es
         if not data['matricula']:
-            error = 'A matrícula é obrigatória.'
+            error = 'A matr�cula � obrigat�ria.'
         elif not validar_matricula(data['matricula']):
-            error = 'Matrícula inválida.'
+            error = 'Matr�cula inv�lida.'
         elif not data['nome']:
-            error = 'O nome do aluno é obrigatório.'
+            error = 'O nome do aluno � obrigat�rio.'
         elif len(data['nome']) < 3:
-            error = 'O nome do aluno deve ter no mínimo 3 caracteres.'
+            error = 'O nome do aluno deve ter no m�nimo 3 caracteres.'
         elif data['email'] and not validar_email(data['email']):
-            error = 'E-mail inválido.'
+            error = 'E-mail inv�lido.'
         
-        # Verifica se matrícula mudou e já existe
+        # Verifica se matr�cula mudou e j� existe
         if data['matricula'] != aluno_dict['matricula']:
             existing_aluno = db.query(Aluno).filter(Aluno.matricula == data['matricula'], Aluno.id != aluno_id).first()
             if existing_aluno:
-                error = f"A matrícula '{data['matricula']}' já está em uso por outro aluno."
+                error = f"A matr�cula '{data['matricula']}' j� est� em uso por outro aluno."
 
         if error is None:
             try:
@@ -246,38 +246,38 @@ def editar_aluno(aluno_id):
     return render_template('editar_aluno.html', aluno=aluno_dict)
 
 
-from models_sqlalchemy import Aluno, Ocorrencia
+from escola.models_sqlalchemy import Aluno, Ocorrencia
 
 @alunos_bp.route('/excluir_aluno/<int:aluno_id>', methods=['POST'])
 @admin_required
 def excluir_aluno(aluno_id):
-    """Exclui um aluno e todas as suas ocorrências relacionadas."""
+    """Exclui um aluno e todas as suas ocorr�ncias relacionadas."""
     db = get_db()
     try:
         aluno = db.query(Aluno).filter_by(id=aluno_id).first()
         if not aluno:
-            flash('Aluno não encontrado.', 'danger')
+            flash('Aluno n�o encontrado.', 'danger')
             return redirect(url_for('alunos_bp.listar_alunos'))
 
         nome_aluno = aluno.nome
 
-        # Exclui todas as ocorrências daquele aluno
+        # Exclui todas as ocorr�ncias daquele aluno
         db.query(Ocorrencia).filter_by(aluno_id=aluno_id).delete()
         # Exclui o aluno
         db.delete(aluno)
         db.commit()
-        flash(f'Aluno "{nome_aluno}" e suas ocorrências excluídos com sucesso.', 'success')
+        flash(f'Aluno "{nome_aluno}" e suas ocorr�ncias exclu�dos com sucesso.', 'success')
     except Exception as e:
         db.rollback()
         flash(f'Erro ao excluir aluno: {e}', 'danger')
     return redirect(url_for('alunos_bp.listar_alunos'))
 
-from models_sqlalchemy import Aluno
+from escola.models_sqlalchemy import Aluno
 
 @alunos_bp.route('/importar_alunos', methods=['GET', 'POST'])
 @admin_secundario_required
 def importar_alunos():
-    """Gerencia a importação de alunos via arquivo CSV/XLSX."""
+    """Gerencia a importa��o de alunos via arquivo CSV/XLSX."""
     if request.method == 'POST':
         if 'arquivo_csv' not in request.files:
             flash('Nenhum arquivo selecionado.', 'danger')
@@ -295,14 +295,14 @@ def importar_alunos():
         try:
             filename = arquivo.filename.lower()
             
-            # CORREÇÃO CRÍTICA PARA EXCEL
+            # CORRE��O CR�TICA PARA EXCEL
             if filename.endswith(('.xls', '.xlsx')):
-                # Força engine openpyxl e tratamento correto de dados vazios
+                # For�a engine openpyxl e tratamento correto de dados vazios
                 df = pd.read_excel(arquivo, dtype=str, engine='openpyxl')
                 df = df.fillna('')  # Substitui NaN por string vazia
                 df = df.dropna(how='all')  # Remove linhas completamente vazias
                 df.columns = df.columns.str.strip().str.upper()  # Normaliza colunas
-                print(f"✓ Colunas encontradas no Excel: {list(df.columns)}")
+                print(f"? Colunas encontradas no Excel: {list(df.columns)}")
                 registros = df.to_dict('records')
             elif filename.endswith('.csv'):
                 try:
@@ -318,31 +318,31 @@ def importar_alunos():
                     registros_temp.append(normalized_row)
                 registros = registros_temp
             else:
-                flash('Formato de arquivo não suportado. Use CSV, XLSX ou XLS.', 'danger')
+                flash('Formato de arquivo n�o suportado. Use CSV, XLSX ou XLS.', 'danger')
                 return redirect(request.url)
 
         except Exception as e:
             flash(f'Erro ao ler o arquivo: {str(e)}', 'danger')
             return redirect(request.url)
 
-        print(f"✓ Total de registros a processar: {len(registros)}")
+        print(f"? Total de registros a processar: {len(registros)}")
         
         for i, row in enumerate(registros, start=2):
             try:
-                matricula = str(row.get('MATRICULA', row.get('MATRÍCULA', ''))).strip()
+                matricula = str(row.get('MATRICULA', row.get('MATR�CULA', ''))).strip()
                 nome = str(row.get('NOME', '')).strip()
                 data_nascimento = str(row.get('DATA_NASCIMENTO', '')).strip()
-                data_matricula = str(row.get('DATA_MATRICULA', row.get('DATA_MATRÍCULA', ''))).strip()
-                serie = str(row.get('SERIE', row.get('SÉRIE', ''))).strip()
+                data_matricula = str(row.get('DATA_MATRICULA', row.get('DATA_MATR�CULA', ''))).strip()
+                serie = str(row.get('SERIE', row.get('S�RIE', ''))).strip()
                 turma = str(row.get('TURMA', '')).strip()
                 turno = str(row.get('TURNO', '')).strip()
                 pai = str(row.get('PAI', '')).strip()
-                mae = str(row.get('MAE', row.get('MÃE', ''))).strip()
-                responsavel = str(row.get('RESPONSAVEL', row.get('RESPONSÁVEL', ''))).strip()
+                mae = str(row.get('MAE', row.get('M�E', ''))).strip()
+                responsavel = str(row.get('RESPONSAVEL', row.get('RESPONS�VEL', ''))).strip()
                 email = str(row.get('E-MAIL', row.get('EMAIL', ''))).strip()
-                endereco_unico = str(row.get('ENDERECO', row.get('ENDEREÇO', ''))).strip()
+                endereco_unico = str(row.get('ENDERECO', row.get('ENDERE�O', ''))).strip()
                 rua = str(row.get('RUA', endereco_unico)).strip()
-                numero = str(row.get('NUMERO', row.get('NÚMERO', ''))).strip()
+                numero = str(row.get('NUMERO', row.get('N�MERO', ''))).strip()
                 complemento = str(row.get('COMPLEMENTO', '')).strip()
                 bairro = str(row.get('BAIRRO', '')).strip()
                 cidade = str(row.get('CIDADE', '')).strip()
@@ -355,7 +355,7 @@ def importar_alunos():
                         'linha': i,
                         'matricula': matricula or 'N/A',
                         'nome': nome or 'N/A',
-                        'erro': 'Matrícula e Nome são obrigatórios.'
+                        'erro': 'Matr�cula e Nome s�o obrigat�rios.'
                     })
                     continue
 
@@ -367,7 +367,7 @@ def importar_alunos():
                         'linha': i,
                         'matricula': matricula,
                         'nome': nome,
-                        'erro': 'Matrícula já existente.'
+                        'erro': 'Matr�cula j� existente.'
                     })
                     continue
 
@@ -404,7 +404,7 @@ def importar_alunos():
                 )
                 db.add(novo_aluno)
                 sucessos += 1
-                print(f"✓ Aluno {nome} cadastrado com sucesso!")
+                print(f"? Aluno {nome} cadastrado com sucesso!")
 
             except Exception as e:
                 erros_importacao.append({
@@ -413,16 +413,16 @@ def importar_alunos():
                     'nome': nome if 'nome' in locals() else 'N/A',
                     'erro': f'Erro ao processar: {str(e)}'
                 })
-                print(f"✗ Erro na linha {i}: {str(e)}")
+                print(f"? Erro na linha {i}: {str(e)}")
 
         try:
             db.commit()
             if erros_importacao:
                 session['erros_importacao'] = erros_importacao
-                flash(f'Importação concluída: {sucessos} alunos cadastrados, {len(erros_importacao)} erro(s).', 'warning')
+                flash(f'Importa��o conclu�da: {sucessos} alunos cadastrados, {len(erros_importacao)} erro(s).', 'warning')
                 return redirect(url_for('alunos_bp.erros_importacao'))
             else:
-                flash(f'Importação concluída com sucesso! {sucessos} alunos cadastrados.', 'success')
+                flash(f'Importa��o conclu�da com sucesso! {sucessos} alunos cadastrados.', 'success')
         except Exception as e:
             db.rollback()
             flash(f'Erro ao salvar dados no banco: {e}', 'danger')
@@ -432,7 +432,7 @@ def importar_alunos():
     return render_template('importar_alunos.html')
 
 
-from models_sqlalchemy import Aluno
+from escola.models_sqlalchemy import Aluno
 
 @alunos_bp.route('/backup_alunos')
 @admin_secundario_required
@@ -446,7 +446,7 @@ def backup_alunos():
         return redirect(url_for('alunos_bp.listar_alunos'))
 
     output = io.StringIO()
-    # Obtém os nomes dos campos dinamicamente
+    # Obt�m os nomes dos campos dinamicamente
     fieldnames = [column.name for column in Aluno.__table__.columns]
     writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter=';')
 
@@ -463,25 +463,25 @@ def backup_alunos():
     return response
 
 
-from models_sqlalchemy import Aluno, Ocorrencia, RFOSequencia  # Ajuste o nome do modelo RFOSequencia conforme o models_sqlalchemy.py
+from escola.models_sqlalchemy import Aluno, Ocorrencia, RFOSequencia  # Ajuste o nome do modelo RFOSequencia conforme o models_sqlalchemy.py
 
 @alunos_bp.route('/excluir_todos', methods=['POST'])
 @admin_required
 def excluir_todos():
-    """Exclui todos os alunos e ocorrências, e reinicia o contador de IDs."""
+    """Exclui todos os alunos e ocorr�ncias, e reinicia o contador de IDs."""
     db = get_db()
     try:
         db.query(Ocorrencia).delete()
         db.query(Aluno).delete()
         db.query(RFOSequencia).delete()
         db.commit()
-        flash('TODOS os alunos e ocorrências foram excluídos. O sistema foi reiniciado.', 'success')
+        flash('TODOS os alunos e ocorr�ncias foram exclu�dos. O sistema foi reiniciado.', 'success')
     except Exception as e:
         db.rollback()
         flash(f'Erro ao excluir todos os dados: {e}', 'danger')
     return redirect(url_for('alunos_bp.listar_alunos'))
 
-from models_sqlalchemy import Aluno
+from escola.models_sqlalchemy import Aluno
 
 @alunos_bp.route('/buscar_aluno_json')
 @login_required
@@ -525,13 +525,13 @@ def buscar_aluno_json():
 @alunos_bp.route('/gerenciar_alunos', methods=['GET', 'POST'])
 @admin_secundario_required
 def gerenciar_alunos():
-    """Exibe a página única com abas para gerenciar alunos (cadastrar e importar)."""
+    """Exibe a p�gina �nica com abas para gerenciar alunos (cadastrar e importar)."""
     if request.method == 'POST': 
-        # Verificar se é importação de arquivo (tem arquivo) ou cadastro individual
+        # Verificar se � importa��o de arquivo (tem arquivo) ou cadastro individual
         if 'arquivo_csv' in request.files and request.files['arquivo_csv'].filename != '':
-            # É importação de Excel
+            # � importa��o de Excel
             return importar_alunos()
         else:
-            # É cadastro individual
+            # � cadastro individual
             return adicionar_aluno()
     return render_template('cadastros/gerenciar_alunos.html')

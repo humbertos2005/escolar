@@ -3,7 +3,7 @@
 # Insira as funções abaixo no arquivo do blueprint disciplinar (importe get_db, jsonify, request, Blueprint, etc.)
 
 from flask import request, jsonify, current_app
-from database import get_db
+from escola.database import get_db
 
 # 1) Endpoint para busca livre de faltas (autocomplete)
 # URL sugerida: /api/faltas_busca?q=termo

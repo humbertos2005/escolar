@@ -1,14 +1,14 @@
-﻿# blueprints/formularios_prontuario.py
-# Versão mesclada e completa para colar no sistema.
-# Esta versão mantém a sua estrutura original (860+ linhas) e inclui:
-# - load_document_header: carrega cabeçalho de documentos do módulo Cadastros/Cabeçalho Documentos
-# - api_aluno_foto: melhor tratamento (usa build_photo_url_from_row e redireciona/serve conforme disponível)
+# blueprints/formularios_prontuario.py
+# Vers�o mesclada e completa para colar no sistema.
+# Esta vers�o mant�m a sua estrutura original (860+ linhas) e inclui:
+# - load_document_header: carrega cabe�alho de documentos do m�dulo Cadastros/Cabe�alho Documentos
+# - api_aluno_foto: melhor tratamento (usa build_photo_url_from_row e redireciona/serve conforme dispon�vel)
 # - visualizar_prontuario: agora carrega 'header' e o passa ao template
 # - pequenas melhorias de robustez e compatibilidade (send_file download_name)
 #
-# Faça backup do seu arquivo atual antes de substituir!
+# Fa�a backup do seu arquivo atual antes de substituir!
 from flask import Blueprint, render_template, request, jsonify, current_app, url_for, send_file, redirect, session
-from database import get_db
+from escola.database import get_db
 import sqlite3
 import io
 from datetime import datetime
@@ -17,11 +17,11 @@ import typing
 from urllib.parse import unquote
 import json
 
-# --- Adicionar estes imports no topo do arquivo (se já existirem, não duplicar) ---
-# --- imports adicionados/ajustados (cole uma única vez no topo, abaixo dos outros imports) ---
+# --- Adicionar estes imports no topo do arquivo (se j� existirem, n�o duplicar) ---
+# --- imports adicionados/ajustados (cole uma �nica vez no topo, abaixo dos outros imports) ---
 from flask import session
 
-# Tentamos usar flask-login se estiver disponível; caso não esteja, mantemos current_user = None
+# Tentamos usar flask-login se estiver dispon�vel; caso n�o esteja, mantemos current_user = None
 try:
     from flask_login import current_user
 except Exception:
@@ -44,7 +44,7 @@ def _format_created_at(prontuario_obj):
         return None, None
 
     created_dt = None
-    # timestamp numérico
+    # timestamp num�rico
     if isinstance(created_raw, (int, float)):
         try:
             created_dt = datetime.fromtimestamp(created_raw)
@@ -68,14 +68,14 @@ def _format_created_at(prontuario_obj):
     # fallback: retorna a string original como date (time=None)
     return created_raw, None
 
-# --- Função utilitária: buscar dados adicionais do prontuário (RFOs, gestor, comportamento, pontuação) ---
+# --- Fun��o utilit�ria: buscar dados adicionais do prontu�rio (RFOs, gestor, comportamento, pontua��o) ---
 def get_prontuario_extras(db_conn, prontuario_id):
     """
     Retorna dict com:
       - prontuario_rfos: lista de dicts {created_at, added_date_br, added_time, rfo_formatted, data_rfo_br, relato, medida_aplicada, gestor_username}
       - prontuario_comportamento: string ou None
       - prontuario_pontuacao: number or None
-    db_conn: conexão sqlite3 com row_factory configurado (sqlite3.Row) ou objeto DB compatível.
+    db_conn: conex�o sqlite3 com row_factory configurado (sqlite3.Row) ou objeto DB compat�vel.
     """
     extras = {
         "prontuario_rfos": [],
@@ -202,11 +202,11 @@ def pick_field(row: sqlite3.Row, candidates: typing.List[str], default: typing.A
 
 def build_photo_url_from_row(row: sqlite3.Row) -> str:
     """
-    Gera a URL pública da foto do aluno a partir dos dados do registro.
+    Gera a URL p�blica da foto do aluno a partir dos dados do registro.
     Retorna:
       - URL absoluta (http/https) ou path iniciando por /static/ (neste caso pode ser usado direto)
-      - ou url_for() para o endpoint api_aluno_foto (rota relativa) quando não for possível inferir arquivo estático direto
-      - ou '' se não for possível determinar
+      - ou url_for() para o endpoint api_aluno_foto (rota relativa) quando n�o for poss�vel inferir arquivo est�tico direto
+      - ou '' se n�o for poss�vel determinar
     """
     if not row:
         return ''
@@ -223,10 +223,10 @@ def build_photo_url_from_row(row: sqlite3.Row) -> str:
             raw = str(row[c])
             raw = unquote(raw).strip()
             raw_norm = raw.replace('\\', '/')
-            # Se já é URL externa
+            # Se j� � URL externa
             if raw_norm.startswith('http://') or raw_norm.startswith('https://'):
                 return raw_norm
-            # caminho estático absoluto
+            # caminho est�tico absoluto
             if raw_norm.startswith('/static/'):
                 return raw_norm
             # pode ser caminho relativo dentro da pasta static
@@ -236,7 +236,7 @@ def build_photo_url_from_row(row: sqlite3.Row) -> str:
                 try:
                     return url_for('static', filename=f"uploads/alunos/{filename}")
                 except Exception:
-                    # url_for pode falhar se não houver contexto; retornar path relativo
+                    # url_for pode falhar se n�o houver contexto; retornar path relativo
                     return f"/static/uploads/alunos/{filename}"
     # se houver id, tentar deduzir por arquivos em static/uploads/alunos
     try:
@@ -251,7 +251,7 @@ def build_photo_url_from_row(row: sqlite3.Row) -> str:
                         except Exception:
                             return f"/static/uploads/alunos/{fname}"
     except Exception:
-        current_app.logger.debug("build_photo_url_from_row: falha ao procurar arquivos estáticos", exc_info=True)
+        current_app.logger.debug("build_photo_url_from_row: falha ao procurar arquivos est�ticos", exc_info=True)
     # fallback: retornar rota que serve a foto via blueprint (endpoint)
     if hasattr(row, 'keys') and 'id' in row.keys():
         try:
@@ -263,11 +263,11 @@ def build_photo_url_from_row(row: sqlite3.Row) -> str:
 
 def ensure_prontuarios_schema(db):
     """
-    Garante esquema mínimo da tabela prontuarios e cria tabela de histórico para auditoria.
+    Garante esquema m�nimo da tabela prontuarios e cria tabela de hist�rico para auditoria.
     Executa CREATEs seguros.
     """
     try:
-        # Criamos tabela com as colunas principais. Caso tabela já exista, CREATE TABLE IF NOT EXISTS é seguro.
+        # Criamos tabela com as colunas principais. Caso tabela j� exista, CREATE TABLE IF NOT EXISTS � seguro.
         # A coluna 'deleted' pode ser adicionada pelo ensure_deleted_column se faltar.
         db.execute("""
             CREATE TABLE IF NOT EXISTS prontuarios (
@@ -322,7 +322,7 @@ def ensure_deleted_column(db):
             try:
                 db.execute("ALTER TABLE prontuarios ADD COLUMN deleted INTEGER DEFAULT 0;")
                 db.commit()
-                current_app.logger.info("Coluna 'deleted' adicionada à tabela prontuarios (ALTER automático).")
+                current_app.logger.info("Coluna 'deleted' adicionada � tabela prontuarios (ALTER autom�tico).")
             except Exception:
                 db.rollback()
                 current_app.logger.exception("Falha ao executar ALTER TABLE para adicionar 'deleted'")
@@ -332,7 +332,7 @@ def ensure_deleted_column(db):
 
 def insert_prontuario_history(db, prontuario_row, action='update', changed_by=None):
     """
-    Insere snapshot do prontuário em prontuarios_history.
+    Insere snapshot do prontu�rio em prontuarios_history.
     prontuario_row pode ser sqlite3.Row ou dict.
     """
     try:
@@ -362,7 +362,7 @@ def insert_prontuario_history(db, prontuario_row, action='update', changed_by=No
 
 def load_document_header(db):
     """
-    Recupera o cabeçalho (estado, secretaria, coordenacao, escola) e logo.
+    Recupera o cabe�alho (estado, secretaria, coordenacao, escola) e logo.
     Garante que o campo 'escola' seja exibido como mais uma linha.
     """
     try:
@@ -380,7 +380,7 @@ def load_document_header(db):
                 for key in ('estado', 'secretaria', 'coordenacao'):
                     if key in rd and rd[key]:
                         header['lines'].append(str(rd[key]).strip())
-                # adicionar escola também como linha (garante exibição completa)
+                # adicionar escola tamb�m como linha (garante exibi��o completa)
                 if 'escola' in rd and rd['escola']:
                     escola_txt = str(rd['escola']).strip()
                     header['lines'].append(escola_txt)
@@ -398,7 +398,7 @@ def load_document_header(db):
                     else:
                         filename = os.path.basename(val)
                         if filename:
-                            # montar URL pública com forward slashes
+                            # montar URL p�blica com forward slashes
                             try:
                                 header['logo_url'] = url_for('static', filename=f"uploads/cabecalhos/{filename}")
                             except Exception:
@@ -412,15 +412,15 @@ def load_document_header(db):
 # Routes and API
 @formularios_prontuario_bp.route('/prontuario', methods=['GET'])
 def prontuario():
-    """Renderiza formulário de novo prontuário."""
-    # Nota: o template de formulário usa url_for('formularios_prontuario.salvar_prontuario') etc.
+    """Renderiza formul�rio de novo prontu�rio."""
+    # Nota: o template de formul�rio usa url_for('formularios_prontuario.salvar_prontuario') etc.
     return render_template('formularios/prontuario.html')
 
 
 @formularios_prontuario_bp.route('/prontuarios', methods=['GET'])
 def listar_prontuarios():
     """
-    Lista prontuários cadastrados.
+    Lista prontu�rios cadastrados.
     Garante coluna 'deleted' antes de executar SELECT.
     """
     db = get_db()
@@ -466,7 +466,7 @@ def listar_prontuarios():
             })
         return render_template('formularios/listar_prontuarios.html', prontuarios=pronts, show_deleted=show_deleted)
     except Exception:
-        current_app.logger.exception("Erro ao listar prontuários")
+        current_app.logger.exception("Erro ao listar prontu�rios")
         return render_template('formularios/listar_prontuarios.html', prontuarios=[], show_deleted=False), 500
 
 
@@ -602,8 +602,8 @@ def api_aluno_get(aluno_id):
 @formularios_prontuario_bp.route('/api/aluno/<int:aluno_id>/foto', methods=['GET'])
 def api_aluno_foto(aluno_id):
     """
-    Serve foto do aluno (blob ou arquivo estático).
-    Melhorias nesta versão:
+    Serve foto do aluno (blob ou arquivo est�tico).
+    Melhorias nesta vers�o:
       - tenta obter URL via build_photo_url_from_row (que lida com URLs externas e /static/ paths)
       - se for URL externa ou /static/ redireciona para o recurso
       - se for blob, serve o blob (send_file)
@@ -616,7 +616,7 @@ def api_aluno_foto(aluno_id):
         if not row:
             return '', 404
 
-        # Tentar construir uma URL com as heurísticas existentes
+        # Tentar construir uma URL com as heur�sticas existentes
         try:
             photo_url = build_photo_url_from_row(row)
         except Exception:
@@ -624,11 +624,11 @@ def api_aluno_foto(aluno_id):
 
         # Se build_photo_url_from_row devolveu algo que parece URL/endpoint, redirecionar
         if photo_url and isinstance(photo_url, str):
-            # Se é rota relativa que começa com / or http(s)
+            # Se � rota relativa que come�a com / or http(s)
             if photo_url.startswith('http://') or photo_url.startswith('https://') or photo_url.startswith('/static/') or photo_url.startswith('static/'):
                 return redirect(photo_url)
 
-        # Se não redirecionamos, verificar se há blob em colunas comuns
+        # Se n�o redirecionamos, verificar se h� blob em colunas comuns
         try:
             cur = db.execute("PRAGMA table_info(alunos);").fetchall()
             cols = [c[1] for c in cur]
@@ -676,8 +676,8 @@ def api_aluno_foto(aluno_id):
 @formularios_prontuario_bp.route('/prontuario/<int:prontuario_id>', methods=['GET'])
 def visualizar_prontuario(prontuario_id):
     """
-    Visualização do prontuário (apenas leitura).
-    Agora carrega também o cabeçalho de documentos (do Cadastros / Cabeçalho Documentos)
+    Visualiza��o do prontu�rio (apenas leitura).
+    Agora carrega tamb�m o cabe�alho de documentos (do Cadastros / Cabe�alho Documentos)
     e passa para o template como 'header'.
     """
     db = get_db()
@@ -721,7 +721,7 @@ def visualizar_prontuario(prontuario_id):
         pontuacao = None
 
         try:
-            # import local para evitar problemas de import circular; models.get_aluno_estado_atual já foi criado
+            # import local para evitar problemas de import circular; models.get_aluno_estado_atual j� foi criado
             from models import get_aluno_estado_atual
 
             aluno_id = rd.get('aluno_id') if isinstance(rd, dict) else getattr(rd, 'aluno_id', None)
@@ -734,7 +734,7 @@ def visualizar_prontuario(prontuario_id):
             comportamento = None
             pontuacao = None
 
-        # manter fallbacks antigos como última opção (não sobrescrever se já tem valor)
+        # manter fallbacks antigos como �ltima op��o (n�o sobrescrever se j� tem valor)
         if not comportamento:
             comportamento = (
                 rd.get('comportamento')
@@ -750,7 +750,7 @@ def visualizar_prontuario(prontuario_id):
             )
         # --- fim ---
 
-        # carregar cabeçalho de documentos (se disponível)
+        # carregar cabe�alho de documentos (se dispon�vel)
         try:
             header = load_document_header(db)
         except Exception:
@@ -773,7 +773,7 @@ def visualizar_prontuario(prontuario_id):
             pontuacao=pontuacao,
         )
     except Exception:
-        current_app.logger.exception("Erro ao carregar prontuário")
+        current_app.logger.exception("Erro ao carregar prontu�rio")
         return render_template(
             'formularios/prontuario_view.html',
             prontuario=None,
@@ -788,19 +788,19 @@ def visualizar_prontuario(prontuario_id):
 @formularios_prontuario_bp.route('/prontuario/<int:prontuario_id>/edit', methods=['GET', 'POST'])
 def editar_prontuario(prontuario_id):
     """
-    Edita o prontuário. Em POST atualiza os campos (usado pelo formulário).
+    Edita o prontu�rio. Em POST atualiza os campos (usado pelo formul�rio).
     """
     db = get_db()
     if request.method == 'GET':
         r = db.execute("SELECT * FROM prontuarios WHERE id = ?", (prontuario_id,)).fetchone()
         if not r:
             return redirect(url_for('formularios_prontuario.prontuario'))
-        # passamos objeto prontuário para o template (dict)
+        # passamos objeto prontu�rio para o template (dict)
         try:
             rd = dict(r)
         except Exception:
             rd = r
-        # também tentar passar dados do aluno para popular a lateral
+        # tamb�m tentar passar dados do aluno para popular a lateral
         aluno = None
         if rd.get('aluno_id'):
             a = db.execute("SELECT * FROM alunos WHERE id = ?", (rd.get('aluno_id'),)).fetchone()
@@ -836,11 +836,11 @@ def editar_prontuario(prontuario_id):
             ))
         except Exception:
             db.rollback()
-            current_app.logger.exception("Erro ao atualizar prontuário")
-            return jsonify({"success": False, "message": "Erro ao atualizar prontuário."}), 500
+            current_app.logger.exception("Erro ao atualizar prontu�rio")
+            return jsonify({"success": False, "message": "Erro ao atualizar prontu�rio."}), 500
 
         db.commit()
-        return jsonify({"success": True, "message": "Prontuário atualizado com sucesso."})
+        return jsonify({"success": True, "message": "Prontu�rio atualizado com sucesso."})
 
 
 @formularios_prontuario_bp.route('/prontuario/<int:prontuario_id>/delete', methods=['POST'])
@@ -863,7 +863,7 @@ def excluir_prontuario(prontuario_id):
         return jsonify({'success': True})
     except Exception:
         db.rollback()
-        current_app.logger.exception("Erro ao excluir prontuário")
+        current_app.logger.exception("Erro ao excluir prontu�rio")
         return jsonify({'success': False}), 500
 
 
@@ -879,7 +879,7 @@ def imprimir_prontuario(prontuario_id):
     try:
         r = db.execute("SELECT * FROM prontuarios WHERE id = ?", (prontuario_id,)).fetchone()
         if not r:
-            return "Prontuário não encontrado", 404
+            return "Prontu�rio n�o encontrado", 404
         rd = dict(r)
 
         # --- calcular data/hora formatada e nome do visualizador ---
@@ -906,7 +906,7 @@ def imprimir_prontuario(prontuario_id):
                 except Exception:
                     aluno = a
 
-        # obter comportamento/pontuacao via helper (se disponível)
+        # obter comportamento/pontuacao via helper (se dispon�vel)
         comportamento = None
         pontuacao = None
         try:
@@ -921,7 +921,7 @@ def imprimir_prontuario(prontuario_id):
             comportamento = None
             pontuacao = None
 
-        # fallbacks (mesma lógica da view)
+        # fallbacks (mesma l�gica da view)
         if not comportamento:
             comportamento = (
                 rd.get('comportamento')
@@ -934,7 +934,7 @@ def imprimir_prontuario(prontuario_id):
                 or (aluno.get('pontuacao') if isinstance(aluno, dict) else getattr(aluno, 'pontuacao', None))
             )
 
-        # carregar cabeçalho de documentos (se disponível)
+        # carregar cabe�alho de documentos (se dispon�vel)
         try:
             header = load_document_header(db)
         except Exception:
@@ -954,11 +954,11 @@ def imprimir_prontuario(prontuario_id):
             name_candidate = aluno.get('nome')
         if not name_candidate:
             name_candidate = rd.get('aluno_nome') or rd.get('nome') or f"id{rd.get('id')}"
-        # remover caracteres indesejados e substituir espaços por underscore
+        # remover caracteres indesejados e substituir espa�os por underscore
         if not name_candidate:
             name_candidate = f"id{rd.get('id')}"
         raw = str(name_candidate).strip()
-        # permite letras, números, traço e underscore; substitui o resto por _
+        # permite letras, n�meros, tra�o e underscore; substitui o resto por _
         safe = re.sub(r'[^A-Za-z0-9 _\-]', '_', raw)
         safe = re.sub(r'\s+', '_', safe)
         if not safe:
@@ -992,15 +992,15 @@ def imprimir_prontuario(prontuario_id):
             suggested_filename=suggested_filename,
         )
     except Exception:
-        current_app.logger.exception("Erro ao imprimir prontuário")
+        current_app.logger.exception("Erro ao imprimir prontu�rio")
         return "Erro ao imprimir", 500
 
 @formularios_prontuario_bp.route('/visualizacoes/prontuario/<int:prontuario_id>')
 def visualizar_prontuario_visualizacao(prontuario_id):
     """
-    Rota compatível para Visualizações -> Prontuário.
-    Agora reutiliza exatamente a mesma renderização e contexto que a view principal
-    (formularios/prontuario_view.html) para que os dois caminhos exibam o mesmo conteúdo.
+    Rota compat�vel para Visualiza��es -> Prontu�rio.
+    Agora reutiliza exatamente a mesma renderiza��o e contexto que a view principal
+    (formularios/prontuario_view.html) para que os dois caminhos exibam o mesmo conte�do.
     """
     db = get_db()
     try:
@@ -1040,7 +1040,7 @@ def visualizar_prontuario_visualizacao(prontuario_id):
                     aluno = dict(a)
                 except Exception:
                     aluno = a
-        # carregar header caso exista (mesma lógica que usamos na outra view)
+        # carregar header caso exista (mesma l�gica que usamos na outra view)
         try:
             header = load_document_header(db)
         except Exception:
@@ -1059,7 +1059,7 @@ def visualizar_prontuario_visualizacao(prontuario_id):
             viewer_name=viewer_name,
         )
     except Exception:
-        current_app.logger.exception("Erro ao renderizar visualização do prontuário")
+        current_app.logger.exception("Erro ao renderizar visualiza��o do prontu�rio")
         return render_template(
             'formularios/prontuario_view.html',
             prontuario=None,
@@ -1073,9 +1073,9 @@ def visualizar_prontuario_visualizacao(prontuario_id):
 @formularios_prontuario_bp.route('/prontuario/save', methods=['POST'])
 def salvar_prontuario():
     """
-    Salva prontuário:
-    - se existir prontuário para o aluno, faz append em registros_fatos (restaurando deleted=0);
-    - se não existir, cria registro e gera número;
+    Salva prontu�rio:
+    - se existir prontu�rio para o aluno, faz append em registros_fatos (restaurando deleted=0);
+    - se n�o existir, cria registro e gera n�mero;
     - retorna JSON {success, action, id, numero?}
     """
     form = request.form.to_dict(flat=True)
@@ -1090,7 +1090,7 @@ def salvar_prontuario():
 
         existing = None
         if aluno_id:
-            # preferir prontuário não-excluído; se não houver, pegar o primeiro qualquer (incluindo excluídos)
+            # preferir prontu�rio n�o-exclu�do; se n�o houver, pegar o primeiro qualquer (incluindo exclu�dos)
             existing = db.execute(
                 "SELECT * FROM prontuarios WHERE aluno_id = ? ORDER BY COALESCE(deleted,0) ASC LIMIT 1",
                 (aluno_id,)
@@ -1112,7 +1112,7 @@ def salvar_prontuario():
                     combined = f"--- Adicionado em {timestamp} ---\n{novo_registros}"
                 else:
                     combined = existing_rf
-                # Ao atualizar, garantir deleted = 0 (restauração automática caso estivesse excluído)
+                # Ao atualizar, garantir deleted = 0 (restaura��o autom�tica caso estivesse exclu�do)
                 db.execute("""
                     UPDATE prontuarios SET
                         responsavel=?, serie=?, turma=?, email=?, telefone1=?, telefone2=?, turno=?,
@@ -1132,13 +1132,13 @@ def salvar_prontuario():
                     existing['id'] if 'id' in existing.keys() else existing[0]
                 ))
                 db.commit()
-                return jsonify({"success": True, "message": "Prontuário atualizado (append) com sucesso.", "action": "updated", "id": existing['id'] if 'id' in existing.keys() else existing[0]})
+                return jsonify({"success": True, "message": "Prontu�rio atualizado (append) com sucesso.", "action": "updated", "id": existing['id'] if 'id' in existing.keys() else existing[0]})
             except Exception:
                 db.rollback()
-                current_app.logger.exception("Erro ao atualizar prontuário existente")
-                return jsonify({"success": False, "message": "Erro ao atualizar prontuário existente."}), 500
+                current_app.logger.exception("Erro ao atualizar prontu�rio existente")
+                return jsonify({"success": False, "message": "Erro ao atualizar prontu�rio existente."}), 500
         else:
-            # Criar novo prontuário: explicitamente setar deleted=0
+            # Criar novo prontu�rio: explicitamente setar deleted=0
             cur = db.execute("""
                 INSERT INTO prontuarios (
                     aluno_id, responsavel, serie, turma, email, telefone1, telefone2, turno,
@@ -1174,16 +1174,16 @@ def salvar_prontuario():
                     db.execute("UPDATE prontuarios SET numero = ? WHERE id = ?", (numero, new_id))
                     db.commit()
                 except Exception:
-                    current_app.logger.exception("Falha ao atualizar numero do prontuário")
-            return jsonify({"success": True, "message": "Prontuário criado com sucesso.", "action": "created", "id": new_id, "numero": numero})
+                    current_app.logger.exception("Falha ao atualizar numero do prontu�rio")
+            return jsonify({"success": True, "message": "Prontu�rio criado com sucesso.", "action": "created", "id": new_id, "numero": numero})
     except Exception:
         db.rollback()
-        current_app.logger.exception("Erro ao salvar prontuário")
-        return jsonify({"success": False, "message": "Erro ao salvar prontuário."}), 500
+        current_app.logger.exception("Erro ao salvar prontu�rio")
+        return jsonify({"success": False, "message": "Erro ao salvar prontu�rio."}), 500
 
 
-# Alias: expor também nome plural para importações que o código possa tentar usar.
-# Mantemos também o nome singular (formularios_prontuario_bp) para importações que o esperam.
+# Alias: expor tamb�m nome plural para importa��es que o c�digo possa tentar usar.
+# Mantemos tamb�m o nome singular (formularios_prontuario_bp) para importa��es que o esperam.
 formularios_prontuarios_bp = formularios_prontuario_bp
 __all__ = ['formularios_prontuario_bp', 'formularios_prontuarios_bp']
 

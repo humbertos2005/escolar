@@ -1,111 +1,111 @@
-﻿from flask import session, flash, redirect, url_for
+from flask import session, flash, redirect, url_for
 from functools import wraps
 import secrets
 
 def gerar_token_seguro(nbytes=32):
-    """Gera um token seguro para recuperação de senha"""
+    """Gera um token seguro para recupera��o de senha"""
     return secrets.token_urlsafe(nbytes)
 
-# --- DICIONÁRIOS DE CONFIGURAÇÃO DO SISTEMA ---
+# --- DICION�RIOS DE CONFIGURA��O DO SISTEMA ---
 
 NIVEL_MAP = { 
     1: "Admin Geral (TI)",
-    2: "Admin Secundário",
-    3: "Usuário"
+    2: "Admin Secund�rio",
+    3: "Usu�rio"
 }
 
 TIPO_OCORRENCIA_MAP = {
-    1: "Relatório de Fato Observado em Sala de Aula",
-    2: "Relatório de Fato Observado no Ambiente Escolar"
+    1: "Relat�rio de Fato Observado em Sala de Aula",
+    2: "Relat�rio de Fato Observado no Ambiente Escolar"
 }
 
 TIPO_FALTA_MAP = [
     "LEVE",
-    "MÉDIA",
+    "M�DIA",
     "GRAVE",    
 ]
 
 MEDIDAS_MAP = {
-    "1": "Advertência Oral",
-    "2": "Advertência Escrita",
-    "3": "Suspensão de Sala de Aula",
-    "4": "Ações Educativas",
-    "5": "Transferência Educativa"
+    "1": "Advert�ncia Oral",
+    "2": "Advert�ncia Escrita",
+    "3": "Suspens�o de Sala de Aula",
+    "4": "A��es Educativas",
+    "5": "Transfer�ncia Educativa"
 }
 
-# DICIONÁRIO COMPLETO DE INFRAÇÕES
+# DICION�RIO COMPLETO DE INFRA��ES
 INFRACAO_MAP = {
     1: "Apresentar-se com uniforme diferente do estabelecido pelo regulamento do uniforme",
     2: "Apresentar-se com barba ou bigode sem fazer",
-    3: "Apresentar-se com cabelo com corte, penteado ou coloração exótica",
+    3: "Apresentar-se com cabelo com corte, penteado ou colora��o ex�tica",
     4: "Apresentar-se com piercing, alargador ou similar",
     5: "Apresentar-se com tatuagem exposta",
-    6: "Usar boné, gorro, lenço ou similar dentro da sala de aula ou dependências cobertas",
-    7: "Usar aparelho sonoro (fone de ouvido, caixa de som portátil) em sala de aula sem autorização",
-    8: "Usar celular em sala de aula sem autorização do professor",
-    9: "Alimentar-se em sala de aula sem autorização",
+    6: "Usar bon�, gorro, len�o ou similar dentro da sala de aula ou depend�ncias cobertas",
+    7: "Usar aparelho sonoro (fone de ouvido, caixa de som port�til) em sala de aula sem autoriza��o",
+    8: "Usar celular em sala de aula sem autoriza��o do professor",
+    9: "Alimentar-se em sala de aula sem autoriza��o",
     10: "Mascar chiclete em sala de aula",
     11: "Conversar excessivamente atrapalhando a aula",
     12: "Fazer brincadeiras inadequadas durante a aula",
-    13: "Levantar-se sem autorização durante a aula",
+    13: "Levantar-se sem autoriza��o durante a aula",
     14: "Recusar-se a realizar atividade proposta pelo professor",
     15: "Atrasar-se para entrada ou retorno do intervalo",
     16: "Faltar sem justificativa",
-    17: "Sair da sala sem autorização",
-    18: "Ausentar-se da escola sem autorização",
-    19: "Permanecer fora da sala durante o horário de aula sem justificativa",
-    20: "Danificar ou pichar patrimônio escolar",
-    21: "Sujar dependências da escola intencionalmente",
-    22: "Desperdiçar água, energia ou merenda",
-    23: "Desrespeitar professor, funcionário ou colega",
-    24: "Usar linguagem inadequada (palavrões, xingamentos)",
-    25: "Intimidar, ameaçar ou constranger colegas (bullying)",
-    26: "Praticar violência física (empurrões, socos, chutes)",
+    17: "Sair da sala sem autoriza��o",
+    18: "Ausentar-se da escola sem autoriza��o",
+    19: "Permanecer fora da sala durante o hor�rio de aula sem justificativa",
+    20: "Danificar ou pichar patrim�nio escolar",
+    21: "Sujar depend�ncias da escola intencionalmente",
+    22: "Desperdi�ar �gua, energia ou merenda",
+    23: "Desrespeitar professor, funcion�rio ou colega",
+    24: "Usar linguagem inadequada (palavr�es, xingamentos)",
+    25: "Intimidar, amea�ar ou constranger colegas (bullying)",
+    26: "Praticar viol�ncia f�sica (empurr�es, socos, chutes)",
     27: "Incitar ou participar de conflitos/brigas",
     28: "Portar objeto cortante, perfurante ou contundente",
-    29: "Fumar nas dependências da escola",
-    30: "Consumir bebida alcoólica nas dependências da escola",
-    31: "Portar, consumir ou distribuir substâncias ilícitas",
+    29: "Fumar nas depend�ncias da escola",
+    30: "Consumir bebida alco�lica nas depend�ncias da escola",
+    31: "Portar, consumir ou distribuir subst�ncias il�citas",
     32: "Praticar ato de vandalismo",
     33: "Furtar ou tentar furtar pertences de colegas ou da escola",
     34: "Falsificar assinatura ou documento escolar",
-    35: "Colar ou tentar colar em avaliações",
-    36: "Desrespeitar símbolos nacionais",
-    37: "Fazer gravação de áudio/vídeo sem autorização",
-    38: "Divulgar imagens ou informações de colegas/professores sem autorização",
-    39: "Praticar assédio moral ou sexual",
-    40: "Recusar-se a participar de atividade cívica (hino, hasteamento)",
-    41: "Promover ou participar de manifestação não autorizada",
-    42: "Outros atos não especificados que violem o regimento escolar"
+    35: "Colar ou tentar colar em avalia��es",
+    36: "Desrespeitar s�mbolos nacionais",
+    37: "Fazer grava��o de �udio/v�deo sem autoriza��o",
+    38: "Divulgar imagens ou informa��es de colegas/professores sem autoriza��o",
+    39: "Praticar ass�dio moral ou sexual",
+    40: "Recusar-se a participar de atividade c�vica (hino, hasteamento)",
+    41: "Promover ou participar de manifesta��o n�o autorizada",
+    42: "Outros atos n�o especificados que violem o regimento escolar"
 }
 
 
-# --- DECORADORES DE AUTORIZAÇÃO ---
+# --- DECORADORES DE AUTORIZA��O ---
 
 def login_required(f):
-    """Verifica se o usuário está logado."""
+    """Verifica se o usu�rio est� logado."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('logged_in'):
-            flash('Você precisa fazer login para acessar esta página.', 'warning')
+            flash('Voc� precisa fazer login para acessar esta p�gina.', 'warning')
             return redirect(url_for('auth_bp.login'))
         return f(*args, **kwargs)
     return decorated_function
 
 
 def admin_required(f):
-    """Verifica se o usuário logado é Admin Geral (Nível 1) ou Admin Secundário (Nível 2)."""
+    """Verifica se o usu�rio logado � Admin Geral (N�vel 1) ou Admin Secund�rio (N�vel 2)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if session.get('nivel') not in [1, 2]:  # permite nível 1 E 2
-            flash('Acesso negado. Apenas administradores podem acessar esta área.', 'danger')
+        if session.get('nivel') not in [1, 2]:  # permite n�vel 1 E 2
+            flash('Acesso negado. Apenas administradores podem acessar esta �rea.', 'danger')
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated_function
 
 
 def admin_secundario_required(f):
-    """Verifica se o usuário logado é Admin Geral (1) ou Admin Secundário (2)."""
+    """Verifica se o usu�rio logado � Admin Geral (1) ou Admin Secund�rio (2)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('nivel') not in [1, 2]:
@@ -116,7 +116,7 @@ def admin_secundario_required(f):
 
 
 def usuario_ou_superior_required(f):
-    """Verifica se o usuário logado tem qualquer nível de acesso (1, 2 ou 3)."""
+    """Verifica se o usu�rio logado tem qualquer n�vel de acesso (1, 2 ou 3)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('nivel') not in [1, 2, 3]:
@@ -126,17 +126,17 @@ def usuario_ou_superior_required(f):
     return decorated_function
 
 
-# --- FUNÇÕES AUXILIARES ---
+# --- FUN��ES AUXILIARES ---
 
 def formatar_telefone(telefone):
-    """Formata telefone para padrão brasileiro."""
+    """Formata telefone para padr�o brasileiro."""
     if not telefone:
         return ""
     
-    # Remove caracteres não numéricos
+    # Remove caracteres n�o num�ricos
     numeros = ''.join(filter(str.isdigit, telefone))
     
-    # Formata conforme quantidade de dígitos
+    # Formata conforme quantidade de d�gitos
     if len(numeros) == 11:
         return f"({numeros[:2]}) {numeros[2:7]}-{numeros[7:]}"
     elif len(numeros) == 10:
@@ -146,32 +146,32 @@ def formatar_telefone(telefone):
 
 
 def validar_matricula(matricula):
-    """Valida formato de matrícula."""
+    """Valida formato de matr�cula."""
     if not matricula:
         return False
-    # Remove espaços
+    # Remove espa�os
     matricula = matricula.strip()
-    # Valida comprimento mínimo
+    # Valida comprimento m�nimo
     return len(matricula) >= 3
 
 
 def validar_email(email):
-    """Validação simples de email."""
+    """Valida��o simples de email."""
     if not email:
-        return True  # Email é opcional
+        return True  # Email � opcional
     return '@' in email and '.' in email.split('@')[1]
 
 def get_proximo_rfo_id(incrementar=False):
     """
     Gera um identificador para RFO no formato RFO-XXXX/YYYY (ex: RFO-0001/2025).
-    Usa a conexão de banco fornecida por database.get_db() para contar ocorrências
+    Usa a conex�o de banco fornecida por database.get_db() para contar ocorr�ncias
     do ano atual e retorna RFO-{seq:04d}/{year}. Se houver qualquer erro, cai
-    para um fallback baseado em timestamp (único propósito de garantir retorno).
+    para um fallback baseado em timestamp (�nico prop�sito de garantir retorno).
     """
     try:
         from datetime import datetime
-        # obtém get_db do módulo database (definido em database.py)
-        from database import get_db
+        # obt�m get_db do m�dulo database (definido em database.py)
+        from escola.database import get_db
 
         year = datetime.utcnow().strftime('%Y')
         try:
@@ -179,13 +179,13 @@ def get_proximo_rfo_id(incrementar=False):
             row = db.execute("SELECT COUNT(*) as c FROM ocorrencias WHERE strftime('%Y', created_at) = ?", (year,)).fetchone()
             base_count = int(row['c']) if row and row['c'] is not None else 0
         except Exception:
-            # se por alguma razão não temos acesso ao contexto Flask/get_db, usar 0
+            # se por alguma raz�o n�o temos acesso ao contexto Flask/get_db, usar 0
             base_count = 0
 
         seq = base_count + 1
         return f"RFO-{seq:04d}/{year}"
     except Exception:
-        # fallback robusto por timestamp (não ideal, mas evita quebrar UI)
+        # fallback robusto por timestamp (n�o ideal, mas evita quebrar UI)
         from datetime import datetime
         year = datetime.utcnow().strftime('%Y')
         fallback_seq = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[-6:]

@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, send_file, make_response
-from database import get_db
+from escola.database import get_db
 from .utils import admin_required
 from datetime import datetime
 from weasyprint import HTML

@@ -1,5 +1,5 @@
-﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, session
-from database import get_db
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, session
+from escola.database import get_db
 from .utils import login_required, admin_secundario_required, NIVEL_MAP
 from flask_login import current_user
 import os
@@ -9,7 +9,7 @@ from datetime import datetime
 import typing
 import json
 import sqlite3
-# Adicionar após os imports no topo de blueprints/visualizacoes.py
+# Adicionar ap�s os imports no topo de blueprints/visualizacoes.py
 import atexit
 import asyncio as _asyncio
 
@@ -29,7 +29,7 @@ def _get_logo_data_and_file(cabecalho):
     logo_file = cabecalho.get("logo_file") if cabecalho else None
 
     try:
-        # extrair caminho físico se já vier em file://
+        # extrair caminho f�sico se j� vier em file://
         file_path = None
         if isinstance(logo_file, str) and logo_file.startswith("file://"):
             file_path = logo_file[7:]
@@ -52,7 +52,7 @@ def _get_logo_data_and_file(cabecalho):
         if (not file_path or not os.path.exists(file_path)) and os.path.exists(preferred):
             file_path = preferred
 
-        # último fallback: procurar qualquer arquivo que comece por 'logo' na pasta plural
+        # �ltimo fallback: procurar qualquer arquivo que comece por 'logo' na pasta plural
         if (not file_path or not os.path.exists(file_path)):
             updir = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos")
             try:
@@ -85,16 +85,16 @@ def _get_logo_data_and_file(cabecalho):
 def _get_logo_data_and_file(cabecalho):
     """
     Retorna (logo_data, logo_file) onde:
-    - logo_data é a data URI (ou None)
-    - logo_file é o caminho file://... atualizado (ou o valor existente)
-    A função prioriza static/uploads/cabecalhos (plural) e nomes comuns.
+    - logo_data � a data URI (ou None)
+    - logo_file � o caminho file://... atualizado (ou o valor existente)
+    A fun��o prioriza static/uploads/cabecalhos (plural) e nomes comuns.
     """
     import os, base64, urllib.parse
     logo_data = None
     logo_file = cabecalho.get("logo_file") if cabecalho else None
 
     try:
-        # Se logo_file já for file:// -> extrair caminho físico
+        # Se logo_file j� for file:// -> extrair caminho f�sico
         file_path = None
         if isinstance(logo_file, str) and logo_file.startswith("file://"):
             file_path = logo_file[7:]
@@ -117,7 +117,7 @@ def _get_logo_data_and_file(cabecalho):
         if (not file_path or not os.path.exists(file_path)) and os.path.exists(preferred):
             file_path = preferred
 
-        # último fallback: procurar qualquer arquivo que comece por 'logo' na pasta plural
+        # �ltimo fallback: procurar qualquer arquivo que comece por 'logo' na pasta plural
         if (not file_path or not os.path.exists(file_path)):
             updir = os.path.join(current_app.root_path, "static", "uploads", "cabecalhos")
             try:
@@ -169,7 +169,7 @@ async def _close_all_launched_browsers():
     _launched_browsers.clear()
 
 def _close_browsers_on_exit():
-    # Usa um novo event loop para garantir que não dependemos do loop já fechado
+    # Usa um novo event loop para garantir que n�o dependemos do loop j� fechado
     try:
         loop = _asyncio.new_event_loop()
         loop.run_until_complete(_close_all_launched_browsers())
@@ -177,7 +177,7 @@ def _close_browsers_on_exit():
     except Exception:
         pass
 
-# Evitar que pyppeteer registre seu handler de atexit que usa um loop já fechado.
+# Evitar que pyppeteer registre seu handler de atexit que usa um loop j� fechado.
 # Isso filtra e ignora registros de handlers internos do pyppeteer (ex.: _close_process/killChrome).
 import atexit as _atexit
 try:
@@ -197,7 +197,7 @@ try:
 except Exception:
     pass
 
-# Remove imediatamente quaisquer handlers já registrados que pareçam ser do pyppeteer.
+# Remove imediatamente quaisquer handlers j� registrados que pare�am ser do pyppeteer.
 try:
     if hasattr(_atexit, "_exithandlers"):
         _atexit._exithandlers[:] = [
@@ -230,7 +230,7 @@ def is_admin():
 @visualizacoes_bp.route('/usuarios')
 @admin_secundario_required
 def listar_usuarios():
-    """Lista todos os usuários cadastrados."""
+    """Lista todos os usu�rios cadastrados."""
     db = get_db()
 
     usuarios = db.execute('''
@@ -302,7 +302,7 @@ def visualizar_aluno(aluno_id):
     db = get_db()
     aluno = db.execute('SELECT * FROM alunos WHERE id = ?', (aluno_id,)).fetchone()
     if aluno is None:
-        return jsonify({'error': 'Aluno não encontrado'}), 404
+        return jsonify({'error': 'Aluno n�o encontrado'}), 404
     aluno_d = dict(aluno)
     # montar URL da foto se existir
     # columns used by different schemas: 'photo', 'foto', 'arquivo_foto', 'foto_filename'
@@ -316,14 +316,14 @@ def visualizar_aluno(aluno_id):
     return jsonify({'aluno': aluno_d})
 
 
-# --- substituir a função upload_foto por esta versão ---
+# --- substituir a fun��o upload_foto por esta vers�o ---
 @visualizacoes_bp.route('/upload_foto/<int:aluno_id>', methods=['POST'])
 @login_required
 def upload_foto(aluno_id):
     """
     Recebe upload de foto, salva em static/uploads/alunos e atualiza coluna
-    alunos.photo (cria coluna se necessário).
-    Agora salva com padrão: <matricula>_<slug_nome>.<ext>
+    alunos.photo (cria coluna se necess�rio).
+    Agora salva com padr�o: <matricula>_<slug_nome>.<ext>
     Ex.: 20231234_humberto_moura.jpg
     """
     if 'photo' not in request.files:
@@ -332,9 +332,9 @@ def upload_foto(aluno_id):
     if file.filename == '':
         return jsonify({'success': False, 'error': 'Arquivo sem nome.'}), 400
     if not _allowed_file(file.filename):
-        return jsonify({'success': False, 'error': 'Formato de arquivo não permitido.'}), 400
+        return jsonify({'success': False, 'error': 'Formato de arquivo n�o permitido.'}), 400
 
-    # utilitários locais para gerar slug/nome seguro
+    # utilit�rios locais para gerar slug/nome seguro
     import unicodedata, re
 
     def slugify(text, max_len=80):
@@ -357,7 +357,7 @@ def upload_foto(aluno_id):
         filename = f"{base}{ext}"
         return _secure(filename)
 
-    # puxar matrícula e nome do aluno para compor o nome do arquivo
+    # puxar matr�cula e nome do aluno para compor o nome do arquivo
     db = get_db()
     try:
         row = db.execute("SELECT matricula, nome FROM alunos WHERE id = ?", (aluno_id,)).fetchone()
@@ -368,7 +368,7 @@ def upload_foto(aluno_id):
     nome_aluno = None
     if row:
         try:
-            # row pode ser Row object ou tuple; tentamos acessar com chaves e por índice
+            # row pode ser Row object ou tuple; tentamos acessar com chaves e por �ndice
             matricula = row['matricula'] if 'matricula' in row.keys() else (row[0] if len(row) > 0 else None)
             nome_aluno = row['nome'] if 'nome' in row.keys() else (row[1] if len(row) > 1 else None)
         except Exception:
@@ -380,7 +380,7 @@ def upload_foto(aluno_id):
                 matricula = None
                 nome_aluno = None
 
-    # fallback: se matrícula não existir, usar ID do aluno
+    # fallback: se matr�cula n�o existir, usar ID do aluno
     matricula_or_id = str(matricula) if matricula else str(aluno_id)
     nome_para_slug = nome_aluno or ''
 
@@ -399,7 +399,7 @@ def upload_foto(aluno_id):
         return jsonify({'success': False, 'error': 'Falha ao salvar arquivo.'}), 500
 
     try:
-        # atualizar DB; se a coluna não existir, criá-la (mesma lógica anterior)
+        # atualizar DB; se a coluna n�o existir, cri�-la (mesma l�gica anterior)
         try:
             db.execute('UPDATE alunos SET photo = ? WHERE id = ?', (filename, aluno_id))
         except Exception:
@@ -413,20 +413,20 @@ def upload_foto(aluno_id):
         return jsonify({'success': True, 'filename': filename})
     except Exception:
         db.rollback()
-        current_app.logger.exception('Erro ao salvar referência de foto no banco')
+        current_app.logger.exception('Erro ao salvar refer�ncia de foto no banco')
         return jsonify({'success': False, 'error': 'Erro ao atualizar banco.'}), 500
-# --- fim da substituição ---
+# --- fim da substitui��o ---
 
 
 @visualizacoes_bp.route('/excluir_aluno/<int:aluno_id>', methods=['POST'])
 @admin_secundario_required
 def excluir_aluno(aluno_id):
-    """Exclui o aluno do banco (atenção: operação irreversível)."""
+    """Exclui o aluno do banco (aten��o: opera��o irrevers�vel)."""
     db = get_db()
     try:
         db.execute('DELETE FROM alunos WHERE id = ?', (aluno_id,))
         db.commit()
-        flash(f'Aluno ID {aluno_id} excluído com sucesso.', 'success')
+        flash(f'Aluno ID {aluno_id} exclu�do com sucesso.', 'success')
     except Exception as e:
         db.rollback()
         current_app.logger.exception('Erro ao excluir aluno')
@@ -437,7 +437,7 @@ def excluir_aluno(aluno_id):
 @admin_secundario_required
 def excluir_alunos_selecionados():
     """
-    Endpoint AJAX para excluir vários alunos de uma só vez.
+    Endpoint AJAX para excluir v�rios alunos de uma s� vez.
     Recebe JSON: { "ids": [1,2,3] }
     Retorna JSON: { "deleted": [ids], "errors": { "<id>": "mensagem" } }
     """
@@ -449,9 +449,9 @@ def excluir_alunos_selecionados():
 
     # valida formato
     if not isinstance(ids, (list, tuple)):
-        return jsonify({"deleted": [], "errors": {"request": "Formato inválido para 'ids', deve ser lista"}}), 400
+        return jsonify({"deleted": [], "errors": {"request": "Formato inv�lido para 'ids', deve ser lista"}}), 400
 
-    # normalizar e filtrar ids inteiros únicos
+    # normalizar e filtrar ids inteiros �nicos
     norm_ids = []
     for v in ids:
         try:
@@ -459,8 +459,8 @@ def excluir_alunos_selecionados():
             if iv not in norm_ids:
                 norm_ids.append(iv)
         except Exception:
-            # ignorar valores não inteiros, mas registrar erro
-            errors[str(v)] = "ID inválido"
+            # ignorar valores n�o inteiros, mas registrar erro
+            errors[str(v)] = "ID inv�lido"
 
     if not norm_ids:
         return jsonify({"deleted": [], "errors": errors}), 400
@@ -468,27 +468,27 @@ def excluir_alunos_selecionados():
     try:
         for i in norm_ids:
             try:
-                # verificar existência
+                # verificar exist�ncia
                 row = db.execute("SELECT id FROM alunos WHERE id = ?", (i,)).fetchone()
                 if not row:
-                    errors[str(i)] = "Registro não encontrado"
+                    errors[str(i)] = "Registro n�o encontrado"
                     continue
 
                 cur = db.execute("DELETE FROM alunos WHERE id = ?", (i,))
-                # rowcount pode não ser confiável em todos os adaptadores, mas tentamos usá-lo
+                # rowcount pode n�o ser confi�vel em todos os adaptadores, mas tentamos us�-lo
                 rc = getattr(cur, "rowcount", None)
                 if rc is None:
-                    # fallback: confirmar não existe mais
+                    # fallback: confirmar n�o existe mais
                     chk = db.execute("SELECT id FROM alunos WHERE id = ?", (i,)).fetchone()
                     if not chk:
                         deleted.append(i)
                     else:
-                        errors[str(i)] = "Não foi possível remover (verifique restrições FK)"
+                        errors[str(i)] = "N�o foi poss�vel remover (verifique restri��es FK)"
                 else:
                     if rc > 0:
                         deleted.append(i)
                     else:
-                        errors[str(i)] = "Não removido"
+                        errors[str(i)] = "N�o removido"
             except Exception as e:
                 db.rollback()
                 current_app.logger.exception("Erro ao tentar excluir aluno %r", i)
@@ -498,8 +498,8 @@ def excluir_alunos_selecionados():
             db.commit()
         except Exception as e:
             db.rollback()
-            current_app.logger.exception("Erro no commit da exclusão em massa")
-            return jsonify({"deleted": deleted, "errors": {"commit": "Erro ao gravar alterações no banco: " + str(e)}}), 500
+            current_app.logger.exception("Erro no commit da exclus�o em massa")
+            return jsonify({"deleted": deleted, "errors": {"commit": "Erro ao gravar altera��es no banco: " + str(e)}}), 500
 
         return jsonify({"deleted": deleted, "errors": errors})
     except Exception as e:
@@ -509,7 +509,7 @@ def excluir_alunos_selecionados():
 
 
 # ---------------------------
-# Novas rotas/handlers para listar RFOs (Visualização)
+# Novas rotas/handlers para listar RFOs (Visualiza��o)
 # ---------------------------
 
 def _pick_field_from_row(row: typing.Mapping, candidates: typing.List[str], default=''):
@@ -526,7 +526,7 @@ def _pick_field_from_row(row: typing.Mapping, candidates: typing.List[str], defa
 @login_required
 def listar_rfos():
     """
-    Lista RFOs para visualização.
+    Lista RFOs para visualiza��o.
     Default: exibe apenas RFOs tratados (ou seja, exclui os que contenham 'AGUARDANDO' no status).
     Use ?status=AGUARDANDO%20TRATAMENTO para ver pendentes, ?status=TRATADO para tratados, ?status=TODOS para todos.
     """
@@ -562,7 +562,7 @@ def listar_rfos():
             sql = base_sql + " WHERE o.status = ? " + order_by
             rows = db.execute(sql, (q_status,)).fetchall()
     except Exception:
-        current_app.logger.exception("Erro ao buscar ocorrencias para visualização")
+        current_app.logger.exception("Erro ao buscar ocorrencias para visualiza��o")
         rows = []
         
     # mapear campos para o template de forma robusta
@@ -604,7 +604,7 @@ def listar_rfos():
 @visualizacoes_bp.route('/rfo/<int:rfo_id>/cancel', methods=['POST'])
 @admin_secundario_required
 def cancelar_rfo(rfo_id):
-    """Marca um RFO como CANCELADO. Fica visível na listagem com status CANCELADO."""
+    """Marca um RFO como CANCELADO. Fica vis�vel na listagem com status CANCELADO."""
     db = get_db()
     try:
         db.execute("UPDATE ocorrencias SET status = ? WHERE id = ?", ('CANCELADO', rfo_id))
@@ -620,8 +620,8 @@ def cancelar_rfo(rfo_id):
 def limpar_lista_rfos():
     """
     Move todas as ocorrencias para uma tabela de removidos (ocorrencias_removidas),
-    limpa a tabela ocorrencias (lista de visualização) e reinicia a sequência de autoincremento.
-    Observação: os dados originais são salvos em formato JSON no campo 'data' da tabela removidos.
+    limpa a tabela ocorrencias (lista de visualiza��o) e reinicia a sequ�ncia de autoincremento.
+    Observa��o: os dados originais s�o salvos em formato JSON no campo 'data' da tabela removidos.
     """
     db = get_db()
     try:
@@ -692,15 +692,15 @@ def listar_rfos_removidos():
 
 
 # ========================
-# Listagem TAC no módulo Visualizações (com suporte a 'baixa' administrativo)
+# Listagem TAC no m�dulo Visualiza��es (com suporte a 'baixa' administrativo)
 # ========================
 @visualizacoes_bp.route('/tac')
 @login_required
 def tac_command():
     """
-    Listagem de TACs dentro do módulo Visualizações.
-    - Usuários veem apenas registros com baixa=0 (quando coluna existe).
-    - Admins podem ver também os baixados usando ?show_baixados=1
+    Listagem de TACs dentro do m�dulo Visualiza��es.
+    - Usu�rios veem apenas registros com baixa=0 (quando coluna existe).
+    - Admins podem ver tamb�m os baixados usando ?show_baixados=1
     - show_deleted retains previous behavior to show soft-deleted items.
     """
     db = get_db()
@@ -717,7 +717,7 @@ def tac_command():
                 else:
                     rows = db.execute("SELECT * FROM tacs WHERE COALESCE(baixa,0)=0 AND deleted=0 ORDER BY created_at DESC").fetchall()
             except sqlite3.OperationalError:
-                # coluna 'baixa' não existe: fallback ao comportamento anterior
+                # coluna 'baixa' n�o existe: fallback ao comportamento anterior
                 rows = db.execute("SELECT * FROM tacs WHERE deleted = 0 ORDER BY created_at DESC").fetchall()
 
         tacs = []
@@ -794,12 +794,12 @@ def reativar_tac(id):
 
 
 # ========================
-# FMD listing & archive actions (Visualizações/FMD)
+# FMD listing & archive actions (Visualiza��es/FMD)
 # ========================
 @visualizacoes_bp.route('/fmds')
 def listar_fmds():
     """
-    Lista FMDs para visualização. Usuários veem por padrão apenas FMDs não baixadas
+    Lista FMDs para visualiza��o. Usu�rios veem por padr�o apenas FMDs n�o baixadas
     (COALESCE(baixa,0)=0). Se show_baixados=1 nos args, mostra todas.
     """
     db = get_db()
@@ -937,7 +937,7 @@ def reativar_fmd(id):
 # Padding line 59
 # Padding line 60
 # End padding
-# --- START: helpers para geração de PDF (assíncrono seguro) ---
+# --- START: helpers para gera��o de PDF (ass�ncrono seguro) ---
 import threading
 import io
 import asyncio
@@ -947,7 +947,7 @@ async def _make_pdf(content_html,
                     chrome_executable=r"C:\Program Files\Google\Chrome\Application\chrome.exe"):
     """
     Gera bytes de PDF a partir de HTML.
-    - Primeiro tenta iniciar um Chrome headless local (não visível).
+    - Primeiro tenta iniciar um Chrome headless local (n�o vis�vel).
     - Se isso falhar, faz fallback para conectar ao Chrome remoto (connect).
     - Carrega o HTML via data URL e aguarda networkidle0 para garantir CSS/fonts.
     """
@@ -955,17 +955,17 @@ async def _make_pdf(content_html,
     import urllib.parse as _urllib
     from pyppeteer import connect as _connect, launch as _launch
 
-    # garantir o executável do Chrome (use o caminho que você confirmou)
+    # garantir o execut�vel do Chrome (use o caminho que voc� confirmou)
     chrome_executable = globals().get('chrome_executable') or r"C:\Program Files\Google\Chrome\Application\chrome.exe"
     
     browser = None
     launched_here = False
     try:
-        # 1) Preferimos iniciar um Chrome headless "novo" (não abre janelas visíveis).
+        # 1) Preferimos iniciar um Chrome headless "novo" (n�o abre janelas vis�veis).
         try:
             browser = await _launch(
                 executablePath=chrome_executable,
-                headless=True,           # headless para não abrir janelas visíveis
+                headless=True,           # headless para n�o abrir janelas vis�veis
                 handleSIGINT=False,
                 handleSIGTERM=False,
                 handleSIGHUP=False,
@@ -991,7 +991,7 @@ async def _make_pdf(content_html,
                             mname = getattr(fn, "__module__", "") or ""
                             qname = getattr(fn, "__qualname__", "") or ""
                             r = repr(fn)
-                            # filtra handlers que pertençam ao pyppeteer/Launcher ou que contenham nomes conhecidos
+                            # filtra handlers que perten�am ao pyppeteer/Launcher ou que contenham nomes conhecidos
                             if ( "pyppeteer" in mname
                                 or "pyppeteer" in r
                                 or "_close_process" in qname
@@ -1001,10 +1001,10 @@ async def _make_pdf(content_html,
                                 # pula (remover)
                                 continue
                         except Exception:
-                            # se não for possível inspecionar, mantém o handler para segurança
+                            # se n�o for poss�vel inspecionar, mant�m o handler para seguran�a
                             new_handlers.append(t)
                             continue
-                        # se chegou aqui, mantém o handler
+                        # se chegou aqui, mant�m o handler
                         new_handlers.append(t)
                     _atexit._exithandlers[:] = new_handlers
             except Exception:
@@ -1012,7 +1012,7 @@ async def _make_pdf(content_html,
 
             launched_here = True
         except Exception:
-            # 2) Fallback: conectar ao Chrome já em execução (pode abrir aba visível)
+            # 2) Fallback: conectar ao Chrome j� em execu��o (pode abrir aba vis�vel)
             browser = await _connect(browserURL=connect_url)
             launched_here = False
 
@@ -1048,15 +1048,15 @@ async def _make_pdf(content_html,
 
 def generate_pdf_bytes(html):
     """
-    Wrapper síncrono para chamar o async _make_pdf.
-    Trata casos em que já exista um event loop em execução (debug reloader).
+    Wrapper s�ncrono para chamar o async _make_pdf.
+    Trata casos em que j� exista um event loop em execu��o (debug reloader).
     """
     try:
-        # Tenta usar asyncio.run (padrão)
+        # Tenta usar asyncio.run (padr�o)
         import asyncio as _asyncio
         return _asyncio.run(_make_pdf(html))
     except Exception as e:
-        # Se falhar por event loop já em execução, cria um loop temporário
+        # Se falhar por event loop j� em execu��o, cria um loop tempor�rio
         if isinstance(e, RuntimeError) or 'event loop' in str(e).lower():
             loop = __import__('asyncio').new_event_loop()
             try:
@@ -1066,23 +1066,23 @@ def generate_pdf_bytes(html):
                     loop.close()
                 except Exception:
                     pass
-        # se for outro erro, relança para diagnóstico
+        # se for outro erro, relan�a para diagn�stico
         raise
     except Exception:
         # Propaga para que a rota trate/logue
         raise
-# --- END: helpers para geração de PDF ---
+# --- END: helpers para gera��o de PDF ---
 
-# --- START: rota de teste para geração de PDF ---
+# --- START: rota de teste para gera��o de PDF ---
 
 
 @visualizacoes_bp.route("/ata/<int:ata_id>/pdf")
 def ata_pdf(ata_id):
     """
     Gera PDF da ATA usando o template visualizacoes/ata_print.html.
-    - Gera data por extenso (pt-BR) quando possível.
+    - Gera data por extenso (pt-BR) quando poss�vel.
     - Garante cabecalho.logo_url via url_for.
-    - Inclui o responsável entre os participantes se necessário.
+    - Inclui o respons�vel entre os participantes se necess�rio.
     """
     import io
     import re
@@ -1091,7 +1091,7 @@ def ata_pdf(ata_id):
 
     def num_to_words_pt(n):
         # suporta 0..9999 (suficiente para anos)
-        units = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
+        units = {0:"zero",1:"um",2:"dois",3:"tr�s",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
                  10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",18:"dezoito",19:"dezenove"}
         tens = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
         hundreds = {100:"cem",200:"duzentos",300:"trezentos",400:"quatrocentos",500:"quinhentos",600:"seiscentos",700:"setecentos",800:"oitocentos",900:"novecentos"}
@@ -1147,21 +1147,21 @@ def ata_pdf(ata_id):
                     return dt
         if isinstance(dt, datetime):
             dt = dt.date()
-        meses = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+        meses = ["janeiro","fevereiro","mar�o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
         dia = dt.day
         mes = meses[dt.month - 1]
         ano_words = num_to_words_pt(dt.year)
         dia_words = num_to_words_pt(dia)
-        # formato pedido: "dezesseis dias do mês de dezembro do ano de dois mil e vinte e cinco"
+        # formato pedido: "dezesseis dias do m�s de dezembro do ano de dois mil e vinte e cinco"
         # singular/plural para dia
         dia_label = "dia" if dia == 1 else "dias"
-        return f"{dia_words} {dia_label} do mês de {mes} do ano de {ano_words}"
+        return f"{dia_words} {dia_label} do m�s de {mes} do ano de {ano_words}"
 
     try:
         db = get_db()
         ata_row = db.execute("SELECT * FROM atas WHERE id = ?", (ata_id,)).fetchone()
         if not ata_row:
-            return jsonify({"error": "ATA não encontrada."}), 404
+            return jsonify({"error": "ATA n�o encontrada."}), 404
         ata = dict(ata_row)
 
         # desserializar participants_json se for string
@@ -1175,7 +1175,7 @@ def ata_pdf(ata_id):
         except Exception:
             ata["participants_json"] = []
 
-        # tenta popular ata.aluno a partir de aluno_id (se houver) - preserva existência atual
+        # tenta popular ata.aluno a partir de aluno_id (se houver) - preserva exist�ncia atual
         try:
             aluno_id = ata.get("aluno_id") or ata.get("aluno")
             if aluno_id:
@@ -1185,7 +1185,7 @@ def ata_pdf(ata_id):
         except Exception:
             pass
 
-        # carregar cabeçalho (prioriza dados_escola.cabecalho_id)
+        # carregar cabe�alho (prioriza dados_escola.cabecalho_id)
         cabecalho = {"estado":"", "secretaria":"", "coordenacao":"", "escola":"", "logo_url":""}
         try:
             r = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
@@ -1206,12 +1206,12 @@ def ata_pdf(ata_id):
                 logo_fn = chd.get('logo_estado') or chd.get('logo') or None
                 if logo_fn:
                     try:
-                        # usar caminho relativo, evita problemas com geradores que não aceitam _external
+                        # usar caminho relativo, evita problemas com geradores que n�o aceitam _external
                         cabecalho['logo_url'] = url_for('static', filename=f'uploads/cabecalhos/{logo_fn}')
                     except Exception:
                         cabecalho['logo_url'] = f'/static/uploads/cabecalhos/{logo_fn}'
         except Exception:
-                        # se ocorrer qualquer erro lendo cabeçalho, manter valores default em cabecalho
+                        # se ocorrer qualquer erro lendo cabe�alho, manter valores default em cabecalho
             pass
 
         # Garantir que ata.responsavel exista: checar campo direto, depois procurar nos participants_json por cargo contendo 'respons'
@@ -1226,15 +1226,15 @@ def ata_pdf(ata_id):
                     for p in parts:
                         cname = (p.get('cargo') or p.get('role') or "").lower() if isinstance(p, dict) else ""
                         pname = (p.get('name') or p.get('nome') or "") if isinstance(p, dict) else ""
-                        if 'respons' in cname or 'responsáv' in cname or 'responsavel' in cname or 'responsável' in cname:
+                        if 'respons' in cname or 'respons�v' in cname or 'responsavel' in cname or 'respons�vel' in cname:
                             ata["responsavel"] = pname
                             break
                 except Exception:
                     pass
 
-        # Se ainda não houver responsavel, tentar buscar em tabela alunos->responsavel (coluna possivel 'responsavel')
+        # Se ainda n�o houver responsavel, tentar buscar em tabela alunos->responsavel (coluna possivel 'responsavel')
         if not ata.get("responsavel"):
-            # tenta buscar responsável a partir do aluno (se houver aluno_id)
+            # tenta buscar respons�vel a partir do aluno (se houver aluno_id)
             try:
                 aluno_id = ata.get("aluno_id") or ata.get("aluno")
                 if aluno_id:
@@ -1247,9 +1247,9 @@ def ata_pdf(ata_id):
             except Exception:
                 pass
 
-        # OBS: bloco acima é intencionalmente neutro; caso sua tabela alunos possua coluna de responsável, podemos ajustá-lo.
+        # OBS: bloco acima � intencionalmente neutro; caso sua tabela alunos possua coluna de respons�vel, podemos ajust�-lo.
 
-        # Garantir que o responsável esteja listado em participants_json (evitar duplicatas)
+        # Garantir que o respons�vel esteja listado em participants_json (evitar duplicatas)
         try:
             parts = ata.get("participants_json") or []
             resp = ata.get("responsavel")
@@ -1261,18 +1261,18 @@ def ata_pdf(ata_id):
                         found = True
                         break
                 if not found:
-                    parts.append({"nome": resp, "cargo": "Responsável"})
+                    parts.append({"nome": resp, "cargo": "Respons�vel"})
             ata["participants_json"] = parts
         except Exception:
             pass
 
-        # Gerar data por extenso: prioriza campo já existente ata.data_extenso, senão tenta descobrir por ata.data / ata.data_ata
+        # Gerar data por extenso: prioriza campo j� existente ata.data_extenso, sen�o tenta descobrir por ata.data / ata.data_ata
         ata_date = None
         if ata.get("data_extenso") and isinstance(ata.get("data_extenso"), str) and ata.get("data_extenso").strip():
-            # usa o valor textual já presente (não altera)
+            # usa o valor textual j� presente (n�o altera)
             ata["data_extenso_extenso"] = ata.get("data_extenso")
         else:
-            # tenta várias chaves comuns
+            # tenta v�rias chaves comuns
             for k in ("data", "data_ata", "data_reuniao", "created_at"):
                 if ata.get(k):
                     ata_date = ata.get(k)
@@ -1289,16 +1289,16 @@ def ata_pdf(ata_id):
                     ata["data_extenso_extenso"] = str(ata_date)
             else:
                 ata["data_extenso_extenso"] = ata.get("data_extenso") or ""
-        # renderizar HTML do template de impressão
-        # --- Ajustes automáticos inseridos: fallback de logo e responsabil como 4º participante ---
-        # fallback para logo_topo.png caso não exista logo definida no cabeçalho
+        # renderizar HTML do template de impress�o
+        # --- Ajustes autom�ticos inseridos: fallback de logo e responsabil como 4� participante ---
+        # fallback para logo_topo.png caso n�o exista logo definida no cabe�alho
         if not cabecalho.get("logo_url"):
             try:
                 cabecalho["logo_url"] = url_for("static", filename="uploads/cabecalhos/logo_topo.png", _external=True)
             except Exception:
                 cabecalho["logo_url"] = "/static/uploads/cabecalhos/logo_topo.png"
         
-        # garantir que o responsável esteja como 4º participante (índice 3) se não estiver presente
+        # garantir que o respons�vel esteja como 4� participante (�ndice 3) se n�o estiver presente
         try:
             parts = ata.get("participants_json") or []
             resp = (ata.get("responsavel") or "").strip() if ata.get("responsavel") else ""
@@ -1313,22 +1313,22 @@ def ata_pdf(ata_id):
                         found = True
                         break
                 if not found:
-                    newp = {"nome": resp, "cargo": "Responsável"}
+                    newp = {"nome": resp, "cargo": "Respons�vel"}
                     if len(parts) >= 3:
-                        # insere na posição 3 (quarta posição)
+                        # insere na posi��o 3 (quarta posi��o)
                         parts.insert(3, newp)
                     else:
                         parts.append(newp)
             ata["participants_json"] = parts
         except Exception:
             pass
-        # --- fim dos ajustes automáticos ---
-            # --- Garantir responsavel e inseri-lo como 4º participante (robusto) ---
+        # --- fim dos ajustes autom�ticos ---
+            # --- Garantir responsavel e inseri-lo como 4� participante (robusto) ---
             try:
-                # normalizar campos já existentes
+                # normalizar campos j� existentes
                 resp = (ata.get("responsavel") or ata.get("responsavel_nome") or ata.get("responsavel_nome_completo") or "").strip()
                 if not resp:
-                    # tentar campos alternativos na própria ATA
+                    # tentar campos alternativos na pr�pria ATA
                     for k in ("responsavel", "responsavel_nome", "responsavel_nome_completo", "nome_responsavel", "responsavel_legal", "responsavel_nomepai", "nome_pai", "pai", "mae", "nome_mae"):
                         if ata.get(k):
                             try:
@@ -1339,7 +1339,7 @@ def ata_pdf(ata_id):
                             except Exception:
                                 continue
         
-                # se ainda vazio, tentar obter do registro do aluno (se houver referência a aluno)
+                # se ainda vazio, tentar obter do registro do aluno (se houver refer�ncia a aluno)
                 if not resp:
                     aluno_id = ata.get("aluno_id") or ata.get("aluno")
                     try:
@@ -1362,7 +1362,7 @@ def ata_pdf(ata_id):
                     except Exception:
                         pass
         
-                # se encontrado, ajustar em ata e inserir em participants_json como 4º participante (index 3)
+                # se encontrado, ajustar em ata e inserir em participants_json como 4� participante (index 3)
                 if resp:
                     ata["responsavel"] = resp
         
@@ -1386,7 +1386,7 @@ def ata_pdf(ata_id):
                                 found = True
                                 break
                         if not found:
-                            newp = {"nome": resp, "cargo": "Responsável"}
+                            newp = {"nome": resp, "cargo": "Respons�vel"}
                             if len(parts) >= 3:
                                 parts.insert(3, newp)
                             else:
@@ -1402,7 +1402,7 @@ def ata_pdf(ata_id):
             if not ata.get("data_extenso") and ata.get("created_at"):
                 from datetime import datetime
                 def int_to_words_pt(n):
-                    unidades = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
+                    unidades = {0:"zero",1:"um",2:"dois",3:"tr�s",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
                                 10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",
                                 18:"dezoito",19:"dezenove"}
                     dezenas = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
@@ -1441,16 +1441,16 @@ def ata_pdf(ata_id):
 
                 try:
                     dt = datetime.strptime(ata.get("created_at"), "%Y-%m-%d %H:%M:%S")
-                    months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+                    months = ["janeiro","fevereiro","mar�o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
                     day_words = int_to_words_pt(dt.day)
                     year_words = int_to_words_pt(dt.year)
-                    ata["data_extenso"] = f"{day_words} dias do mês de {months[dt.month-1]} do ano de {year_words}"
+                    ata["data_extenso"] = f"{day_words} dias do m�s de {months[dt.month-1]} do ano de {year_words}"
                 except Exception:
                     ata["data_extenso"] = ata.get("created_at")
         except Exception:
             pass
 
-        # --- garantir logo_file com caminho local (file://) quando possível ---
+        # --- garantir logo_file com caminho local (file://) quando poss�vel ---
         try:
             from flask import current_app
             import os, urllib.parse
@@ -1483,7 +1483,7 @@ def ata_pdf(ata_id):
             if not ata.get("data_extenso") and ata.get("created_at"):
                 from datetime import datetime
                 def int_to_words_pt(n):
-                    unidades = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
+                    unidades = {0:"zero",1:"um",2:"dois",3:"tr�s",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
                                 10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",
                                 18:"dezoito",19:"dezenove"}
                     dezenas = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
@@ -1522,10 +1522,10 @@ def ata_pdf(ata_id):
 
                 try:
                     dt = datetime.strptime(ata.get("created_at"), "%Y-%m-%d %H:%M:%S")
-                    months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+                    months = ["janeiro","fevereiro","mar�o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
                     day_words = int_to_words_pt(dt.day)
                     year_words = int_to_words_pt(dt.year)
-                    ata["data_extenso"] = f"{day_words} dias do mês de {months[dt.month-1]} do ano de {year_words}"
+                    ata["data_extenso"] = f"{day_words} dias do m�s de {months[dt.month-1]} do ano de {year_words}"
                 except Exception:
                     ata["data_extenso"] = ata.get("created_at")
         except Exception:
@@ -1568,13 +1568,13 @@ def ata_pdf(ata_id):
         logo_data, logo_file = _get_logo_data_and_file(cabecalho)
         cabecalho["logo_file"] = cabecalho.get("logo_file") or logo_file
         
-        # --- garantir logo_data + assinaturas antes de renderizar o template (primeira ocorrência) ---
+        # --- garantir logo_data + assinaturas antes de renderizar o template (primeira ocorr�ncia) ---
         logo_data, logo_file = _get_logo_data_and_file(cabecalho)
-        # atualizar cabecalho.logo_file se necessário (mantém compatibilidade)
+        # atualizar cabecalho.logo_file se necess�rio (mant�m compatibilidade)
         if not cabecalho.get("logo_file") and logo_file:
             cabecalho["logo_file"] = logo_file
 
-        # Normalizar participants_json -> assinaturas (inclui Diretor e Responsável)
+        # Normalizar participants_json -> assinaturas (inclui Diretor e Respons�vel)
         def _normalize_participant(p):
             if isinstance(p, dict):
                 name = p.get('nome') or p.get('name') or p.get('nome_completo') or ""
@@ -1618,12 +1618,12 @@ def ata_pdf(ata_id):
         if diretor_nome and not any(a['nome'].strip().lower() == diretor_nome.strip().lower() for a in assinaturas):
             assinaturas.append({'nome': diretor_nome, 'cargo': 'Diretor'})
 
-        # garantir que o Responsável pelo aluno esteja presente
+        # garantir que o Respons�vel pelo aluno esteja presente
         resp = ata.get("responsavel") or ata.get("responsavel_nome") or ata.get("responsavel_nome_completo")
         if resp:
             resp = (resp or "").strip()
             if resp and not any(a['nome'].strip().lower() == resp.lower() for a in assinaturas):
-                assinaturas.append({'nome': resp, 'cargo': 'Responsável'})
+                assinaturas.append({'nome': resp, 'cargo': 'Respons�vel'})
 
         try:
             diretor_nome = None
@@ -1668,7 +1668,7 @@ def ata_pdf(ata_id):
         except Exception:
             pass
         
-        # --- DEBUG: tentar obter diretor e imprimir informações úteis no terminal ---
+        # --- DEBUG: tentar obter diretor e imprimir informa��es �teis no terminal ---
         try:
             diretor_nome = None
             row = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
@@ -1706,7 +1706,7 @@ def ata_pdf(ata_id):
         print("DEBUG: cabecalho['diretor'] ->", (cabecalho.get("diretor") if cabecalho else "<no cabecalho>"))
         # --- fim debug ---
 
-        # --- DEBUG: tentar obter diretor e imprimir informações úteis no terminal ---
+        # --- DEBUG: tentar obter diretor e imprimir informa��es �teis no terminal ---
         try:
             diretor_nome = None
             row = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
@@ -1744,7 +1744,7 @@ def ata_pdf(ata_id):
         print("DEBUG: cabecalho['diretor'] ->", (cabecalho.get("diretor") if cabecalho else "<no cabecalho>"))
         # --- fim debug ---
 
-        # DEBUG TEMPORÁRIO: logar valores antes do render (cole ANTES de render_template(...))
+        # DEBUG TEMPOR�RIO: logar valores antes do render (cole ANTES de render_template(...))
         try:
             current_app.logger.info(
                 "DEBUG-VAL: rota=ata_id=%r diretor_nome=%r cabecalho.diretor=%r assinaturas_len=%d",
@@ -1780,8 +1780,8 @@ def ata_pdf(ata_id):
                      download_name=f"ata_{ata_id}.pdf")
     """
     Gera PDF da ATA usando o template visualizacoes/ata_print.html.
-    Busca registro da ATA, desserializa participants_json se necessário,
-    carrega dados do cabeçalho (cabecalhos / dados_escola) e retorna PDF.
+    Busca registro da ATA, desserializa participants_json se necess�rio,
+    carrega dados do cabe�alho (cabecalhos / dados_escola) e retorna PDF.
     """
     import io
     import re
@@ -1791,7 +1791,7 @@ def ata_pdf(ata_id):
         db = get_db()
         ata_row = db.execute("SELECT * FROM atas WHERE id = ?", (ata_id,)).fetchone()
         if not ata_row:
-            return jsonify({"error": "ATA não encontrada."}), 404
+            return jsonify({"error": "ATA n�o encontrada."}), 404
         ata = dict(ata_row)
 
         # desserializar participants_json se for string
@@ -1805,7 +1805,7 @@ def ata_pdf(ata_id):
         except Exception:
             ata["participants_json"] = []
 
-        # carregar cabeçalho (prioriza dados_escola.cabecalho_id)
+        # carregar cabe�alho (prioriza dados_escola.cabecalho_id)
         cabecalho = {"estado":"", "secretaria":"", "coordenacao":"", "escola":"", "logo_url":""}
         try:
             r = db.execute("SELECT * FROM dados_escola LIMIT 1").fetchone()
@@ -1832,7 +1832,7 @@ def ata_pdf(ata_id):
         except Exception:
             pass
 
-        # preencher dados do aluno caso exista referência
+        # preencher dados do aluno caso exista refer�ncia
         try:
             aluno_id = ata.get("aluno_id") or ata.get("aluno")
             if aluno_id:
@@ -1842,13 +1842,13 @@ def ata_pdf(ata_id):
         except Exception:
             pass
 
-        # renderizar HTML do template de impressão
+        # renderizar HTML do template de impress�o
         # --- garantir data por extenso (formato por extenso em palavras) ---
         try:
             if not ata.get("data_extenso") and ata.get("created_at"):
                 from datetime import datetime
                 def int_to_words_pt(n):
-                    unidades = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
+                    unidades = {0:"zero",1:"um",2:"dois",3:"tr�s",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
                                 10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",
                                 18:"dezoito",19:"dezenove"}
                     dezenas = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
@@ -1887,16 +1887,16 @@ def ata_pdf(ata_id):
 
                 try:
                     dt = datetime.strptime(ata.get("created_at"), "%Y-%m-%d %H:%M:%S")
-                    months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+                    months = ["janeiro","fevereiro","mar�o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
                     day_words = int_to_words_pt(dt.day)
                     year_words = int_to_words_pt(dt.year)
-                    ata["data_extenso"] = f"{day_words} dias do mês de {months[dt.month-1]} do ano de {year_words}"
+                    ata["data_extenso"] = f"{day_words} dias do m�s de {months[dt.month-1]} do ano de {year_words}"
                 except Exception:
                     ata["data_extenso"] = ata.get("created_at")
         except Exception:
             pass
 
-        # --- garantir logo_file com caminho local (file://) quando possível ---
+        # --- garantir logo_file com caminho local (file://) quando poss�vel ---
         try:
             from flask import current_app
             import os, urllib.parse
@@ -1929,7 +1929,7 @@ def ata_pdf(ata_id):
             if not ata.get("data_extenso") and ata.get("created_at"):
                 from datetime import datetime
                 def int_to_words_pt(n):
-                    unidades = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
+                    unidades = {0:"zero",1:"um",2:"dois",3:"tr�s",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
                                 10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",
                                 18:"dezoito",19:"dezenove"}
                     dezenas = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
@@ -1968,10 +1968,10 @@ def ata_pdf(ata_id):
 
                 try:
                     dt = datetime.strptime(ata.get("created_at"), "%Y-%m-%d %H:%M:%S")
-                    months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+                    months = ["janeiro","fevereiro","mar�o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
                     day_words = int_to_words_pt(dt.day)
                     year_words = int_to_words_pt(dt.year)
-                    ata["data_extenso"] = f"{day_words} dias do mês de {months[dt.month-1]} do ano de {year_words}"
+                    ata["data_extenso"] = f"{day_words} dias do m�s de {months[dt.month-1]} do ano de {year_words}"
                 except Exception:
                     ata["data_extenso"] = ata.get("created_at")
         except Exception:
@@ -2010,7 +2010,7 @@ def ata_pdf(ata_id):
         except Exception:
             cabecalho["logo_file"] = None
 
-        # tentar embutir o logotipo como data URI (base64) para garantir que apareça no PDF
+        # tentar embutir o logotipo como data URI (base64) para garantir que apare�a no PDF
         logo_data = None
         try:
             file_path = None
@@ -2032,7 +2032,7 @@ def ata_pdf(ata_id):
                 except Exception:
                     file_path = None
 
-            # fallbacks: arquivo padrão em uploads/cabecalhos ou uploads/cabecalho (singular) ou static/logo_topo.png
+            # fallbacks: arquivo padr�o em uploads/cabecalhos ou uploads/cabecalho (singular) ou static/logo_topo.png
             if not file_path or not os.path.exists(file_path):
                 candidates = [
                     os.path.join(current_app.root_path, "static", "uploads", "cabecalhos", "logo_topo.png"),
@@ -2049,7 +2049,7 @@ def ata_pdf(ata_id):
                 with open(file_path, "rb") as _f:
                     import base64 as _base64
                     logo_b64 = _base64.b64encode(_f.read()).decode("ascii")
-                    # tenta inferir tipo a partir da extensão
+                    # tenta inferir tipo a partir da extens�o
                     ext = os.path.splitext(file_path)[1].lower().lstrip('.')
                     mime = "image/png"
                     if ext in ("jpg", "jpeg"):
@@ -2063,12 +2063,12 @@ def ata_pdf(ata_id):
         logo_data, logo_file = _get_logo_data_and_file(cabecalho)
         cabecalho["logo_file"] = cabecalho.get("logo_file") or logo_file
 
-        # --- garantir logo_data + assinaturas antes de renderizar o template (segunda ocorrência) ---
+        # --- garantir logo_data + assinaturas antes de renderizar o template (segunda ocorr�ncia) ---
         logo_data, logo_file = _get_logo_data_and_file(cabecalho)
         if not cabecalho.get("logo_file") and logo_file:
             cabecalho["logo_file"] = logo_file
 
-        # Normalizar/recuperar assinaturas (repetir a lógica para segurança nesta rota)
+        # Normalizar/recuperar assinaturas (repetir a l�gica para seguran�a nesta rota)
         parts = ata.get("participants_json") or []
         if isinstance(parts, str):
             try:
@@ -2110,12 +2110,12 @@ def ata_pdf(ata_id):
         if diretor_nome and not any(a['nome'].strip().lower() == diretor_nome.strip().lower() for a in assinaturas):
             assinaturas.append({'nome': diretor_nome, 'cargo': 'Diretor'})
 
-        # Responsável pelo aluno
+        # Respons�vel pelo aluno
         resp = ata.get("responsavel") or ata.get("responsavel_nome") or ata.get("responsavel_nome_completo")
         if resp:
             resp = (resp or "").strip()
             if resp and not any(a['nome'].strip().lower() == resp.lower() for a in assinaturas):
-                assinaturas.append({'nome': resp, 'cargo': 'Responsável'})
+                assinaturas.append({'nome': resp, 'cargo': 'Respons�vel'})
 
         try:
             diretor_nome = None
@@ -2160,7 +2160,7 @@ def ata_pdf(ata_id):
         except Exception:
             pass
         
-        # DEBUG TEMPORÁRIO: logar valores antes do render (cole ANTES de render_template(...))
+        # DEBUG TEMPOR�RIO: logar valores antes do render (cole ANTES de render_template(...))
         try:
             current_app.logger.info(
                 "DEBUG-VAL: rota=ata_id=%r diretor_nome=%r cabecalho.diretor=%r assinaturas_len=%d",
@@ -2178,14 +2178,14 @@ def ata_pdf(ata_id):
                        diretor_nome=diretor_nome,
                        logo_file=cabecalho.get("logo_file"), logo_data=logo_data)
 
-        # garantir base href para recursos estáticos
+        # garantir base href para recursos est�ticos
         base = request.url_root.rstrip('/')
         if re.search(r'(?i)<head\b', html):
             html = re.sub(r'(?i)(<head\b[^>]*>)', r'\1<base href="' + base + '">', html, count=1)
         else:
             html = '<base href="' + base + '">' + html
 
-        # garantir base href para recursos estáticos
+        # garantir base href para recursos est�ticos
         base = request.url_root.rstrip('/')
         if re.search(r'(?i)<head\b', html):
             html = re.sub(r'(?i)(<head\b[^>]*>)', r'\1<base href="' + base + '">', html, count=1)
@@ -2196,7 +2196,7 @@ def ata_pdf(ata_id):
         try:
             current_app.logger.info("DEBUG: cabecalho.logo_file = %r", cabecalho.get("logo_file"))
             current_app.logger.info("DEBUG: cabecalho.logo_url  = %r", cabecalho.get("logo_url"))
-            # logo_data pode ser None ou data-uri (muito grande) -> logar só presença e prefixo
+            # logo_data pode ser None ou data-uri (muito grande) -> logar s� presen�a e prefixo
             current_app.logger.info("DEBUG: logo_data present? %s", bool(logo_data))
             if logo_data and isinstance(logo_data, str):
                 current_app.logger.info("DEBUG: logo_data startswith: %r", logo_data[:60])
@@ -2207,7 +2207,7 @@ def ata_pdf(ata_id):
                 if m:
                     current_app.logger.info("DEBUG: found img tag: %s", m.group(1))
                 else:
-                    # tentar encontrar qualquer src de imagem próximo do cabeçalho
+                    # tentar encontrar qualquer src de imagem pr�ximo do cabe�alho
                     m2 = re.search(r'(<img[^>]+src=["\\\']([^"\\\']+)["\\\'][^>]*>)', html or "", re.I)
                     if m2:
                         current_app.logger.info("DEBUG: found some img tag with src: %s", m2.group(2))
@@ -2216,7 +2216,7 @@ def ata_pdf(ata_id):
             except Exception:
                 current_app.logger.exception("DEBUG: erro ao procurar <img> no HTML")
         except Exception:
-            current_app.logger.exception("DEBUG: erro geral no bloco de diagnóstico")
+            current_app.logger.exception("DEBUG: erro geral no bloco de diagn�stico")
 
         # debug: se a querystring debug_html=1 for usada, retorna o HTML gerado no navegador
         if request.args.get('debug_html') == '1':
@@ -2236,7 +2236,7 @@ def ata_pdf(ata_id):
 @visualizacoes_bp.route('/_debug_pdf')
 def _debug_pdf():
     """
-    Rota de teste (debug): gera PDF da visualização de ATA usando um objeto de exemplo.
+    Rota de teste (debug): gera PDF da visualiza��o de ATA usando um objeto de exemplo.
     """
     from flask import render_template, send_file, jsonify
     import io
@@ -2247,9 +2247,9 @@ def _debug_pdf():
         numero="NNN/AAAA",
         data_extenso="14 de dezembro de 2025",
         escola="Escola Exemplo",
-        responsavel="Nome do Responsável",
+        responsavel="Nome do Respons�vel",
         aluno="Fulano de Tal",
-        serie_turma="8º Ano - A",
+        serie_turma="8� Ano - A",
         conteudo="Relato de exemplo para visualizar o layout",
         participants_json=[{"name":"Participante 1","cargo":"Cargo 1"},{"name":"Participante 2","cargo":"Cargo 2"}]
     )

@@ -1,31 +1,31 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from flask import Flask, render_template, g, session, redirect, url_for, flash, jsonify, request
 from flask_moment import Moment
 from dotenv import load_dotenv
 import os
 import locale
 
-from blueprints.bimestres import bimestres_bp
-from blueprints.auth import auth_bp
-from blueprints.alunos import alunos_bp
-from blueprints.disciplinar import disciplinar_bp
-from blueprints.cadastros import cadastros_bp
-from blueprints.formularios import formularios_bp
-from blueprints.formularios_prontuario import formularios_prontuario_bp
-from blueprints.formularios_tac import formularios_tac_bp
-from blueprints.visualizacoes import visualizacoes_bp
-from blueprints.relatorios_disciplinares import relatorios_disciplinares_bp
-from blueprints.documentos import documentos_bp
+from escola.blueprints.bimestres import bimestres_bp
+from escola.blueprints.auth import auth_bp
+from escola.blueprints.alunos import alunos_bp
+from escola.blueprints.disciplinar import disciplinar_bp
+from escola.blueprints.cadastros import cadastros_bp
+from escola.blueprints.formularios import formularios_bp
+from escola.blueprints.formularios_prontuario import formularios_prontuario_bp
+from escola.blueprints.formularios_tac import formularios_tac_bp
+from escola.blueprints.visualizacoes import visualizacoes_bp
+from escola.blueprints.relatorios_disciplinares import relatorios_disciplinares_bp
+from escola.blueprints.documentos import documentos_bp
 
-# Se precisar utilitários globais:
-from blueprints import utils
+# Se precisar utilit�rios globais:
+from escola.blueprints import utils
 
 # SQLAlchemy setup
-from database import db_session, init_db, close_db  # Supondo que agora db_session é o scoped_session do SQLAlchemy
+from escola.database import init_db, close_db
 
 load_dotenv()
 
-# Configurar localização brasileira
+# Configurar localiza��o brasileira
 try:
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 except:
@@ -35,22 +35,22 @@ except:
         try:
             locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil')
         except:
-            print("   [AVISO] Não foi possível configurar localização PT-BR")
+            print("   [AVISO] N�o foi poss�vel configurar localiza��o PT-BR")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave-secreta-gestao-escolar-2025-v2")
 
-# Configurações Flask
+# Configura��es Flask
 app.config['JSON_AS_ASCII'] = False
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['MOMENT_DEFAULT_FORMAT'] = 'DD/MM/YYYY'
 # Caso seu modelo de dados precise referenciar o caminho do banco, padronize para SQLAlchemy
 # app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL") ou equivalente
 
-# Inicializar o banco (migrações/models)
+# Inicializar o banco (migra��es/models)
 init_db()  # Supondo que agora isso use SQLAlchemy
 
-# Registrar blueprints (ordem importa para evitar colisões de rota como observado)
+# Registrar blueprints (ordem importa para evitar colis�es de rota como observado)
 app.register_blueprint(relatorios_disciplinares_bp, url_prefix='/relatorios_disciplinares')
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(alunos_bp, url_prefix='/alunos')
@@ -65,7 +65,7 @@ app.register_blueprint(documentos_bp, url_prefix="/documentos")
 
 # Registrar rota para aplicar FMDs a partir de RFOs
 try:
-    from blueprints.apply_fmds import bp_apply_fmds
+    from escola.blueprints.apply_fmds import bp_apply_fmds
     app.register_blueprint(bp_apply_fmds)
 except Exception:
     pass
@@ -78,7 +78,7 @@ def datetimeformat(value, format="%d/%m/%Y"):
     if not value:
         return ""
     try:
-        # Se vier só 'YYYY-MM-DD'
+        # Se vier s� 'YYYY-MM-DD'
         if len(value) == 10 and value[4] == '-' and value[7] == '-':
             dt = datetime.strptime(value, "%Y-%m-%d")
         else:
@@ -89,13 +89,13 @@ def datetimeformat(value, format="%d/%m/%Y"):
 
 app.jinja_env.filters['datetimeformat'] = datetimeformat
 
-# Handler para fechar a sessão SQLAlchemy após cada request
+# Handler para fechar a sess�o SQLAlchemy ap�s cada request
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     close_db()
 
-from database import get_db, close_db
-from models_sqlalchemy import Usuario  # ajuste o nome conforme seu projeto
+from escola.database import get_db, close_db
+from escola.models_sqlalchemy import Usuario  # ajuste o nome conforme seu projeto
 
 @app.before_request
 def load_logged_in_user():
@@ -106,14 +106,14 @@ def load_logged_in_user():
         db = get_db()
         g.user = db.query(Usuario).filter_by(id=user_id).first()
 
-# Não precisa mais do teardown_db separado, já incluímos ao final do bloco anterior:
+# N�o precisa mais do teardown_db separado, j� inclu�mos ao final do bloco anterior:
 # @app.teardown_appcontext
 # def teardown_db(e=None):
 #     close_db(e)
 
 @app.context_processor
 def inject_globals():
-    """Injeta variáveis globais em todos os templates"""
+    """Injeta vari�veis globais em todos os templates"""
     from datetime import datetime
     return dict(
         NIVEL_MAP=utils.NIVEL_MAP,
@@ -123,14 +123,14 @@ def inject_globals():
 
 @app.template_filter('data_br')
 def formatar_data_br(data_str):
-    """Filtro personalizado para formatar datas no padrão brasileiro"""
+    """Filtro personalizado para formatar datas no padr�o brasileiro"""
     if not data_str:
         return '-'
 
     from datetime import datetime
 
     try:
-        # Tentar vários formatos de entrada
+        # Tentar v�rios formatos de entrada
         formatos = [
             '%Y-%m-%d',           # 2025-01-24
             '%Y-%m-%d %H:%M:%S',  # 2025-01-24 14:30:00
@@ -162,7 +162,7 @@ def nl2br_filter(value):
 
 @app.template_filter('datetime_br')
 def formatar_datetime_br(data_str):
-    """Filtro para formatar data e hora no padrão brasileiro"""
+    """Filtro para formatar data e hora no padr�o brasileiro"""
     if not data_str:
         return '-'
 
@@ -177,7 +177,7 @@ def formatar_datetime_br(data_str):
         for formato in formatos:
             try:
                 data_obj = datetime.strptime(str(data_str).strip(), formato)
-                return data_obj.strftime('%d/%m/%Y às %H:%M')
+                return data_obj.strftime('%d/%m/%Y �s %H:%M')
             except ValueError:
                 continue
 
@@ -185,8 +185,8 @@ def formatar_datetime_br(data_str):
     except:
         return data_str
 
-from models_sqlalchemy import Aluno, Ocorrencia, Usuario, FichaMedidaDisciplinar, FaltaDisciplinar  # ajuste nomes conforme models
-from database import get_db
+from escola.models_sqlalchemy import Aluno, Ocorrencia, Usuario, FichaMedidaDisciplinar, FaltaDisciplinar  # ajuste nomes conforme models
+from escola.database import get_db
 
 @app.route('/')
 def index():
@@ -242,20 +242,20 @@ def api_faltas_por_natureza():
 def page_not_found(error):
     return render_template('404.html'), 404
 
-# Função administrativa antiga baseada em SQLite NÃO se aplica ao SQLAlchemy!
-# Recomenda-se substituir este bloco por ferramentas de migração como Alembic.
+# Fun��o administrativa antiga baseada em SQLite N�O se aplica ao SQLAlchemy!
+# Recomenda-se substituir este bloco por ferramentas de migra��o como Alembic.
 def inicializar_e_migrar():
     print("="*60)
-    print("INICIANDO SISTEMA DE GESTÃO ESCOLAR")
+    print("INICIANDO SISTEMA DE GEST�O ESCOLAR")
     print("="*60)
-    print("Use Alembic e models_sqlalchemy.py para controle/migração de estrutura.")
-    print("• Para criar as tabelas: veja modelos em 'models_sqlalchemy.py'.")
-    print("• Para criar admin inicial, adapte função para usar SQLAlchemy.")
+    print("Use Alembic e models_sqlalchemy.py para controle/migra��o de estrutura.")
+    print("� Para criar as tabelas: veja modelos em 'models_sqlalchemy.py'.")
+    print("� Para criar admin inicial, adapte fun��o para usar SQLAlchemy.")
     print("="*60)
 
 # --- AUTO: registrar blueprint de ATAs (movido para antes do main) ---
 try:
-    from blueprints.formularios_ata import formularios_ata_bp
+    from escola.blueprints.formularios_ata import formularios_ata_bp
     app.register_blueprint(formularios_ata_bp, url_prefix='/formularios/atas')
     print("Blueprint 'formularios_ata_bp' registrada (moved auto).")
 except Exception as _e:
@@ -263,8 +263,8 @@ except Exception as _e:
 # --- fim AUTO ---
 
 if __name__ == '__main__':
-    # Se quiser alguma inicialização/migração: usar Alembic ou métodos do SQLAlchemy
-    # inicializar_e_migrar()  # <<< Comentado! Veja orientações no bloco anterior!
+    # Se quiser alguma inicializa��o/migra��o: usar Alembic ou m�todos do SQLAlchemy
+    # inicializar_e_migrar()  # <<< Comentado! Veja orienta��es no bloco anterior!
     app.run(debug=True)
 
 # --- inject logo as base64 data uri into all templates (used by PDF template) ---
@@ -300,9 +300,9 @@ def inject_logo_data():
 
 # --- registrar blueprint de data_matricula (adicionado automaticamente) ---
 try:
-    from blueprints.matricula import bp_matricula
+    from escola.blueprints.matricula import bp_matricula
     app.register_blueprint(bp_matricula)
 except Exception:
-    # se algo falhar aqui (por ordem de imports ou contexto), não quebramos a aplicação
+    # se algo falhar aqui (por ordem de imports ou contexto), n�o quebramos a aplica��o
     pass
 # --- fim registro matricula ---

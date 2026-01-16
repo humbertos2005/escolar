@@ -15,7 +15,7 @@ import argparse
 from datetime import datetime, date, timedelta
 
 from app import app
-from database import get_db
+from escola.database import get_db
 from blueprints import disciplinar
 
 def get_media_bimestral_placeholder(db, aluno_id, ano, bimestre):

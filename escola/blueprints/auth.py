@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g
-from database import get_db
+from escola.database import get_db
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime, timedelta
 
@@ -8,7 +8,7 @@ from .utils import login_required, admin_required, NIVEL_MAP, gerar_token_seguro
 # Definição da Blueprint
 auth_bp = Blueprint('auth_bp', __name__)
 
-from models_sqlalchemy import Usuario, RecuperacaoSenhaToken, DadosEscola
+from escola.models_sqlalchemy import Usuario, RecuperacaoSenhaToken, DadosEscola
 
 @auth_bp.route('/recuperar_senha', methods=['GET', 'POST'])
 def recuperar_senha():
@@ -77,7 +77,7 @@ def recuperar_senha():
         flash(error, 'danger')
     return render_template('recuperar_senha.html')
 
-from models_sqlalchemy import Usuario
+from escola.models_sqlalchemy import Usuario
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -126,7 +126,7 @@ def logout():
     return redirect(url_for('auth_bp.login'))
 
 
-from models_sqlalchemy import Usuario
+from escola.models_sqlalchemy import Usuario
 
 @auth_bp.route('/cadastro_usuario', methods=['GET', 'POST'])
 @admin_required
@@ -179,7 +179,7 @@ def cadastro_usuario():
         
     return render_template('cadastro_usuario.html', nivel_map=NIVEL_MAP)
 
-from models_sqlalchemy import Usuario, RecuperacaoSenhaToken
+from escola.models_sqlalchemy import Usuario, RecuperacaoSenhaToken
 from werkzeug.security import generate_password_hash
 
 @auth_bp.route('/resetar_senha', methods=['GET', 'POST'])
@@ -223,7 +223,7 @@ def resetar_senha():
 
     return render_template('resetar_senha.html')
 
-from models_sqlalchemy import Usuario
+from escola.models_sqlalchemy import Usuario
 
 @auth_bp.route('/gerenciar_usuarios')
 @admin_required
@@ -249,7 +249,7 @@ def gerenciar_usuarios():
                            usuarios=usuarios_list,
                            nivel_map=NIVEL_MAP)
 
-from models_sqlalchemy import Usuario
+from escola.models_sqlalchemy import Usuario
 
 @auth_bp.route('/editar_usuario/<int:user_id>', methods=['GET', 'POST'])
 @admin_required
@@ -315,7 +315,7 @@ def editar_usuario(user_id):
     return render_template('editar_usuario.html', user=user_dict, acessos=acessos)
 
 
-from models_sqlalchemy import Usuario
+from escola.models_sqlalchemy import Usuario
 
 @auth_bp.route('/excluir_usuario/<int:user_id>', methods=['POST'])
 @admin_required

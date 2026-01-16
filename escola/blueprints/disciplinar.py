@@ -1,11 +1,17 @@
-﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g, current_app
-from models import (
-    get_db,
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g, current_app
+
+# ATEN��O: ajuste o caminho relativo conforme sua estrutura de pastas
+from escola.services.escolar_helper import (
     get_proximo_rfo_id,
     get_tipos_ocorrencia,
     get_proximo_fmd_id,
-    get_faltas_disciplinares
+    get_faltas_disciplinares,
+    ensure_disciplinar_migrations,
+    next_fmd_seq_and_year,
 )
+
+from escola.models import get_db  # mant�m apenas aquilo relacionado � sess�o do banco (ou troque para ORM futuramente)
+
 from .utils import (
     login_required,
     admin_required,
@@ -19,16 +25,17 @@ from datetime import datetime, date
 import sqlite3
 import re
 import os
-import models
+# Remover 'import models' se n�o h� mais uso direto das fun��es dela. 
+# Se sobrar chamada tipo models.fun��o_que_vai_para_o_helper, corrija tamb�m!
+# import models
 
-# Adicionar (logo após os imports já existentes)
+# Adicionar (logo ap�s os imports j� existentes)
 import pdfkit
 import shutil
 from werkzeug.utils import secure_filename
 from flask import Response, abort
 
-# adicionar no topo do arquivo (junto com outros imports)
-from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
+from escola.blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
 
 disciplinar_bp = Blueprint('disciplinar_bp', __name__, url_prefix='/disciplinar')
 
@@ -39,13 +46,13 @@ def _ensure_disciplinar_schema():
         return
     try:
         db = get_db()
-        models.ensure_disciplinar_migrations(db)
+        ensure_disciplinar_migrations()
         current_app._disciplinar_migrations_done = True
         current_app.logger.info("ensure_disciplinar_migrations executed")
     except Exception as e:
         current_app.logger.exception("Erro ao garantir migrations disciplinar: %s", e)
 
-# Utilitário robusto para criar uma FMD mínima para um aluno (se a tabela existir)
+# Utilit�rio robusto para criar uma FMD m�nima para um aluno (se a tabela existir)
 def _create_fmd_for_aluno(db, aluno_id, medida_aplicada, descricao, data_fmd=None):
     from datetime import date
     if data_fmd is None:
@@ -54,7 +61,7 @@ def _create_fmd_for_aluno(db, aluno_id, medida_aplicada, descricao, data_fmd=Non
         cur = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ficha_medida_disciplinar'").fetchone()
         if not cur:
             return False
-        seq, ano = models.next_fmd_seq_and_year(db)
+        seq, ano = next_fmd_seq_and_year()
         fmd_id = f"FMD-{seq}/{ano}"
         try:
             db.execute("""
@@ -75,7 +82,7 @@ def _create_fmd_for_aluno(db, aluno_id, medida_aplicada, descricao, data_fmd=Non
         return False
 
 # -----------------------
-# Novos helpers para detecção de colunas e compatibilidade
+# Novos helpers para detec��o de colunas e compatibilidade
 # -----------------------
 def _get_table_columns(db_conn, table):
     """Retorna lista de nomes de colunas para a tabela (SQLite PRAGMA ou fallback)."""
@@ -101,13 +108,13 @@ def _find_first_column(db_conn, table, candidates):
     return None
 
 # -----------------------
-# API: checa reincidência
+# API: checa reincid�ncia
 # -----------------------
 @disciplinar_bp.route('/api/check_reincidencia', methods=['GET'])
 @login_required
 def api_check_reincidencia():
     """
-    Parâmetros:
+    Par�metros:
       - aluno_id (int) REQUIRED
       - falta_id (int) OR descricao (string) REQUIRED (pelo menos um)
     Retorna JSON: { exists: bool, count: int, last: { id, tipo, created_at } or null }
@@ -118,7 +125,7 @@ def api_check_reincidencia():
     descricao = request.args.get('descricao', type=str)
 
     if not aluno_id:
-        return jsonify(error='Parâmetro aluno_id é obrigatório'), 400
+        return jsonify(error='Par�metro aluno_id � obrigat�rio'), 400
 
     # detectar colunas
     aluno_col = _find_first_column(db, 'ocorrencias', ['aluno_id', 'aluno', 'matricula'])
@@ -131,7 +138,7 @@ def api_check_reincidencia():
     descr_cols = [c for c in _get_table_columns(db, 'ocorrencias') if c in descr_cols_candidates]
 
     if not aluno_col:
-        return jsonify(error='Coluna de identificação do aluno não encontrada na tabela ocorrencias'), 500
+        return jsonify(error='Coluna de identifica��o do aluno n�o encontrada na tabela ocorrencias'), 500
 
     where_clauses = []
     params = []
@@ -143,26 +150,26 @@ def api_check_reincidencia():
             where_clauses.append(f"{item_id_col} = ?")
             params.append(falta_id)
         else:
-            return jsonify(error='falta_id fornecido, mas coluna correspondente não encontrada'), 400
+            return jsonify(error='falta_id fornecido, mas coluna correspondente n�o encontrada'), 400
     elif descricao:
         if not descr_cols:
-            return jsonify(error='Descrição fornecida, mas não foi encontrada coluna de descrição na tabela ocorrencias'), 400
+            return jsonify(error='Descri��o fornecida, mas n�o foi encontrada coluna de descri��o na tabela ocorrencias'), 400
         sub = []
         for c in descr_cols:
             sub.append(f"({c} = ? OR {c} LIKE ?)")
             params.extend([descricao, f"%{descricao}%"])
         where_clauses.append("(" + " OR ".join(sub) + ")")
     else:
-        return jsonify(error='Parâmetro falta_id ou descricao é obrigatório'), 400
+        return jsonify(error='Par�metro falta_id ou descricao � obrigat�rio'), 400
 
     where_sql = " AND ".join(where_clauses)
 
-    # contar ocorrências e buscar a última (por created_at ou por id descendente)
+    # contar ocorr�ncias e buscar a �ltima (por created_at ou por id descendente)
     try:
         count_row = db.execute(f"SELECT COUNT(*) as cnt FROM ocorrencias WHERE {where_sql}", params).fetchone()
         count = count_row['cnt'] if isinstance(count_row, dict) else count_row[0]
     except Exception:
-        current_app.logger.exception('Erro ao contar ocorrências para check_reincidencia')
+        current_app.logger.exception('Erro ao contar ocorr�ncias para check_reincidencia')
         return jsonify(error='Erro ao consultar banco'), 500
 
     order_by = f"{created_col} DESC" if created_col else "id DESC"
@@ -171,7 +178,7 @@ def api_check_reincidencia():
     try:
         last_row = db.execute(f"SELECT id, {tipo_select} as tipo, {created_select} as created_at FROM ocorrencias WHERE {where_sql} ORDER BY {order_by} LIMIT 1", params).fetchone()
     except Exception:
-        current_app.logger.exception('Erro ao buscar última ocorrência para check_reincidencia')
+        current_app.logger.exception('Erro ao buscar �ltima ocorr�ncia para check_reincidencia')
         last_row = None
 
     if last_row:
@@ -183,7 +190,7 @@ def api_check_reincidencia():
 
 
 # -----------------------
-# Endpoint: reclassificar ocorrência existente (atualiza tipo)
+# Endpoint: reclassificar ocorr�ncia existente (atualiza tipo)
 # -----------------------
 @disciplinar_bp.route('/reclassificar_ocorrencia', methods=['POST'])
 @login_required
@@ -192,7 +199,7 @@ def reclassificar_ocorrencia():
     Form data:
       - ocorrencia_id (int) REQUIRED
       - new_tipo (string) REQUIRED
-    Atualiza a coluna tipo_falta (ou equivalente) da ocorrência indicada.
+    Atualiza a coluna tipo_falta (ou equivalente) da ocorr�ncia indicada.
     """
     db = get_db()
     ocorrencia_id = request.form.get('ocorrencia_id', type=int) or request.form.get('ocorrencia_id')
@@ -201,36 +208,36 @@ def reclassificar_ocorrencia():
     try:
         ocorrencia_id = int(ocorrencia_id)
     except Exception:
-        return jsonify(error='ocorrencia_id inválido'), 400
+        return jsonify(error='ocorrencia_id inv�lido'), 400
 
     if not new_tipo:
-        return jsonify(error='new_tipo é obrigatório'), 400
+        return jsonify(error='new_tipo � obrigat�rio'), 400
 
     tipo_col = _find_first_column(db, 'ocorrencias', ['tipo_falta', 'tipo', 'falta_tipo', 'classificacao'])
     if not tipo_col:
-        return jsonify(error='Coluna onde gravar tipo não encontrada'), 500
+        return jsonify(error='Coluna onde gravar tipo n�o encontrada'), 500
 
     try:
         db.execute(f"UPDATE ocorrencias SET {tipo_col} = ? WHERE id = ?", (new_tipo, ocorrencia_id))
         db.commit()
     except Exception:
-        current_app.logger.exception('Erro ao reclassificar ocorrência')
+        current_app.logger.exception('Erro ao reclassificar ocorr�ncia')
         db.rollback()
-        return jsonify(error='Erro ao atualizar ocorrência'), 500
+        return jsonify(error='Erro ao atualizar ocorr�ncia'), 500
 
     return jsonify(success=True)
 
 
 # -----------------------
-# Funções existentes do arquivo (mantive integrações; apenas acrescentei compatibilidade abaixo)
+# Fun��es existentes do arquivo (mantive integra��es; apenas acrescentei compatibilidade abaixo)
 # -----------------------
 
-# Helper: salva relações ocorrencia <-> faltas selecionadas
+# Helper: salva rela��es ocorrencia <-> faltas selecionadas
 def salvar_faltas_relacionadas(db_conn, ocorrencia_id, falta_ids_list):
     """
-    Garante a existência da tabela relacional e salva as relações ocorrencia <-> faltas.
+    Garante a exist�ncia da tabela relacional e salva as rela��es ocorrencia <-> faltas.
     falta_ids_list: lista de ids (inteiros)
-    Observação: não faz commit; o chamador deve commitar.
+    Observa��o: n�o faz commit; o chamador deve commitar.
     """
     try:
         db_conn.execute('''
@@ -243,7 +250,7 @@ def salvar_faltas_relacionadas(db_conn, ocorrencia_id, falta_ids_list):
             );
         ''')
     except Exception:
-        # Se falhar, segue em frente (possível em ambientes restritos)
+        # Se falhar, segue em frente (poss�vel em ambientes restritos)
         pass
 
     try:
@@ -258,14 +265,14 @@ def salvar_faltas_relacionadas(db_conn, ocorrencia_id, falta_ids_list):
         try:
             db_conn.execute('INSERT INTO ocorrencias_faltas (ocorrencia_id, falta_id) VALUES (?, ?)', (ocorrencia_id, fid))
         except Exception:
-            # ignora ids inválidos
+            # ignora ids inv�lidos
             pass
 
 # -----------------------
-# Helpers novos para pontuação (mantive inalterados)
+# Helpers novos para pontua��o (mantive inalterados)
 # -----------------------
 def _get_config_values(db_conn):
-    """Lê tabela_disciplinar_config e retorna dict de valores (fallback defaults se ausente)."""
+    """L� tabela_disciplinar_config e retorna dict de valores (fallback defaults se ausente)."""
     defaults = {
         'advertencia_oral': -0.1,
         'advertencia_escrita': -0.3,
@@ -279,7 +286,7 @@ def _get_config_values(db_conn):
         for r in rows:
             defaults[r['chave']] = float(r['valor'])
     except Exception:
-        # tabela pode não existir ainda
+        # tabela pode n�o existir ainda
         pass
     return defaults
 
@@ -288,7 +295,7 @@ def _get_bimestre_for_date(db_conn, data_str):
     Determina (ano_int, bimestre_int) consultando a tabela 'bimestres'.
     Usa as colunas (ano, numero, inicio, fim). Para o ano da data, procura
     uma linha cujo intervalo inicio..fim contenha a data e retorna (ano, numero).
-    Se não encontrar ou ocorrer erro, faz fallback para 4 bimestres por ano
+    Se n�o encontrar ou ocorrer erro, faz fallback para 4 bimestres por ano
     (cada 3 meses) para manter compatibilidade.
     """
     try:
@@ -317,7 +324,7 @@ def _get_bimestre_for_date(db_conn, data_str):
                     fim_date = datetime.strptime(fim[:10], '%Y-%m-%d').date() if fim else None
                 except Exception:
                     fim_date = None
-                # Se inicio/fim não definidos, consideramos compatível (aberto)
+                # Se inicio/fim n�o definidos, consideramos compat�vel (aberto)
                 if (inicio_date is None or inicio_date <= d) and (fim_date is None or fim_date >= d):
                     if num is not None:
                         return ano, num
@@ -333,8 +340,8 @@ def _get_bimestre_for_date(db_conn, data_str):
 
 def _calcular_delta_por_medida(medida_aplicada, qtd, config):
     """
-    Calcula o delta (positivo/negativo) aplicável à pontuação a partir do texto da medida e quantidade.
-    qtd: número (ex.: dias ou ocorrências)
+    Calcula o delta (positivo/negativo) aplic�vel � pontua��o a partir do texto da medida e quantidade.
+    qtd: n�mero (ex.: dias ou ocorr�ncias)
     config: dict com valores
     """
     if not medida_aplicada:
@@ -344,17 +351,17 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
         qtd = float(qtd or 1)
     except Exception:
         qtd = 1.0
-    # comparações simples — adaptáveis conforme nomes exatos em MEDIDAS_MAP
+    # compara��es simples � adapt�veis conforme nomes exatos em MEDIDAS_MAP
     if 'ORAL' in m and 'ADVERT' in m:
         return qtd * float(config.get('advertencia_oral', -0.1))
     if 'ESCRIT' in m and 'ADVERT' in m:
         return qtd * float(config.get('advertencia_escrita', -0.3))
     if 'SUSPENS' in m:
-        # tentar extrair dias numéricos do texto
+        # tentar extrair dias num�ricos do texto
         nums = re.findall(r'(\d+)', m)
         dias = int(nums[0]) if nums else int(qtd)
         return dias * float(config.get('suspensao_dia', -0.5))
-    if 'ACAO' in m or 'AÇÃO' in m or 'EDUCATIVA' in m:
+    if 'ACAO' in m or 'A��O' in m or 'EDUCATIVA' in m:
         nums = re.findall(r'(\d+)', m)
         dias = int(nums[0]) if nums else int(qtd)
         return dias * float(config.get('acao_educativa_dia', -1.0))
@@ -367,9 +374,9 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
 
 def _next_fmd_sequence(db_conn):
     """
-    Retorna (seq_int, ano_int) com o próximo número sequencial para o ano corrente.
-    Mantém/atualiza tabela fmd_sequencia (ano INTEGER PRIMARY KEY, seq INTEGER).
-    Se a tabela não existir, a função tenta computar a sequência a partir dos fmd_id existentes.
+    Retorna (seq_int, ano_int) com o pr�ximo n�mero sequencial para o ano corrente.
+    Mant�m/atualiza tabela fmd_sequencia (ano INTEGER PRIMARY KEY, seq INTEGER).
+    Se a tabela n�o existir, a fun��o tenta computar a sequ�ncia a partir dos fmd_id existentes.
     """
     ano = datetime.now().year
     try:
@@ -382,7 +389,7 @@ def _next_fmd_sequence(db_conn):
         # continua para tentativa de calcular a partir dos fmd_id existentes
         pass
 
-    # calcula o maior seq já presente no formato FMD-NNNN/YYYY (caso haja fmd_id já no novo formato)
+    # calcula o maior seq j� presente no formato FMD-NNNN/YYYY (caso haja fmd_id j� no novo formato)
     maxseq = 0
     try:
         rows = db_conn.execute("SELECT fmd_id FROM ficha_medida_disciplinar WHERE fmd_id LIKE ?", (f"FMD-%/{ano}",)).fetchall()
@@ -410,7 +417,7 @@ def _next_fmd_sequence(db_conn):
 def _apply_delta_pontuacao(db_conn, aluno_id, data_tratamento_str, delta, ocorrencia_id=None, tipo_evento=None):
     """
     Aplica delta na pontuacao_bimestral do aluno (cria linha se inexistente).
-    Garante limites mínimos/ máximos (0.0 .. 10.0).
+    Garante limites m�nimos/ m�ximos (0.0 .. 10.0).
     Registra no pontuacao_historico.
     """
     if not aluno_id:
@@ -432,11 +439,11 @@ def _apply_delta_pontuacao(db_conn, aluno_id, data_tratamento_str, delta, ocorre
         ))
     except Exception:
         # se tabela nao existe, ignora (migration pendente)
-        current_app.logger.exception('Erro ao aplicar delta pontuacao (possível tabela ausente).')
+        current_app.logger.exception('Erro ao aplicar delta pontuacao (poss�vel tabela ausente).')
 
 
 # -----------------------
-# Rotas existentes (mantive as definições originais)
+# Rotas existentes (mantive as defini��es originais)
 # -----------------------
 
 @disciplinar_bp.route('/buscar_alunos_json')
@@ -500,35 +507,35 @@ def registrar_rfo():
     tipos_ocorrencia = get_tipos_ocorrencia()
 
     if request.method == 'POST':
-        # aceitar múltiplos alunos: getlist ou CSV/single
+        # aceitar m�ltiplos alunos: getlist ou CSV/single
         aluno_ids = request.form.getlist('aluno_id')
         if not aluno_ids or all(not a for a in aluno_ids):
             raw = request.form.get('aluno_ids') or request.form.get('aluno_id') or ''
             aluno_ids = [s.strip() for s in raw.split(',') if s.strip()]
 
-        # leitura do formulário (capturar tipo de RFO e subtipo de elogio)
-        # leitura do formulário (capturar tipo de RFO e subtipo de elogio)
+        # leitura do formul�rio (capturar tipo de RFO e subtipo de elogio)
+        # leitura do formul�rio (capturar tipo de RFO e subtipo de elogio)
         tipo_ocorrencia_id = request.form.get('tipo_ocorrencia_id')
         data_ocorrencia = request.form.get('data_ocorrencia')
         observador_id = request.form.get('observador_id')
         relato_observador = request.form.get('relato_observador', '').strip()
 
-        # tipo_rfo é o radio (Falta Disciplinar / Elogio)
+        # tipo_rfo � o radio (Falta Disciplinar / Elogio)
         tipo_rfo = request.form.get('tipo_rfo', '').strip()
         subtipo_elogio = request.form.get('subtipo_elogio', '').strip()
 
-        # material_recolhido e advertencia_oral vêm do formulário
+        # material_recolhido e advertencia_oral v�m do formul�rio
         material_recolhido = request.form.get('material_recolhido', '').strip()
         advertencia_oral = request.form.get('advertencia_oral', '').strip()
 
-        # validações mínimas:
-        # - campos obrigatórios básicos (tipo_ocorrencia_id, data, observador, relato)
-        # - advertencia_oral só é obrigatório quando não for Elogio
+        # valida��es m�nimas:
+        # - campos obrigat�rios b�sicos (tipo_ocorrencia_id, data, observador, relato)
+        # - advertencia_oral s� � obrigat�rio quando n�o for Elogio
         error = None
         if not aluno_ids or not all([tipo_ocorrencia_id, data_ocorrencia, observador_id, relato_observador]):
-            error = 'Por favor, preencha todos os campos obrigatórios.'
+            error = 'Por favor, preencha todos os campos obrigat�rios.'
         elif tipo_rfo != 'Elogio' and advertencia_oral not in ['sim', 'nao']:
-            error = 'Selecione se a ocorrência deve ser considerada como Advertência Oral.'
+            error = 'Selecione se a ocorr�ncia deve ser considerada como Advert�ncia Oral.'
 
         if error:
             flash(error, 'danger')
@@ -548,9 +555,9 @@ def registrar_rfo():
         try:
             rfo_id_final = get_proximo_rfo_id(incrementar=True)
 
-            # Compatibilidade: garantir que valid_aluno_ids esteja definido (padrão para aluno_ids)
+            # Compatibilidade: garantir que valid_aluno_ids esteja definido (padr�o para aluno_ids)
             try:
-                valid_aluno_ids  # apenas testa existência
+                valid_aluno_ids  # apenas testa exist�ncia
             except NameError:
                 try:
                     valid_aluno_ids = aluno_ids
@@ -558,7 +565,7 @@ def registrar_rfo():
                     valid_aluno_ids = []
             
             if not valid_aluno_ids:
-                flash('Nenhum aluno válido selecionado.', 'danger')
+                flash('Nenhum aluno v�lido selecionado.', 'danger')
                 return render_template('disciplinar/registrar_rfo.html',
                                        rfo_id_gerado=rfo_id_gerado,
                                        tipos_ocorrencia=tipos_ocorrencia,
@@ -567,7 +574,7 @@ def registrar_rfo():
             
             primeiro_aluno = valid_aluno_ids[0]
 
-            # Inserir ocorrência principal, gravando também tratamento_tipo e subtipo_elogio
+            # Inserir ocorr�ncia principal, gravando tamb�m tratamento_tipo e subtipo_elogio
             cursor.execute("""
                 INSERT INTO ocorrencias (
                     rfo_id, aluno_id, tipo_ocorrencia_id, data_ocorrencia,
@@ -584,7 +591,7 @@ def registrar_rfo():
             db.commit()
             ocorrencia_id = cursor.lastrowid
 
-            # vincular todos os alunos em ocorrencias_alunos (mantém comportamento anterior)
+            # vincular todos os alunos em ocorrencias_alunos (mant�m comportamento anterior)
             for aid in valid_aluno_ids:
                 try:
                     cursor.execute("INSERT INTO ocorrencias_alunos (ocorrencia_id, aluno_id) VALUES (?, ?)",
@@ -594,7 +601,7 @@ def registrar_rfo():
                         cursor.execute("INSERT INTO ocorrencias_alunos (ocorrencia_id, aluno_id) VALUES (?, ?)",
                                        (ocorrencia_id, str(aid)))
                     except Exception:
-                        # ignora caso não seja possível vincular um aluno
+                        # ignora caso n�o seja poss�vel vincular um aluno
                         pass
             db.commit()
 
@@ -691,13 +698,13 @@ def visualizar_rfo(ocorrencia_id):
     ''', (ocorrencia_id,)).fetchone()
 
     if rfo is None:
-        flash('RFO não encontrado.', 'danger')
+        flash('RFO n�o encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
-    # transformar em dict mutável
+    # transformar em dict mut�vel
     rfo_dict = dict(rfo)
 
-    # Reforçar montagem explícita de séries/turmas lendo ocorrencias_alunos para garantir exibição correta
+    # Refor�ar montagem expl�cita de s�ries/turmas lendo ocorrencias_alunos para garantir exibi��o correta
     alunos_rows = db.execute('''
         SELECT al.matricula, al.nome, al.serie, al.turma
         FROM ocorrencias_alunos oa
@@ -713,42 +720,42 @@ def visualizar_rfo(ocorrencia_id):
         t = (ar['turma'] or '')
         if s or t:
             series_list.append(f"{s} - {t}".strip(' - '))
-        # montar nomes também como fonte única de verdade (caso queira sincronizar)
+        # montar nomes tamb�m como fonte �nica de verdade (caso queira sincronizar)
         names_list.append(ar['nome'] or '')
 
-    # preferir string construída a partir de ocorrencias_alunos quando houver
+    # preferir string constru�da a partir de ocorrencias_alunos quando houver
     if series_list:
         rfo_dict['series_turmas'] = '; '.join(series_list)
     else:
         # fallback ao que veio no SELECT (ou campos individuais)
         rfo_dict['series_turmas'] = rfo_dict.get('series_turmas') or ((rfo_dict.get('serie') and rfo_dict.get('turma')) and f"{rfo_dict.get('serie')} - {rfo_dict.get('turma')}" or '')
 
-    # garantir que 'alunos' contenha os nomes corretos (preferir lista construída)
+    # garantir que 'alunos' contenha os nomes corretos (preferir lista constru�da)
     if any(names_list):
         # manter ordem dos alunos da tabela ocorrencias_alunos
         rfo_dict['alunos'] = '; '.join([n for n in names_list if n])
     else:
         rfo_dict['alunos'] = rfo_dict.get('alunos') or rfo_dict.get('nome_aluno') or ''
 
-    # material_recolhido_info: use material_recolhido quando presente; caso contrário construir a partir de tratamento
+    # material_recolhido_info: use material_recolhido quando presente; caso contr�rio construir a partir de tratamento
     tratamento = rfo_dict.get('tratamento_tipo') or rfo_dict.get('tipo_ocorrencia_text') or rfo_dict.get('tipo_ocorrencia_nome') or ''
     associado = (rfo_dict.get('advertencia_oral') or rfo_dict.get('subtipo_elogio') or '')
     if isinstance(associado, bool):
-        associado = 'Sim' if associado else 'Não'
+        associado = 'Sim' if associado else 'N�o'
     material_info = rfo_dict.get('material_recolhido') or ''
     if (not material_info) and tratamento:
         material_info = tratamento
         if associado:
-            material_info = f"{tratamento} — {associado}"
+            material_info = f"{tratamento} � {associado}"
     rfo_dict['material_recolhido_info'] = material_info
 
     return render_template('disciplinar/visualizar_rfo.html', rfo=rfo_dict)
 
     if rfo is None:
-        flash('RFO não encontrado.', 'danger')
+        flash('RFO n�o encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
-    # Garantir dict mutável e adicionar campo de exibição material_recolhido_info
+    # Garantir dict mut�vel e adicionar campo de exibi��o material_recolhido_info
     rfo_dict = dict(rfo)
     tipo = rfo_dict.get('trata_se') or rfo_dict.get('tipo_rfo') or rfo_dict.get('tipo') or rfo_dict.get('trata_tipo') or ''
     associado = (rfo_dict.get('advertencia_oral')
@@ -757,16 +764,16 @@ def visualizar_rfo(ocorrencia_id):
                  or rfo_dict.get('considerar_advertencia_oral')
                  or '')
     if isinstance(associado, bool):
-        associado = 'Sim' if associado else 'Não'
+        associado = 'Sim' if associado else 'N�o'
     material_info = tipo
     if associado:
-        material_info = f"{tipo} — {associado}"
+        material_info = f"{tipo} � {associado}"
     rfo_dict['material_recolhido_info'] = material_info
 
     return render_template('disciplinar/visualizar_rfo.html', rfo=rfo_dict)
 
     if rfo is None:
-        flash('RFO não encontrado.', 'danger')
+        flash('RFO n�o encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
     return render_template('disciplinar/visualizar_rfo.html', rfo=dict(rfo))
@@ -790,7 +797,7 @@ def imprimir_rfo(ocorrencia_id):
     ''', (ocorrencia_id,)).fetchone()
 
     if rfo is None:
-        flash('RFO não encontrado.', 'danger')
+        flash('RFO n�o encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
     return render_template('formularios/rfo_impressao.html', rfo=dict(rfo))
@@ -819,22 +826,22 @@ def export_prontuario_pdf(ocorrencia_id):
     ''', (ocorrencia_id,)).fetchone()
 
     if rfo is None:
-        flash('RFO não encontrado.', 'danger')
+        flash('RFO n�o encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
     rfo_dict = dict(rfo)
 
-    # Renderizamos um template específico para o PDF (criaremos o template depois).
+    # Renderizamos um template espec�fico para o PDF (criaremos o template depois).
     # Use, por exemplo, templates/disciplinar/prontuario_pdf.html
     html = render_template('disciplinar/prontuario_pdf.html', rfo=rfo_dict)
 
-    # Detecta wkhtmltopdf (procura no PATH, senão usa o local padrão do Windows)
+    # Detecta wkhtmltopdf (procura no PATH, sen�o usa o local padr�o do Windows)
     wk_path = shutil.which('wkhtmltopdf')
     if not wk_path:
         wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
 
     if not os.path.isfile(wk_path):
-        abort(500, description=f"wkhtmltopdf não encontrado em: {wk_path}")
+        abort(500, description=f"wkhtmltopdf n�o encontrado em: {wk_path}")
 
     config = pdfkit.configuration(wkhtmltopdf=wk_path)
 
@@ -893,7 +900,7 @@ def listar_ocorrencias():
     ocorrencias_list = [dict(o) for o in ocorrencias]
     return render_template('disciplinar/listar_ocorrencias.html', ocorrencias=ocorrencias_list)
 
-# Substitua a função tratar_rfo existente por este bloco completo.
+# Substitua a fun��o tratar_rfo existente por este bloco completo.
 @disciplinar_bp.route('/tratar_rfo/<int:ocorrencia_id>', methods=['GET', 'POST'])
 @admin_secundario_required
 def tratar_rfo(ocorrencia_id):
@@ -912,12 +919,12 @@ def tratar_rfo(ocorrencia_id):
     ''', (ocorrencia_id,)).fetchone()
 
     if ocorrencia is None:
-        flash('RFO não encontrado ou já tratado.', 'danger')
+        flash('RFO n�o encontrado ou j� tratado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
     ocorrencia_dict = dict(ocorrencia)
     
-    # ---------- NOVO: montar lista completa de alunos associados à ocorrencia ----------
+    # ---------- NOVO: montar lista completa de alunos associados � ocorrencia ----------
     alunos_rows = db.execute('''
         SELECT al.matricula, al.nome, al.serie, al.turma
         FROM ocorrencias_alunos oa
@@ -960,7 +967,7 @@ def tratar_rfo(ocorrencia_id):
     medidas_map = MEDIDAS_MAP
 
     if request.method == 'POST':
-        # (mantive todo o fluxo POST como estava; só adaptado para usar ocorrencia_dict após)
+        # (mantive todo o fluxo POST como estava; s� adaptado para usar ocorrencia_dict ap�s)
         tipos_raw = request.form.get('tipo_falta_list', '').strip()
         if tipos_raw:
             tipos_list = [t.strip() for t in tipos_raw.split(',') if t.strip()]
@@ -983,19 +990,19 @@ def tratar_rfo(ocorrencia_id):
         despacho_gestor = request.form.get('despacho_gestor', '').strip()
         data_despacho = request.form.get('data_despacho', '').strip()
 
-        circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'
-        circ_ag = request.form.get('circunstancias_agravantes', '').strip() or 'Não há'
+        circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'N�o h�'
+        circ_ag = request.form.get('circunstancias_agravantes', '').strip() or 'N�o h�'
 
-        # --- INÍCIO: detectar se este tratamento refere-se a um ELOGIO ---
+        # --- IN�CIO: detectar se este tratamento refere-se a um ELOGIO ---
         tratamento_classificacao = request.form.get('tratamento_classificacao', '').strip() or ''
         tipo_rfo_post = request.form.get('tipo_rfo', '').strip() or ''
         oc_tipo = ocorrencia_dict.get('tipo_rfo') or ocorrencia_dict.get('tipo_ocorrencia_nome') or ''
 
-        # também aceitar sinalização direta enviada no POST (is_elogio)
+        # tamb�m aceitar sinaliza��o direta enviada no POST (is_elogio)
         is_elogio_form = request.form.get('is_elogio')
         is_elogio_from_form = str(is_elogio_form).strip().lower() in ('1', 'true', 'on')
 
-        # is_elogio será True se qualquer uma das fontes indicar "elogio" ou se o form sinalizou
+        # is_elogio ser� True se qualquer uma das fontes indicar "elogio" ou se o form sinalizou
         is_elogio = False
         for v in (tratamento_classificacao, medida_aplicada or '', tipo_rfo_post, oc_tipo):
             try:
@@ -1008,33 +1015,33 @@ def tratar_rfo(ocorrencia_id):
         if not is_elogio and is_elogio_from_form:
             is_elogio = True
 
-        # Se for elogio, limpar campos de falta (não se aplicam) para evitar validação desnecessária
+        # Se for elogio, limpar campos de falta (n�o se aplicam) para evitar valida��o desnecess�ria
         if is_elogio:
             tipos_csv = ''
             falta_ids_list = []
             falta_ids_csv = ''
-            # tentar inferir medida_aplicada a partir de classificações/tipo (caso frontend não tenha enviado)
+            # tentar inferir medida_aplicada a partir de classifica��es/tipo (caso frontend n�o tenha enviado)
             if not medida_aplicada:
                 medida_aplicada = (tratamento_classificacao or tipo_rfo_post or oc_tipo or '').strip()
-        # --- FIM: detecção de ELOGIO ---
+        # --- FIM: detec��o de ELOGIO ---
         error = None
-        # somente exigir campos de falta/medida quando NÃO for elogio
+        # somente exigir campos de falta/medida quando N�O for elogio
         if not is_elogio:
             if not tipos_csv:
-                error = 'Tipo de falta é obrigatório.'
+                error = 'Tipo de falta � obrigat�rio.'
             elif not falta_ids_list:
-                error = 'A descrição da falta é obrigatória.'
+                error = 'A descri��o da falta � obrigat�ria.'
             elif not medida_aplicada:
-                error = 'A medida aplicada é obrigatória.'
+                error = 'A medida aplicada � obrigat�ria.'
 
-        # checagens comuns (reincidência, despacho) válidas para ambos os casos
+        # checagens comuns (reincid�ncia, despacho) v�lidas para ambos os casos
         if error is None:
             if reincidencia not in [0, 1]:
-                error = 'Reincidência deve ser "Sim" ou "Não".'
+                error = 'Reincid�ncia deve ser "Sim" ou "N�o".'
             elif not despacho_gestor:
-                error = 'O despacho do gestor é obrigatório.'
+                error = 'O despacho do gestor � obrigat�rio.'
             elif not data_despacho:
-                error = 'A data do despacho é obrigatória.'
+                error = 'A data do despacho � obrigat�ria.'
 
         if error is not None:
             flash(error, 'danger')
@@ -1093,9 +1100,9 @@ def tratar_rfo(ocorrencia_id):
 
                 salvar_faltas_relacionadas(db, ocorrencia_id, falta_ids_ints)
 
-                # --- INTEGRAÇÃO: calcular delta e aplicar pontuação ---
+                # --- INTEGRA��O: calcular delta e aplicar pontua��o ---
                 try:
-                    # Aplicar pontuação apenas quando houver uma medida válida (pode ocorrer em elogios)
+                    # Aplicar pontua��o apenas quando houver uma medida v�lida (pode ocorrer em elogios)
                     if medida_aplicada:
                         try:
                             config = _get_config_values(db)
@@ -1104,12 +1111,12 @@ def tratar_rfo(ocorrencia_id):
                             # manter comportamento anterior: usa ocorrencia['aluno_id'] (se existir)
                             _apply_delta_pontuacao(db, ocorrencia.get('aluno_id'), data_trat, delta, ocorrencia_id, medida_aplicada)
                         except Exception:
-                            # falha no cálculo de pontuação não deve abortar o tratamento; registrar erro em log
-                            current_app.logger.exception("Erro ao aplicar delta de pontuação")
+                            # falha no c�lculo de pontua��o n�o deve abortar o tratamento; registrar erro em log
+                            current_app.logger.exception("Erro ao aplicar delta de pontua��o")
                     else:
-                        # sem medida_aplicada — não há base para pontuar; registrar aviso (útil para auditoria)
+                        # sem medida_aplicada � n�o h� base para pontuar; registrar aviso (�til para auditoria)
                         current_app.logger.warning(
-                            "Tratamento salvo sem aplicar pontuação: ocorrencia_id=%s, medida_aplicada ausente (possível elogio sem medida)",
+                            "Tratamento salvo sem aplicar pontua��o: ocorrencia_id=%s, medida_aplicada ausente (poss�vel elogio sem medida)",
                             ocorrencia_id
                         )
 
@@ -1145,7 +1152,7 @@ def tratar_rfo(ocorrencia_id):
                         if rfo_id:
                             existing = db.execute('SELECT id FROM ficha_medida_disciplinar WHERE rfo_id = ?', (rfo_id,)).fetchone()
                             if existing:
-                                # NOTE: delta pode não existir se não houve medida_aplicada; usar 0.0 por segurança
+                                # NOTE: delta pode n�o existir se n�o houve medida_aplicada; usar 0.0 por seguran�a
                                 db.execute('UPDATE ficha_medida_disciplinar SET pontos_aplicados = ? WHERE rfo_id = ?', (float(delta) if 'delta' in locals() else 0.0, rfo_id))
                             else:
                                 seq, seq_ano = _next_fmd_sequence(db)
@@ -1165,18 +1172,18 @@ def tratar_rfo(ocorrencia_id):
                         current_app.logger.exception('Erro ao gravar pontos_aplicados em ocorrencias')
 
                 except Exception:
-                    current_app.logger.exception('Erro ao aplicar atualização de pontuacao')
+                    current_app.logger.exception('Erro ao aplicar atualiza��o de pontuacao')
 
-                # dentro da função que trata o RFO, antes de db.commit()
+                # dentro da fun��o que trata o RFO, antes de db.commit()
                 # (apenas inserir estas linhas)
                 try:
-                    # integrar RFO ao prontuário do aluno (evita duplicação)
+                    # integrar RFO ao prontu�rio do aluno (evita duplica��o)
                     ok, msg = create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
                     if not ok:
-                        # msg pode indicar "já integrado" ou erro; não abortamos o tratamento por isso
+                        # msg pode indicar "j� integrado" ou erro; n�o abortamos o tratamento por isso
                         current_app.logger.debug('create_or_append_prontuario_por_rfo: ' + str(msg))
                 except Exception:
-                    current_app.logger.exception('Erro ao integrar RFO ao prontuário (tarefa auxiliar)')
+                    current_app.logger.exception('Erro ao integrar RFO ao prontu�rio (tarefa auxiliar)')
 
                 db.commit()
                 flash(f'RFO {ocorrencia_dict["rfo_id"]} tratado com sucesso.', 'success')
@@ -1193,10 +1200,10 @@ def tratar_rfo(ocorrencia_id):
                  or ocorrencia_dict.get('considerar_advertencia_oral')
                  or '')
     if isinstance(associado, bool):
-        associado = 'Sim' if associado else 'Não'
+        associado = 'Sim' if associado else 'N�o'
     material_info = tipo
     if associado:
-        material_info = f"{tipo} — {associado}"
+        material_info = f"{tipo} � {associado}"
     ocorrencia_dict['material_recolhido_info'] = material_info
 
     return render_template('disciplinar/tratar_rfo.html',
@@ -1220,7 +1227,7 @@ def editar_ocorrencia(ocorrencia_id):
     ''', (ocorrencia_id,)).fetchone()
 
     if ocorrencia is None:
-        flash('Ocorrência não encontrada ou ainda não foi tratada.', 'danger')
+        flash('Ocorr�ncia n�o encontrada ou ainda n�o foi tratada.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_ocorrencias'))
 
     ocorrencia_dict = dict(ocorrencia)
@@ -1233,11 +1240,11 @@ def editar_ocorrencia(ocorrencia_id):
         error = None
 
         if not tipo_falta:
-            error = 'Tipo de falta é obrigatório.'
+            error = 'Tipo de falta � obrigat�rio.'
         elif not medida_aplicada:
-            error = 'A medida aplicada é obrigatória.'
+            error = 'A medida aplicada � obrigat�ria.'
         elif not advertencia_oral or advertencia_oral not in ['sim', 'nao']:
-            error = 'Selecione se a ocorrência deve ser considerada como Advertência Oral.'
+            error = 'Selecione se a ocorr�ncia deve ser considerada como Advert�ncia Oral.'
 
         if error is not None:
             flash(error, 'danger')
@@ -1259,11 +1266,11 @@ def editar_ocorrencia(ocorrencia_id):
                     ocorrencia_id
                 ))
                 db.commit()
-                flash(f'Ocorrência {ocorrencia_dict["rfo_id"]} editada com sucesso.', 'success')
+                flash(f'Ocorr�ncia {ocorrencia_dict["rfo_id"]} editada com sucesso.', 'success')
                 return redirect(url_for('disciplinar_bp.listar_ocorrencias'))
             except Exception as e:
                 db.rollback()
-                flash(f'Erro ao editar ocorrência: {e}', 'danger')
+                flash(f'Erro ao editar ocorr�ncia: {e}', 'danger')
 
     tipos_ocorrencia_db = get_tipos_ocorrencia()
     return render_template('disciplinar/adicionar_ocorrencia.html',
@@ -1283,7 +1290,7 @@ def excluir_ocorrencia(ocorrencia_id):
         rfo = db.execute('SELECT rfo_id FROM ocorrencias WHERE id = ?', (ocorrencia_id,)).fetchone()
 
         if rfo is None:
-            flash('Ocorrência/RFO não encontrado.', 'danger')
+            flash('Ocorr�ncia/RFO n�o encontrado.', 'danger')
             return redirect(url_for('disciplinar_bp.listar_ocorrencias'))
 
         rfo_id_nome = rfo['rfo_id']
@@ -1291,11 +1298,11 @@ def excluir_ocorrencia(ocorrencia_id):
         db.execute('DELETE FROM ocorrencias WHERE id = ?', (ocorrencia_id,))
         db.commit()
 
-        flash(f'Oorrência/RFO {rfo_id_nome} excluído com sucesso.', 'success')
+        flash(f'Oorr�ncia/RFO {rfo_id_nome} exclu�do com sucesso.', 'success')
 
     except Exception as e:
         db.rollback()
-        flash(f'Erro ao excluir ocorrência/RFO: {e}', 'danger')
+        flash(f'Erro ao excluir ocorr�ncia/RFO: {e}', 'danger')
 
     return redirect(url_for('disciplinar_bp.listar_ocorrencias'))
 
@@ -1335,19 +1342,19 @@ def registrar_fmd():
             comparecimento_val = 0
 
         prazo_comparecimento = request.form.get('prazo_comparecimento', '').strip()
-        atenuantes = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'
-        agravantes = request.form.get('circunstancias_agravantes', '').strip() or 'Não há'
+        atenuantes = request.form.get('circunstancias_atenuantes', '').strip() or 'N�o h�'
+        agravantes = request.form.get('circunstancias_agravantes', '').strip() or 'N�o h�'
         gestor_id = request.form.get('gestor_id') or session.get('user_id')
 
         error = None
         if not aluno_id:
-            error = 'Aluno é obrigatório.'
+            error = 'Aluno � obrigat�rio.'
         elif not data_fmd:
-            error = 'Data é obrigatória.'
+            error = 'Data � obrigat�ria.'
         elif not tipo_falta_csv:
-            error = 'Tipo de falta é obrigatório.'
+            error = 'Tipo de falta � obrigat�rio.'
         elif not medida_aplicada:
-            error = 'Medida aplicada é obrigatória.'
+            error = 'Medida aplicada � obrigat�ria.'
 
         if error:
             flash(error, 'danger')
@@ -1412,7 +1419,7 @@ def editar_fmd(fmd_id):
     ''', (fmd_id,)).fetchone()
 
     if fmd is None:
-        flash('FMD não encontrada.', 'danger')
+        flash('FMD n�o encontrada.', 'danger')
         return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
     faltas = get_faltas_disciplinares()
@@ -1427,13 +1434,13 @@ def editar_fmd(fmd_id):
 
         error = None
         if not data_fmd:
-            error = 'Data da FMD é obrigatória.'
+            error = 'Data da FMD � obrigat�ria.'
         elif not tipo_falta:
-            error = 'Tipo de falta é obrigatório.'
+            error = 'Tipo de falta � obrigat�rio.'
         elif not medida_aplicada:
-            error = 'Medida aplicada é obrigatória.'
+            error = 'Medida aplicada � obrigat�ria.'
         elif not status:
-            error = 'Status é obrigatório.'
+            error = 'Status � obrigat�rio.'
 
         if error is None:
             try:
@@ -1469,7 +1476,7 @@ def excluir_fmd(fmd_id):
         fmd = db.execute('SELECT fmd_id FROM ficha_medida_disciplinar WHERE id = ?', (fmd_id,)).fetchone()
 
         if fmd is None:
-            flash('FMD não encontrada.', 'danger')
+            flash('FMD n�o encontrada.', 'danger')
             return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
         fmd_id_nome = fmd['fmd_id']
@@ -1477,7 +1484,7 @@ def excluir_fmd(fmd_id):
         db.execute('DELETE FROM ficha_medida_disciplinar WHERE id = ?', (fmd_id,))
         db.commit()
 
-        flash(f'FMD {fmd_id_nome} excluída com sucesso.', 'success')
+        flash(f'FMD {fmd_id_nome} exclu�da com sucesso.', 'success')
     except sqlite3.Error as e:
         db.rollback()
         flash(f'Erro ao excluir FMD: {e}', 'danger')
@@ -1597,18 +1604,18 @@ from flask import render_template
 
 @disciplinar_bp.route('/fmd_teste_novo')
 def fmd_teste_novo():
-    # Simulação de dados
+    # Simula��o de dados
     aluno = {
         'nome': 'FULANO DE TAL',
-        'serie': '7º',
+        'serie': '7�',
         'turma': 'B'
     }
     fmd = {
         'fmd_id': 'FMD-0001/2026',
         'pontos_aplicados': -2.0,
         'comportamento': 'Descumprimento das normas',
-        'medida_aplicada': 'Advertência Escrita',
-        'agravantes': 'Reincidência',
+        'medida_aplicada': 'Advert�ncia Escrita',
+        'agravantes': 'Reincid�ncia',
         'atenuantes': 'Arrependimento',
         'comparecimento_responsavel': True,
         'prazo_comparecimento': '10/01/2026',
@@ -1621,12 +1628,12 @@ def fmd_teste_novo():
     escola = {
         'logotipo_url': '/static/img/logo.png',  # Ajuste para o logo real!
         'nome': 'ESCOLA MODELO',
-        'secretaria': 'Secretaria Municipal de Educação',
-        'coordenacao': 'Coordenação Pedagógica',
+        'secretaria': 'Secretaria Municipal de Educa��o',
+        'coordenacao': 'Coordena��o Pedag�gica',
         'estado': 'Estado do Exemplo',
     }
     usuario = {
-        'nome': 'MÁRIO RESPONSÁVEL',
+        'nome': 'M�RIO RESPONS�VEL',
         'cargo': 'Gestor Escolar'
     }
     envio = {
@@ -1654,23 +1661,23 @@ def fmd_novo_real(fmd_id):
     db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
     db.row_factory = sqlite3.Row
 
-    # ==== 1. PEGA O USUÁRIO LOGADO NA SESSÃO ====
+    # ==== 1. PEGA O USU�RIO LOGADO NA SESS�O ====
     user_id = session.get('user_id')
     usuario_sessao = None
     if user_id:
         usuario_sessao = db.execute("SELECT * FROM usuarios WHERE id = ?", (user_id,)).fetchone()
-    print('[FMD] Usuário ativo:', dict(usuario_sessao) if usuario_sessao else None)
+    print('[FMD] Usu�rio ativo:', dict(usuario_sessao) if usuario_sessao else None)
     if not usuario_sessao or usuario_sessao['nivel'] not in [1, 2]:
-        return "Você não tem permissão para acessar este documento.", 403
+        return "Voc� n�o tem permiss�o para acessar este documento.", 403
 
     # ==== 2. Busca a FMD ====
     fmd = db.execute("SELECT * FROM ficha_medida_disciplinar WHERE fmd_id = ?", (fmd_id,)).fetchone()
     if not fmd:
-        return 'FMD não encontrada', 404
+        return 'FMD n�o encontrada', 404
 
     # ==== 3. Busca o aluno relacionado ====
     aluno = db.execute("SELECT * FROM alunos WHERE id = ?", (fmd['aluno_id'],)).fetchone() or {}
-    from models import get_aluno_estado_atual
+    from escola.models import get_aluno_estado_atual
 
     estado = {}
     comportamento = None
@@ -1680,7 +1687,7 @@ def fmd_novo_real(fmd_id):
         comportamento = estado.get('comportamento')
         pontuacao = estado.get('pontuacao')
 
-    # ==== 4. Busca ocorrência relacionada (RFO) ====
+    # ==== 4. Busca ocorr�ncia relacionada (RFO) ====
     rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
     item_descricoes_faltas = []
 
@@ -1713,7 +1720,7 @@ def fmd_novo_real(fmd_id):
         '-'
     )
 
-    # ==== 5. Cabeçalho institucional ====
+    # ==== 5. Cabe�alho institucional ====
     cabecalho = db.execute("SELECT * FROM cabecalhos LIMIT 1;").fetchone() or {}
 
     escola = {
@@ -1730,7 +1737,7 @@ def fmd_novo_real(fmd_id):
         'email_destinatario': fmd['email_enviado_para'] if 'email_enviado_para' in fmd.keys() and fmd['email_enviado_para'] else None,
     }
 
-    # ==== 6. Busca gestor/responsável para carimbo/assinatura ====
+    # ==== 6. Busca gestor/respons�vel para carimbo/assinatura ====
     usuario_id_registro = fmd['gestor_id'] or fmd['responsavel_id']
     usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() or {}
     print("USUARIO REGISTRO -->", dict(usuario_registro) if usuario_registro else "NENHUM")
@@ -1765,7 +1772,7 @@ def fmd_novo_real(fmd_id):
         if logo_relativo:
             logo_relativo = logo_relativo.lstrip("/")
             caminho_absoluto = os.path.join(
-                r"C:\Users\Usuário\Documents\GitHub\escolar\escola", logo_relativo
+                r"C:\Users\Usu�rio\Documents\GitHub\escolar\escola", logo_relativo
             )
             contexto['logo_pdfkit_path'] = "file:///" + quote(caminho_absoluto.replace("\\", "/"))
         else:
@@ -1801,22 +1808,22 @@ def enviar_email_fmd(fmd_id):
     # Busca os dados da FMD
     fmd = db.execute("SELECT * FROM ficha_medida_disciplinar WHERE fmd_id = ?", (fmd_id,)).fetchone()
     if not fmd:
-        flash('FMD não encontrada!', 'alert-danger')
+        flash('FMD n�o encontrada!', 'alert-danger')
         return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
     # Busca o aluno e seu e-mail
     aluno = db.execute("SELECT * FROM alunos WHERE id = ?", (fmd['aluno_id'],)).fetchone()
     email_destinatario = aluno['email'] if aluno and 'email' in aluno.keys() and aluno['email'] else None
 
-    # SE NÃO existir e-mail cadastrado, retorna erro e não envia
+    # SE N�O existir e-mail cadastrado, retorna erro e n�o envia
     if not email_destinatario:
-        flash('Não existe e-mail cadastrado para este aluno.', 'alert-danger')
+        flash('N�o existe e-mail cadastrado para este aluno.', 'alert-danger')
         return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
     # Busca o e-mail e a senha de app da escola
     dados_escola = db.execute("SELECT email_remetente, senha_email_app, telefone FROM dados_escola LIMIT 1").fetchone()
     if not dados_escola or not dados_escola['email_remetente'] or not dados_escola['senha_email_app']:
-        flash('Não há e-mail institucional e/ou senha de aplicativo cadastrados para a escola.', 'danger')
+        flash('N�o h� e-mail institucional e/ou senha de aplicativo cadastrados para a escola.', 'danger')
         return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
     email_remetente = dados_escola['email_remetente']
     senha_email_app = dados_escola['senha_email_app']
@@ -1824,7 +1831,7 @@ def enviar_email_fmd(fmd_id):
     # MONTE AQUI O CORPO DO E-MAIL (exemplo simples abaixo)
     assunto = "Ficha de Medida Disciplinar"
 
-    # Função utilitária para pegar campo ou retorno vazio
+    # Fun��o utilit�ria para pegar campo ou retorno vazio
     def get_fmd_field(row, key):
         try:
             return row[key]
@@ -1837,15 +1844,15 @@ def enviar_email_fmd(fmd_id):
     corpo_html = f"""
     <html>
     <body>
-        <p>Prezado responsável,<br>
+        <p>Prezado respons�vel,<br>
         Segue a Ficha de Medida Disciplinar referente ao(a) aluno(a): <b>{aluno['nome']}</b>.
         <br><br>
         Tipo de falta: <b>{get_fmd_field(fmd,'tipo_falta')}</b><br>
         Medida aplicada: <b>{get_fmd_field(fmd,'medida_aplicada')}</b><br>
-        {"Descrição: <b>{}</b><br>".format(get_fmd_field(fmd,'descricao_detalhada')) if get_fmd_field(fmd,'descricao_detalhada') else ""}
+        {"Descri��o: <b>{}</b><br>".format(get_fmd_field(fmd,'descricao_detalhada')) if get_fmd_field(fmd,'descricao_detalhada') else ""}
         Status: <b>{get_fmd_field(fmd,'status')}</b><br>
         <br>
-        <i>Favor entrar em contato com a escola caso necessário. Telefone: <b>{telefone_escola}</b></i>
+        <i>Favor entrar em contato com a escola caso necess�rio. Telefone: <b>{telefone_escola}</b></i>
         </p>
     </body>
     </html>
@@ -1857,7 +1864,7 @@ def enviar_email_fmd(fmd_id):
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
         if not os.path.exists(pdf_path):
-            flash("O PDF da FMD ainda não foi gerado! Gere a FMD antes de enviar o e-mail.", "danger")
+            flash("O PDF da FMD ainda n�o foi gerado! Gere a FMD antes de enviar o e-mail.", "danger")
             return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
         msg = MIMEMultipart()

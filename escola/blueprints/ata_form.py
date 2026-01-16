@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, render_template, request, jsonify, current_app, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, current_app, redirect, url_for, flash
 import os, json, datetime
 
 formularios_ata_ui_bp = Blueprint("formularios_ata_ui_bp", __name__)
