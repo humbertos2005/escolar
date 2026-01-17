@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, make_response, jsonify, current_app
-from escola.database import get_db
+from database import get_db
 from .utils import login_required, admin_secundario_required
 from datetime import datetime
 

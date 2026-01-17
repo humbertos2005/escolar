@@ -4,8 +4,6 @@
 
 Este sistema permite gestão de banco de dados escolar com flexibilidade para diferentes ambientes e tipos de bancos de dados, adaptando-se facilmente via variáveis de ambiente – sem necessidade de alteração do código-fonte.
 
-Conta agora com arquitetura orientada ao ORM SQLAlchemy, trazendo portabilidade, escalabilidade e manutenção facilitada dos modelos de dados.
-
 ---
 
 ## Instalação
@@ -17,7 +15,7 @@ Conta agora com arquitetura orientada ao ORM SQLAlchemy, trazendo portabilidade,
    cd <PASTA_DO_PROJETO>
    ```
 
-2. **Instale as dependências do projeto (inclui o python-dotenv):**
+2. **Instale as dependências do projeto (inclue o python-dotenv):**
 
    ```sh
    pip install -r requirements.txt
@@ -80,25 +78,6 @@ Você pode definir essas variáveis manualmente (linha de comando, painel de hos
 - **`DATABASE_URL`**: String de conexão para bancos via SQLAlchemy (PostgreSQL ou MySQL)
 
 O sistema lê essas variáveis automaticamente graças ao pacote `python-dotenv`.
-
----
-
-## Modelos de Dados: SQLAlchemy & Migração
-
-A estrutura atual do sistema foi migrada para usar o SQLAlchemy como ORM principal.
-
-### Status dos arquivos de modelo:
-| Arquivo                 | Status        | Observação                                                                 |
-|-------------------------|--------------|----------------------------------------------------------------------------|
-| `models.py`             | 🚫 LEGADO    | **Não usar!** Apenas referência histórica do SQLite antigo.                |
-| `models_sqlalchemy.py`  | ✅ ATUAL      | Use SEMPRE. ORM oficial, todas as definições e acesso via SQLAlchemy.      |
-
-### Orientações:
-
-- **Não escreva mais funções ou modelos em `models.py`.**
-- Qualquer novo acesso a dados, modelo de tabela, consulta ou helper deve ser feito usando as classes do `models_sqlalchemy.py`.
-- **Se precisar migrar alguma lógica de negócio ou cálculo do legado, consulte apenas o código do `models.py` para referência** e implemente a versão SQLAlchemy.
-- Quando toda lógica relevante do arquivo legado estiver portada, `models.py` poderá ser arquivado ou removido futuramente.
 
 ---
 

@@ -1,15 +1,8 @@
-# =============================================================================
-# AVISO: Arquivo LEGADO!
-# N�o usar para novos desenvolvimentos.
-# Sistema migrado para SQLAlchemy (ver models_sqlalchemy.py).
-# Este arquivo permanece apenas por refer�ncia/hist�rico.
-# =============================================================================
-
-import sqlite3
+﻿import sqlite3
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 from flask import current_app, g
-from escola.database import get_db
+from database import get_db
 
 import os
 DB_NAME = os.environ.get("DATABASE_FILE", "escola.db")
@@ -108,15 +101,15 @@ def get_proximo_fmd_id(incrementar=False):
 
 def criar_tabelas():
     """
-    Cria todas as tabelas necess�rias e executa migra��es simples.
-    Esta fun��o usa uma conex�o local (sqlite3.connect) e fecha no final.
+    Cria todas as tabelas necessárias e executa migrações simples.
+    Esta função usa uma conexão local (sqlite3.connect) e fecha no final.
     """
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA foreign_keys = ON')
 
     try:
-        # Usu�rios
+        # Usuários
         conn.execute('''
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,31 +121,31 @@ def criar_tabelas():
                 data_criacao TEXT DEFAULT CURRENT_TIMESTAMP
             );
         ''')
-        # Migra��o autom�tica: garante que coluna 'cargo' exista
+        # Migração automática: garante que coluna 'cargo' exista
         try:
             conn.execute("ALTER TABLE usuarios ADD COLUMN cargo TEXT;")
         except Exception:
             pass
 
-        # Migra��o segura: adicionar coluna email se n�o existir
+        # Migração segura: adicionar coluna email se não existir
         try:
             c = conn.execute("PRAGMA table_info(usuarios);")
             colunas = [col[1] for col in c.fetchall()]
             if 'email' not in colunas:
                 conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT;")
-                print("   [MIGRA��O] Coluna 'email' adicionada � tabela 'usuarios'.")
+                print("   [MIGRAÇÃO] Coluna 'email' adicionada à tabela 'usuarios'.")
         except sqlite3.OperationalError:
             pass
 
-        # Migra��o segura: adicionar coluna data_criacao se n�o existir
+        # Migração segura: adicionar coluna data_criacao se não existir
         try:
             c = conn.execute("PRAGMA table_info(usuarios);")
             colunas = [col[1] for col in c.fetchall()]
             if 'data_criacao' not in colunas:
                 conn.execute("ALTER TABLE usuarios ADD COLUMN data_criacao TEXT DEFAULT CURRENT_TIMESTAMP;")
-                print("   [MIGRA��O] Coluna 'data_criacao' adicionada � tabela 'usuarios'.")
+                print("   [MIGRAÇÃO] Coluna 'data_criacao' adicionada à tabela 'usuarios'.")
         except sqlite3.OperationalError:
-            # Se pragma falhar por algum motivo, n�o interrompe todo processo
+            # Se pragma falhar por algum motivo, não interrompe todo processo
             pass
 
         # Alunos
@@ -181,14 +174,14 @@ def criar_tabelas():
             );
         ''')
 
-        # Migra��o: coluna telefone se necess�rio
+        # Migração: coluna telefone se necessário
         try:
             c = conn.execute("PRAGMA table_info(alunos);")
             colunas = [col[1] for col in c.fetchall()]
             if 'telefone' not in colunas:
                 conn.execute("ALTER TABLE alunos ADD COLUMN telefone TEXT DEFAULT '';")
                 conn.commit()
-                print("   [MIGRA��O] Coluna 'telefone' adicionada � tabela 'alunos'.")
+                print("   [MIGRAÇÃO] Coluna 'telefone' adicionada à tabela 'alunos'.")
         except sqlite3.OperationalError:
             pass
 
@@ -203,7 +196,7 @@ def criar_tabelas():
             );
         ''')
 
-        # Sequ�ncias
+        # Sequências
         conn.execute('''
             CREATE TABLE IF NOT EXISTS rfo_sequencia (
                 ano TEXT PRIMARY KEY,
@@ -218,7 +211,7 @@ def criar_tabelas():
             );
         ''')
 
-        # Tipos de ocorr�ncia
+        # Tipos de ocorrência
         conn.execute('''
             CREATE TABLE IF NOT EXISTS tipos_ocorrencia (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -230,18 +223,18 @@ def criar_tabelas():
         cursor.execute("SELECT COUNT(*) FROM tipos_ocorrencia")
         if cursor.fetchone()[0] == 0:
             tipos_padrao = [
-                ('Agress�o F�sica',),
-                ('Agress�o Verbal',),
+                ('Agressão Física',),
+                ('Agressão Verbal',),
                 ('Atraso',),
                 ('Comportamento Inadequado',),
-                ('Dano ao Patrim�nio',),
+                ('Dano ao Patrimônio',),
                 ('Desrespeito',),
                 ('Uso Indevido de Celular',),
                 ('Uniforme Inadequado',),
                 ('Outros',),
             ]
             conn.executemany("INSERT INTO tipos_ocorrencia (nome) VALUES (?)", tipos_padrao)
-            print("   [INFO] Tipos de ocorr�ncia padr�o inseridos na tabela 'tipos_ocorrencia'.")
+            print("   [INFO] Tipos de ocorrência padrão inseridos na tabela 'tipos_ocorrencia'.")
 
         # Faltas disciplinares
         conn.execute('''
@@ -259,98 +252,98 @@ def criar_tabelas():
             faltas_padrao = [
                 ('LEVE', 'Apresentar-se com uniforme diferente do estabelecido pelo regulamento do uniforme;'),
                 ('LEVE', 'Apresentar-se com barba ou bigode sem fazer;'),
-                ('LEVE', 'Comparecer � EECM com cabelo em desalinho ou fora do padr�o estabelecido pelas diretrizes dos Uniformes;'),
-                ('LEVE', 'Chegar atrasado a EECM para o in�cio das aulas, instru��o, treinamento, formatura ou atividade escolar;'),
-                ('LEVE', 'Comparecer a EECM sem levar o material necess�rio;'),
-                ('LEVE', 'Adentrar ou permanecer em qualquer depend�ncia da EECM, sem autoriza��o;'),
-                ('LEVE', 'Consumir alimentos, balas, doces l�quidos ou mascar chicletes durante a aula, instru��o, treinamento, formatura, atividade escolar, e nas depend�ncias da EECM, salvo quando devidamente autorizado;'),
+                ('LEVE', 'Comparecer à EECM com cabelo em desalinho ou fora do padrão estabelecido pelas diretrizes dos Uniformes;'),
+                ('LEVE', 'Chegar atrasado a EECM para o início das aulas, instrução, treinamento, formatura ou atividade escolar;'),
+                ('LEVE', 'Comparecer a EECM sem levar o material necessário;'),
+                ('LEVE', 'Adentrar ou permanecer em qualquer dependência da EECM, sem autorização;'),
+                ('LEVE', 'Consumir alimentos, balas, doces líquidos ou mascar chicletes durante a aula, instrução, treinamento, formatura, atividade escolar, e nas dependências da EECM, salvo quando devidamente autorizado;'),
                 ('LEVE', 'Conversar ou se mexer quando estiver em forma;'),
-                ('LEVE', 'Deixar de entregar � Monitoria, Secretaria ou a Coordena��o, qualquer objeto que n�o lhe perten�a que tenha encontrado na EECM.'),
+                ('LEVE', 'Deixar de entregar à Monitoria, Secretaria ou a Coordenação, qualquer objeto que não lhe pertença que tenha encontrado na EECM.'),
                 ('LEVE', 'Deixar de retribuir cumprimentos ou de prestar sinais de respeito regulamentares, previstos no Manual do Aluno.'),
-                ('LEVE', 'Deixar material escolar, objetos ou pe�as de uniforme em locais inapropriados dentro ou fora da unidade escolar;'),
-                ('LEVE', 'Descartar pap�is, restos de comida, embalagens ou qualquer objeto no ch�o ou fora de locais apropriados.'),
-                ('LEVE', 'Dobrar qualquer pe�a de uniforme para diminuir seu tamanho, desfigurando sua originalidade.'),
-                ('LEVE', 'Debru�ar-se sobre a carteira e dormir durante o hor�rio das aulas ou instru��es.'),
+                ('LEVE', 'Deixar material escolar, objetos ou peças de uniforme em locais inapropriados dentro ou fora da unidade escolar;'),
+                ('LEVE', 'Descartar papéis, restos de comida, embalagens ou qualquer objeto no chão ou fora de locais apropriados.'),
+                ('LEVE', 'Dobrar qualquer peça de uniforme para diminuir seu tamanho, desfigurando sua originalidade.'),
+                ('LEVE', 'Debruçar-se sobre a carteira e dormir durante o horário das aulas ou instruções.'),
                 ('LEVE', 'Executar movimentos de ordem unida de forma displicente ou desatenciosa.'),
-                ('LEVE', 'Fazer ou provocar excessivo barulho em qualquer depend�ncia da EECM, durante o hor�rio de aula.'),
-                ('LEVE', 'N�o levar ao conhecimento de autoridade competente falta ou irregularidade que presenciar ou de que tiver ci�ncia.'),
-                ('LEVE', 'Perturbar o estudo do(s) colega(s), com ru�dos ou brincadeiras.'),
-                ('LEVE', 'Utilizar-se, na sala, de qualquer publica��o estranha a sua atividade escolar, salvo quando autorizado.'),
-                ('LEVE', 'Retardar ou contribuir para o atraso da execu��o de qualquer atividade sem justo motivo.'),
-                ('LEVE', 'Sentar-se no ch�o, atentando contra a postura e compostura, estando uniformizado, exceto quando em aula de educa��o F�sica'),
-                ('LEVE', 'Utilizar qualquer tipo de jogo, brinquedo, figurinhas, cole��es no interior da EECM.'),
-                ('LEVE', 'Usar, a aluna, piercings, brinco fora do padr�o estabelecido, mais de um brinco em cada orelha, alargador ou similares, quando uniformizado, durante a aula, instru��o, treinamento, formatura ou atividade escolar.'),
-                ('LEVE', 'Usar, o aluno, piercings, brinco, alargador ou similares, quando uniformizado, durante a aula, instru��o, treinamento, formatura ou atividade escolar.'),
-                ('LEVE', 'Usar, quando uniformizado, bon�, capuz ou outros adornos, durante a atividade escolar.'),
-                ('LEVE', 'Ficar na sala de aula durante os intervalos e as formaturas di�rias.'),
-                ('M�DIA', 'Atrasar ou deixar de atender ao chamado da Diretoria, coordena��o, Oficial de Gest�o Educacional-Militar, o Oficial de Gest�o C�vico-Militar, Monitores, professores ou servidores no exerc�cio de sua fun��o.'),
-                ('M�DIA', 'Deixar de comparecer a qualquer atividade extraclasse para a qual tenha sido designado, exceto quando devidamente justificado.'),
-                ('M�DIA', 'Deixar de comparecer �s atividades escolares, formaturas, ou delas se ausentar, sem autoriza��o.'),
-                ('M�DIA', 'Deixar de cumprir ou esquivar-se de medidas disciplinares impostas pelo Gestor Educacional-Militar.'),
-                ('M�DIA', 'Deixar de devolver � EECM, dentro do prazo estipulado, documentos devidamente assinados pelo seu respons�vel.'),
-                ('M�DIA', 'Deixar de devolver, no prazo fixado, livros da biblioteca ou outros materiais pertencentes �s EECM;'),
-                ('M�DIA', 'Deixar de entregar ao pai ou respons�vel, documento que lhe foi encaminhado pela EECM.'),
-                ('M�DIA', 'Deixar de executar tarefas atribu�das da Diretoria, coordena��o, Oficial de Gest�o Educacional-Militar, o Oficial de Gest�o C�vico-Militar, Monitores, professores ou servidores no exerc�cio de sua fun��o.'),
-                ('M�DIA', 'Deixar de zelar por sua apresenta��o pessoal.'),
-                ('M�DIA', 'Dirigir memoriais ou peti��es a qualquer autoridade, sobre assuntos da al�ada da Diretoria e do Oficial de Gest�o Educacional-Militar.'),
-                ('M�DIA', 'Entrar ou sair da EECM por locais n�o permitidos.'),
-                ('M�DIA', 'Espalhar boatos ou not�cias tendenciosas por qualquer meio.'),
-                ('M�DIA', 'Tocar a sirene, sem ordem para tal.'),
-                ('M�DIA', 'Fumar dentro ou nas imedia��es da EECM ou quando uniformizado.'),
-                ('M�DIA', 'Ingressar ou sair da EECM sem estar com o uniforme regulamentar, bem como trocar de roupa (trajes civis) dentro da EECM ou em suas media��es.'),
-                ('M�DIA', 'Ler ou distribuir, dentro da EECM, publica��es estampas ou jornais que atentem contra a disciplina, a moral e a ordem p�blica.'),
-                ('M�DIA', 'Manter contato f�sico que denote envolvimento de cunho amoroso (namoro, beijos, etc.) quando devidamente uniformizado, dentro da EECM ou fora dele.'),
-                ('M�DIA', 'N�o zelar pelo nome da Institui��o que representa, deixando de portar-se adequadamente em qualquer ambiente, quando uniformizado ou em atividades relacionadas a EECM.'),
-                ('M�DIA', 'Negar-se a colaborar ou participar nos eventos, formaturas, solenidades, desfiles oficiais da EECM.'),
-                ('M�DIA', 'Ofender o moral de colegas ou de qualquer membro da Comunidade Escolar por atos, gestos ou palavras.'),
-                ('M�DIA', 'Portar-se de forma inconveniente em sala de aula ou outro local de instru��o/recrea��o, bem como transportes de uso coletivo.'),
-                ('M�DIA', 'Portar-se de maneira desrespeitosa ou inconveniente nos eventos sociais ou esportivos, promovidos ou com a participa��o da EECM ou fora dela.'),
-                ('M�DIA', 'Proferir palavras de baixo cal�o, incompat�veis com as normas da boa educa��o, ou graf�-las em qualquer lugar.'),
-                ('M�DIA', 'Propor ou aceitar transa��o pecuni�ria de qualquer natureza, no interior da EECM, sem a devida autoriza��o.'),
-                ('M�DIA', 'Provocar ou disseminar a disc�rdia entre colegas.'),
-                ('M�DIA', 'Publicar ou contribuir para que sejam publicadas mensagens, fotos, v�deos ou qualquer outro documento, na Internet ou qualquer outro meio de comunica��o, que possam expor a integrante da EECM.'),
-                ('M�DIA', 'Retirar ou tentar retirar objeto, de qualquer depend�ncia da EECM, ou mesmo deles servir-se, sem ordem do respons�vel e/ou do propriet�rio.'),
-                ('M�DIA', 'Sair de forma sem autoriza��o.'),
-                ('M�DIA', 'Sair, entrar ou permanecer na sala de aula sem permiss�o.'),
-                ('M�DIA', 'Ser retirado, por mau comportamento, de sala de aula ou qualquer ambiente em que esteja sendo realizada atividade.'),
-                ('M�DIA', 'Simular doen�a para esquivar-se ao atendimento de obriga��es e de atividades escolares.'),
-                ('M�DIA', 'Tomar parte em jogos de azar ou em apostas na unidade escolar ou fora dela, uniformizados ou n�o.'),
-                ('M�DIA', 'Usar as instala��es ou equipamentos esportivos do EECM, sem uniformes adequados, ou sem autoriza��o.'),
-                ('M�DIA', 'Usar o uniforme ou o nome do EECM em ambiente inapropriado'),
-                ('M�DIA', 'Utilizar, sem autoriza��o, telefones celulares ou quaisquer aparelhos eletr�nicos ou n�o, durante as atividades escolares.'),
-                ('M�DIA', 'Usar indevidamente distintivos ou ins�gnias.'),
-                ('GRAVE', 'Assinar pelo respons�vel, documento que deva ser entregue � unidade escolar.'),
-                ('GRAVE', 'Causar danos ao patrim�nio da unidade escolar.'),
-                ('GRAVE', 'Causar ou contribuir para a ocorr�ncia de acidentes de qualquer natureza.'),
-                ('GRAVE', 'Comunicar-se com outro aluno ou utilizar-se de qualquer meio n�o permitido durante qualquer instrumento de avalia��o.'),
-                ('GRAVE', 'Denegrir o nome da EECM e/ou de qualquer de seus membros atrav�s de procedimentos desrespeitosos, seja por palavras, gestos, meio virtual ou outros.'),
-                ('GRAVE', 'Desrespeitar, desobedecer ou desafiar a Diretoria, coordena��o, Oficial de gest�o Educacional-Militar, o Oficial de Gest�o C�vico-Militar, Monitores, professores ou servidores unidade escolar.'),
-                ('GRAVE', 'Divulgar, ou concorrer para que isso aconte�a, qualquer imagem ou mat�ria que induza a apologia �s drogas, � viol�ncia e/ou pornografia.'),
-                ('GRAVE', 'Entrar na unidade escolar, ou dela se ausentar, sem autoriza��o.'),
+                ('LEVE', 'Fazer ou provocar excessivo barulho em qualquer dependência da EECM, durante o horário de aula.'),
+                ('LEVE', 'Não levar ao conhecimento de autoridade competente falta ou irregularidade que presenciar ou de que tiver ciência.'),
+                ('LEVE', 'Perturbar o estudo do(s) colega(s), com ruídos ou brincadeiras.'),
+                ('LEVE', 'Utilizar-se, na sala, de qualquer publicação estranha a sua atividade escolar, salvo quando autorizado.'),
+                ('LEVE', 'Retardar ou contribuir para o atraso da execução de qualquer atividade sem justo motivo.'),
+                ('LEVE', 'Sentar-se no chão, atentando contra a postura e compostura, estando uniformizado, exceto quando em aula de educação Física'),
+                ('LEVE', 'Utilizar qualquer tipo de jogo, brinquedo, figurinhas, coleções no interior da EECM.'),
+                ('LEVE', 'Usar, a aluna, piercings, brinco fora do padrão estabelecido, mais de um brinco em cada orelha, alargador ou similares, quando uniformizado, durante a aula, instrução, treinamento, formatura ou atividade escolar.'),
+                ('LEVE', 'Usar, o aluno, piercings, brinco, alargador ou similares, quando uniformizado, durante a aula, instrução, treinamento, formatura ou atividade escolar.'),
+                ('LEVE', 'Usar, quando uniformizado, boné, capuz ou outros adornos, durante a atividade escolar.'),
+                ('LEVE', 'Ficar na sala de aula durante os intervalos e as formaturas diárias.'),
+                ('MÉDIA', 'Atrasar ou deixar de atender ao chamado da Diretoria, coordenação, Oficial de Gestão Educacional-Militar, o Oficial de Gestão Cívico-Militar, Monitores, professores ou servidores no exercício de sua função.'),
+                ('MÉDIA', 'Deixar de comparecer a qualquer atividade extraclasse para a qual tenha sido designado, exceto quando devidamente justificado.'),
+                ('MÉDIA', 'Deixar de comparecer às atividades escolares, formaturas, ou delas se ausentar, sem autorização.'),
+                ('MÉDIA', 'Deixar de cumprir ou esquivar-se de medidas disciplinares impostas pelo Gestor Educacional-Militar.'),
+                ('MÉDIA', 'Deixar de devolver à EECM, dentro do prazo estipulado, documentos devidamente assinados pelo seu responsável.'),
+                ('MÉDIA', 'Deixar de devolver, no prazo fixado, livros da biblioteca ou outros materiais pertencentes às EECM;'),
+                ('MÉDIA', 'Deixar de entregar ao pai ou responsável, documento que lhe foi encaminhado pela EECM.'),
+                ('MÉDIA', 'Deixar de executar tarefas atribuídas da Diretoria, coordenação, Oficial de Gestão Educacional-Militar, o Oficial de Gestão Cívico-Militar, Monitores, professores ou servidores no exercício de sua função.'),
+                ('MÉDIA', 'Deixar de zelar por sua apresentação pessoal.'),
+                ('MÉDIA', 'Dirigir memoriais ou petições a qualquer autoridade, sobre assuntos da alçada da Diretoria e do Oficial de Gestão Educacional-Militar.'),
+                ('MÉDIA', 'Entrar ou sair da EECM por locais não permitidos.'),
+                ('MÉDIA', 'Espalhar boatos ou notícias tendenciosas por qualquer meio.'),
+                ('MÉDIA', 'Tocar a sirene, sem ordem para tal.'),
+                ('MÉDIA', 'Fumar dentro ou nas imediações da EECM ou quando uniformizado.'),
+                ('MÉDIA', 'Ingressar ou sair da EECM sem estar com o uniforme regulamentar, bem como trocar de roupa (trajes civis) dentro da EECM ou em suas mediações.'),
+                ('MÉDIA', 'Ler ou distribuir, dentro da EECM, publicações estampas ou jornais que atentem contra a disciplina, a moral e a ordem pública.'),
+                ('MÉDIA', 'Manter contato físico que denote envolvimento de cunho amoroso (namoro, beijos, etc.) quando devidamente uniformizado, dentro da EECM ou fora dele.'),
+                ('MÉDIA', 'Não zelar pelo nome da Instituição que representa, deixando de portar-se adequadamente em qualquer ambiente, quando uniformizado ou em atividades relacionadas a EECM.'),
+                ('MÉDIA', 'Negar-se a colaborar ou participar nos eventos, formaturas, solenidades, desfiles oficiais da EECM.'),
+                ('MÉDIA', 'Ofender o moral de colegas ou de qualquer membro da Comunidade Escolar por atos, gestos ou palavras.'),
+                ('MÉDIA', 'Portar-se de forma inconveniente em sala de aula ou outro local de instrução/recreação, bem como transportes de uso coletivo.'),
+                ('MÉDIA', 'Portar-se de maneira desrespeitosa ou inconveniente nos eventos sociais ou esportivos, promovidos ou com a participação da EECM ou fora dela.'),
+                ('MÉDIA', 'Proferir palavras de baixo calão, incompatíveis com as normas da boa educação, ou grafá-las em qualquer lugar.'),
+                ('MÉDIA', 'Propor ou aceitar transação pecuniária de qualquer natureza, no interior da EECM, sem a devida autorização.'),
+                ('MÉDIA', 'Provocar ou disseminar a discórdia entre colegas.'),
+                ('MÉDIA', 'Publicar ou contribuir para que sejam publicadas mensagens, fotos, vídeos ou qualquer outro documento, na Internet ou qualquer outro meio de comunicação, que possam expor a integrante da EECM.'),
+                ('MÉDIA', 'Retirar ou tentar retirar objeto, de qualquer dependência da EECM, ou mesmo deles servir-se, sem ordem do responsável e/ou do proprietário.'),
+                ('MÉDIA', 'Sair de forma sem autorização.'),
+                ('MÉDIA', 'Sair, entrar ou permanecer na sala de aula sem permissão.'),
+                ('MÉDIA', 'Ser retirado, por mau comportamento, de sala de aula ou qualquer ambiente em que esteja sendo realizada atividade.'),
+                ('MÉDIA', 'Simular doença para esquivar-se ao atendimento de obrigações e de atividades escolares.'),
+                ('MÉDIA', 'Tomar parte em jogos de azar ou em apostas na unidade escolar ou fora dela, uniformizados ou não.'),
+                ('MÉDIA', 'Usar as instalações ou equipamentos esportivos do EECM, sem uniformes adequados, ou sem autorização.'),
+                ('MÉDIA', 'Usar o uniforme ou o nome do EECM em ambiente inapropriado'),
+                ('MÉDIA', 'Utilizar, sem autorização, telefones celulares ou quaisquer aparelhos eletrônicos ou não, durante as atividades escolares.'),
+                ('MÉDIA', 'Usar indevidamente distintivos ou insígnias.'),
+                ('GRAVE', 'Assinar pelo responsável, documento que deva ser entregue à unidade escolar.'),
+                ('GRAVE', 'Causar danos ao patrimônio da unidade escolar.'),
+                ('GRAVE', 'Causar ou contribuir para a ocorrência de acidentes de qualquer natureza.'),
+                ('GRAVE', 'Comunicar-se com outro aluno ou utilizar-se de qualquer meio não permitido durante qualquer instrumento de avaliação.'),
+                ('GRAVE', 'Denegrir o nome da EECM e/ou de qualquer de seus membros através de procedimentos desrespeitosos, seja por palavras, gestos, meio virtual ou outros.'),
+                ('GRAVE', 'Desrespeitar, desobedecer ou desafiar a Diretoria, coordenação, Oficial de gestão Educacional-Militar, o Oficial de Gestão Cívico-Militar, Monitores, professores ou servidores unidade escolar.'),
+                ('GRAVE', 'Divulgar, ou concorrer para que isso aconteça, qualquer imagem ou matéria que induza a apologia às drogas, à violência e/ou pornografia.'),
+                ('GRAVE', 'Entrar na unidade escolar, ou dela se ausentar, sem autorização.'),
                 ('GRAVE', 'Extraviar documentos que estejam sob sua responsabilidade.'),
-                ('GRAVE', 'Faltar com a verdade e/ou utilizar-se do anonimato para a pr�tica de qualquer falta disciplinar.'),
-                ('GRAVE', 'Fazer uso, portar, distribuir, estar sob a��o ou induzir outrem ao uso de bebida alco�lica, entorpecentes, t�xicos ou produtos alucin�genos, no interior da EECM, em suas imedia��es estando ou n�o uniformizado.'),
-                ('GRAVE', 'Hastear ou arriar bandeiras e estandartes, sem autoriza��o.'),
-                ('GRAVE', 'Instigar colegas a cometer faltas disciplinares e/ou a��es delituosas que comprometam o bom nome da EECM.'),
-                ('GRAVE', 'Manter contato f�sico com denota��o libidinosa no ambiente da EECM ou fora dela.'),
-                ('GRAVE', 'Obter ou fazer uso de imagens, v�deos, �udios ou de qualquer tipo de publica��o difamat�ria contra qualquer membro da Comunidade Escolar.'),
-                ('GRAVE', 'Ofender membros da Comunidade Escolar com a pr�tica de Bullying e Cyberbullying.'),
-                ('GRAVE', 'Pichar ou causar qualquer polui��o visual ou sonora dentro e nas proximidades da EECM.'),
-                ('GRAVE', 'Portar objetos que ameacem a seguran�a individual e/ou da coletividade.'),
-                ('GRAVE', 'Praticar atos contr�rios ao culto e ao respeito aos s�mbolos nacionais;'),
-                ('GRAVE', 'Promover ou tomar parte de qualquer manifesta��o coletiva que venha a macular o nome da EECM e/ou que prejudique o bom andamento das aulas e/ou avalia��es;'),
+                ('GRAVE', 'Faltar com a verdade e/ou utilizar-se do anonimato para a prática de qualquer falta disciplinar.'),
+                ('GRAVE', 'Fazer uso, portar, distribuir, estar sob ação ou induzir outrem ao uso de bebida alcoólica, entorpecentes, tóxicos ou produtos alucinógenos, no interior da EECM, em suas imediações estando ou não uniformizado.'),
+                ('GRAVE', 'Hastear ou arriar bandeiras e estandartes, sem autorização.'),
+                ('GRAVE', 'Instigar colegas a cometer faltas disciplinares e/ou ações delituosas que comprometam o bom nome da EECM.'),
+                ('GRAVE', 'Manter contato físico com denotação libidinosa no ambiente da EECM ou fora dela.'),
+                ('GRAVE', 'Obter ou fazer uso de imagens, vídeos, áudios ou de qualquer tipo de publicação difamatória contra qualquer membro da Comunidade Escolar.'),
+                ('GRAVE', 'Ofender membros da Comunidade Escolar com a prática de Bullying e Cyberbullying.'),
+                ('GRAVE', 'Pichar ou causar qualquer poluição visual ou sonora dentro e nas proximidades da EECM.'),
+                ('GRAVE', 'Portar objetos que ameacem a segurança individual e/ou da coletividade.'),
+                ('GRAVE', 'Praticar atos contrários ao culto e ao respeito aos símbolos nacionais;'),
+                ('GRAVE', 'Promover ou tomar parte de qualquer manifestação coletiva que venha a macular o nome da EECM e/ou que prejudique o bom andamento das aulas e/ou avaliações;'),
                 ('GRAVE', 'Promover trote de qualquer natureza.'),
-                ('GRAVE', 'Promover, incitar ou envolver-se em rixa, inclusive luta corporal, dentro ou fora da EECM, estando ou n�o uniformizado;'),
-                ('GRAVE', 'Provocar ou tomar parte, uniformizado ou estando na EECM, em manifesta��es de natureza pol�tica.'),
-                ('GRAVE', 'Rasurar, violar ou alterar documento ou o conte�do dos mesmos.'),
+                ('GRAVE', 'Promover, incitar ou envolver-se em rixa, inclusive luta corporal, dentro ou fora da EECM, estando ou não uniformizado;'),
+                ('GRAVE', 'Provocar ou tomar parte, uniformizado ou estando na EECM, em manifestações de natureza política.'),
+                ('GRAVE', 'Rasurar, violar ou alterar documento ou o conteúdo dos mesmos.'),
                 ('GRAVE', 'Representar a EECM e/ou por ela tomar compromisso, sem estar para isso autorizado.'),
-                ('GRAVE', 'Ter em seu poder, introduzir, ler ou distribuir, dentro da EECM, cartazes, jornais ou publica��es que atentem contra a disciplina e/ou o moral ou de cunho pol�tico-partid�rio.'),
+                ('GRAVE', 'Ter em seu poder, introduzir, ler ou distribuir, dentro da EECM, cartazes, jornais ou publicações que atentem contra a disciplina e/ou o moral ou de cunho político-partidário.'),
                 ('GRAVE', 'Utilizar ou subtrair indevidamente objetos ou valores alheios.'),
-                ('GRAVE', 'Utilizar-se de processos fraudulentos na realiza��o de trabalhos pedag�gicos.'),
-                ('GRAVE', 'Utilizar-se indevidamente e/ou causar avariar e/ou destrui��o do patrim�nio pertencente a EECM.'),
+                ('GRAVE', 'Utilizar-se de processos fraudulentos na realização de trabalhos pedagógicos.'),
+                ('GRAVE', 'Utilizar-se indevidamente e/ou causar avariar e/ou destruição do patrimônio pertencente a EECM.'),
             ]
             conn.executemany("INSERT INTO faltas_disciplinares (natureza, descricao) VALUES (?, ?)", faltas_padrao)
-            print("   [INFO] Faltas disciplinares padr�o inseridas.")
+            print("   [INFO] Faltas disciplinares padrão inseridas.")
 
         # Elogios
         conn.execute('''
@@ -366,16 +359,16 @@ def criar_tabelas():
         if cursor.fetchone()[0] == 0:
             elogios_padrao = [
                 ('INDIVIDUAL', 'Comportamento exemplar em sala'),
-                ('INDIVIDUAL', 'Destaque em desempenho acad�mico'),
-                ('INDIVIDUAL', 'Atitude solid�ria com colegas'),
-                ('COLETIVO', 'Melhor turma em organiza��o'),
+                ('INDIVIDUAL', 'Destaque em desempenho acadêmico'),
+                ('INDIVIDUAL', 'Atitude solidária com colegas'),
+                ('COLETIVO', 'Melhor turma em organização'),
                 ('COLETIVO', 'Turma destaque em atividades culturais'),
                 ('COLETIVO', 'Engajamento coletivo em projetos'),
             ]
             conn.executemany("INSERT INTO elogios (tipo, descricao) VALUES (?, ?)", elogios_padrao)
-            print("   [INFO] Elogios padr�o inseridos.")
+            print("   [INFO] Elogios padrão inseridos.")
 
-        # Ocorr�ncias
+        # Ocorrências
         conn.execute('''
             CREATE TABLE IF NOT EXISTS ocorrencias (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -412,30 +405,30 @@ def criar_tabelas():
             );
         ''')
 
-        # MIGRA��O: colunas novas na tabela ocorrencias
+        # MIGRAÇÃO: colunas novas na tabela ocorrencias
         try:
             c = conn.execute("PRAGMA table_info(ocorrencias);")
             colunas = [col[1] for col in c.fetchall()]
 
             if 'falta_disciplinar_id' not in colunas:
                 conn.execute("ALTER TABLE ocorrencias ADD COLUMN falta_disciplinar_id INTEGER REFERENCES faltas_disciplinares(id);")
-                print("   [MIGRA��O] Coluna 'falta_disciplinar_id' adicionada � tabela 'ocorrencias'.")
+                print("   [MIGRAÇÃO] Coluna 'falta_disciplinar_id' adicionada à tabela 'ocorrencias'.")
 
             if 'relato_estudante' not in colunas:
                 conn.execute("ALTER TABLE ocorrencias ADD COLUMN relato_estudante TEXT;")
-                print("   [MIGRA��O] Coluna 'relato_estudante' adicionada � tabela 'ocorrencias'.")
+                print("   [MIGRAÇÃO] Coluna 'relato_estudante' adicionada à tabela 'ocorrencias'.")
 
             if 'despacho_gestor' not in colunas:
                 conn.execute("ALTER TABLE ocorrencias ADD COLUMN despacho_gestor TEXT;")
-                print("   [MIGRA��O] Coluna 'despacho_gestor' adicionada � tabela 'ocorrencias'.")
+                print("   [MIGRAÇÃO] Coluna 'despacho_gestor' adicionada à tabela 'ocorrencias'.")
 
             if 'data_despacho' not in colunas:
                 conn.execute("ALTER TABLE ocorrencias ADD COLUMN data_despacho TEXT;")
-                print("   [MIGRA��O] Coluna 'data_despacho' adicionada � tabela 'ocorrencias'.")
+                print("   [MIGRAÇÃO] Coluna 'data_despacho' adicionada à tabela 'ocorrencias'.")
 
             conn.commit()
         except sqlite3.OperationalError as e:
-            print(f"   [AVISO] Tentativa de migra��o de colunas de tratamento falhou: {e}")
+            print(f"   [AVISO] Tentativa de migração de colunas de tratamento falhou: {e}")
             try:
                 conn.rollback()
             except Exception:
@@ -461,55 +454,55 @@ def criar_tabelas():
             );
         ''')
 
-        # Criar tabelas auxiliares (comportamentos/circunst�ncias)
+        # Criar tabelas auxiliares (comportamentos/circunstâncias)
         criar_tabela_comportamento()
         criar_tabela_circunstancias()
 
-        # Atualizar estrutura da FMD - migra��es adicionais (colunas opcionais)
+        # Atualizar estrutura da FMD - migrações adicionais (colunas opcionais)
         try:
             c = conn.execute("PRAGMA table_info(ficha_medida_disciplinar);")
             colunas = [col[1] for col in c.fetchall()]
 
             if 'nmd_id' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN nmd_id TEXT UNIQUE;")
-                print("   [MIGRA��O] Coluna 'nmd_id' adicionada � tabela 'ficha_medida_disciplinar'.")
+                print("   [MIGRAÇÃO] Coluna 'nmd_id' adicionada à tabela 'ficha_medida_disciplinar'.")
 
             if 'data_falta' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN data_falta TEXT;")
-                print("   [MIGRA��O] Coluna 'data_falta' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'data_falta' adicionada.")
 
             if 'comportamento_id' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN comportamento_id INTEGER;")
-                print("   [MIGRA��O] Coluna 'comportamento_id' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'comportamento_id' adicionada.")
 
             if 'pontuacao' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN pontuacao INTEGER;")
-                print("   [MIGRA��O] Coluna 'pontuacao' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'pontuacao' adicionada.")
 
             if 'responsavel_comparecimento' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN responsavel_comparecimento TEXT;")
-                print("   [MIGRA��O] Coluna 'responsavel_comparecimento' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'responsavel_comparecimento' adicionada.")
 
             if 'prazo_comparecimento' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN prazo_comparecimento TEXT;")
-                print("   [MIGRA��O] Coluna 'prazo_comparecimento' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'prazo_comparecimento' adicionada.")
 
             if 'circunstancias_atenuantes' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN circunstancias_atenuantes TEXT;")
-                print("   [MIGRA��O] Coluna 'circunstancias_atenuantes' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'circunstancias_atenuantes' adicionada.")
 
             if 'circunstancias_agravantes' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN circunstancias_agravantes TEXT;")
-                print("   [MIGRA��O] Coluna 'circunstancias_agravantes' adicionada.")
+                print("   [MIGRAÇÃO] Coluna 'circunstancias_agravantes' adicionada.")
 
             if 'faltas_ids' not in colunas:
                 conn.execute("ALTER TABLE ficha_medida_disciplinar ADD COLUMN faltas_ids TEXT;")
-                print("   [MIGRA��O] Coluna 'faltas_ids' adicionada (para m�ltiplas faltas).")
+                print("   [MIGRAÇÃO] Coluna 'faltas_ids' adicionada (para múltiplas faltas).")
 
             conn.commit()
-            print("   ? Migra��o/atualiza��o da estrutura FMD conclu�da com sucesso.")
+            print("   ✓ Migração/atualização da estrutura FMD concluída com sucesso.")
         except sqlite3.OperationalError as e:
-            print(f"   [AVISO] Tentativa de migra��o de FMD falhou (operational): {e}")
+            print(f"   [AVISO] Tentativa de migração de FMD falhou (operational): {e}")
             try:
                 conn.rollback()
             except Exception:
@@ -521,7 +514,7 @@ def criar_tabelas():
             except Exception:
                 pass
 
-        # confirma tabelas e altera��es principais
+        # confirma tabelas e alterações principais
         conn.commit()
 
     except sqlite3.Error as e:
@@ -551,9 +544,9 @@ def criar_admin_inicial(db_conn):
                 VALUES (?, ?, ?, ?)
             ''', (admin_username, admin_password, admin_nivel, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
             db_conn.commit()
-            print(f"   [INFO] Usu�rio administrador inicial '{admin_username}' criado com sucesso!")
+            print(f"   [INFO] Usuário administrador inicial '{admin_username}' criado com sucesso!")
         except sqlite3.Error as e:
-            print(f"   ? Erro ao criar usu�rio administrador: {e}")
+            print(f"   ✗ Erro ao criar usuário administrador: {e}")
             db_conn.rollback()
 
 
@@ -573,7 +566,7 @@ def migrar_estrutura_antiga_ocorrencias():
             conn.execute("ALTER TABLE ocorrencias ADD COLUMN observador_nome TEXT;")
             conn.execute("ALTER TABLE ocorrencias ADD COLUMN rfo_id TEXT;")
             conn.commit()
-            print("   [MIGRA��O] Colunas de tratamento adicionadas � tabela 'ocorrencias'.")
+            print("   [MIGRAÇÃO] Colunas de tratamento adicionadas à tabela 'ocorrencias'.")
         except sqlite3.OperationalError:
             pass
 
@@ -599,7 +592,7 @@ def migrar_estrutura_antiga_ocorrencias():
                 'SELECT username FROM usuarios WHERE id = ?',
                 (ocorrencia['responsavel_registro_id'],)
             ).fetchone()
-            observador_nome = user['username'] if user else 'USU�RIO EXCLU�DO'
+            observador_nome = user['username'] if user else 'USUÁRIO EXCLUÍDO'
             status_novo = 'TRATADO' if ocorrencia['tipo_falta'] else 'AGUARDANDO TRATAMENTO'
 
             conn.execute('''
@@ -627,7 +620,7 @@ def migrar_estrutura_antiga_ocorrencias():
 
         conn.commit()
     except sqlite3.Error as e:
-        print(f"   ? Erro durante a migra��o: {e}")
+        print(f"   ✗ Erro durante a migração: {e}")
         try:
             conn.rollback()
         except Exception:
@@ -662,7 +655,7 @@ def get_elogios():
 
 
 def get_faltas_por_natureza(natureza):
-    """Retorna faltas de uma natureza espec�fica com ID e descri��o"""
+    """Retorna faltas de uma natureza específica com ID e descrição"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
@@ -675,7 +668,7 @@ def get_faltas_por_natureza(natureza):
 
 
 def criar_tabela_comportamento():
-    """Cria tabela de comportamentos se n�o existir"""
+    """Cria tabela de comportamentos se não existir"""
     conn = sqlite3.connect(DB_NAME)
     try:
         conn.execute('''
@@ -687,16 +680,16 @@ def criar_tabela_comportamento():
             );
         ''')
 
-        # Inserir comportamentos padr�o
+        # Inserir comportamentos padrão
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM comportamentos")
         if cursor.fetchone()[0] == 0:
             comportamentos_padrao = [
                 ('Excelente', 5),
-                ('�timo', 4),
+                ('Ótimo', 4),
                 ('Bom', 3),
                 ('Regular', 2),
-                ('Insatisfat�rio', 1),
+                ('Insatisfatório', 1),
             ]
             conn.executemany(
                 "INSERT INTO comportamentos (descricao, pontuacao) VALUES (?, ?)",
@@ -718,7 +711,7 @@ def criar_tabela_comportamento():
 
 
 def criar_tabela_circunstancias():
-    """Cria tabela de circunst�ncias atenuantes/agravantes"""
+    """Cria tabela de circunstâncias atenuantes/agravantes"""
     conn = sqlite3.connect(DB_NAME)
     try:
         conn.execute('''
@@ -730,18 +723,18 @@ def criar_tabela_circunstancias():
             );
         ''')
 
-        # Inserir circunst�ncias padr�o
+        # Inserir circunstâncias padrão
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM circunstancias")
         if cursor.fetchone()[0] == 0:
             circunstancias_padrao = [
                 ('ATENUANTE', 'Primeiro registro de falta'),
-                ('ATENUANTE', 'Bom hist�rico de comportamento'),
-                ('ATENUANTE', 'Colabora��o durante apura��o'),
-                ('ATENUANTE', 'Confiss�o espont�nea'),
-                ('AGRAVANTE', 'Reincid�ncia'),
+                ('ATENUANTE', 'Bom histórico de comportamento'),
+                ('ATENUANTE', 'Colaboração durante apuração'),
+                ('ATENUANTE', 'Confissão espontânea'),
+                ('AGRAVANTE', 'Reincidência'),
                 ('AGRAVANTE', 'Falta cometida em grupo'),
-                ('AGRAVANTE', 'Desrespeito durante apura��o'),
+                ('AGRAVANTE', 'Desrespeito durante apuração'),
                 ('AGRAVANTE', 'Tentativa de ocultar fatos'),
             ]
             conn.executemany(
@@ -788,7 +781,7 @@ def _infer_comportamento_por_faixa(p):
     if p >= 10.0:
         return "Excepcional"
     elif p >= 9.0:
-        return "�timo"
+        return "Ótimo"
     elif p >= 7.0:
         return "Bom"
     elif p >= 5.0:
@@ -796,15 +789,15 @@ def _infer_comportamento_por_faixa(p):
     elif p >= 2.0:
         return "Insuficiente"
     else:
-        return "Incompat�vel"
+        return "Incompatível"
 
 def compute_pontuacao_corrente(aluno_id, as_of=None):
     """
-    Calcula a pontua��o corrente conforme regras 8,9 e 10:
-     - base = pontuacao_atual do �ltimo bimestre encerrado (se houver) ou 8.0
-     - soma FMDs posteriores ao fim desse bimestre (ou todas, se n�o houver)
-     - bonus8: +0.5 se bimestre imediatamente anterior ao last_closed_bimestre teve pontua��o >= 8.0
-     - bonus9: ap�s 60 dias sem perda (desde matr�cula ou �ltima perda), +0.2 por dia a partir do dia 61
+    Calcula a pontuação corrente conforme regras 8,9 e 10:
+     - base = pontuacao_atual do último bimestre encerrado (se houver) ou 8.0
+     - soma FMDs posteriores ao fim desse bimestre (ou todas, se não houver)
+     - bonus8: +0.5 se bimestre imediatamente anterior ao last_closed_bimestre teve pontuação >= 8.0
+     - bonus9: após 60 dias sem perda (desde matrícula ou última perda), +0.2 por dia a partir do dia 61
      - clamp 0.0..10.0 e round(,2)
     Retorna dict {'pontuacao': float, 'comportamento': str, 'detalhes': {...}}
     """
@@ -814,7 +807,7 @@ def compute_pontuacao_corrente(aluno_id, as_of=None):
             as_of = datetime.utcnow()
         conn = get_db()
 
-        # 1) localizar �ltimo pontuacao_bimestral (assumido como �ltimo bimestre fechado)
+        # 1) localizar último pontuacao_bimestral (assumido como último bimestre fechado)
         pb = conn.execute(
             "SELECT id, ano, bimestre, pontuacao_inicial, pontuacao_atual, atualizado_em FROM pontuacao_bimestral WHERE aluno_id = ? ORDER BY ano DESC, bimestre DESC LIMIT 1",
             (aluno_id,)
@@ -882,7 +875,7 @@ def compute_pontuacao_corrente(aluno_id, as_of=None):
         except Exception:
             current_app.logger.debug("compute_pontuacao_corrente: erro ao calcular bonus8", exc_info=True)
 
-        # 4) bonus9: identificar �ltima perda (<0) ou usar data_matricula; contar 60 dias e aplicar +0.2 por dia a partir do dia 61
+        # 4) bonus9: identificar última perda (<0) ou usar data_matricula; contar 60 dias e aplicar +0.2 por dia a partir do dia 61
         bonus9 = 0.0
         try:
             last_loss_row = conn.execute(
@@ -950,15 +943,15 @@ def compute_pontuacao_corrente(aluno_id, as_of=None):
 def get_aluno_estado_atual(aluno_id):
     """
     Retorna {'comportamento': str, 'pontuacao': float}
-    Agora devolve a pontua��o corrente calculada por compute_pontuacao_corrente (regra 10).
-    Em caso de erro, faz um fallback para comportamento compat�vel com a vers�o anterior.
+    Agora devolve a pontuação corrente calculada por compute_pontuacao_corrente (regra 10).
+    Em caso de erro, faz um fallback para comportamento compatível com a versão anterior.
     """
     from flask import current_app
     try:
         res = compute_pontuacao_corrente(aluno_id)
-        # se c�lculo falhar, tentar fallback � l�gica antiga m�nima
+        # se cálculo falhar, tentar fallback à lógica antiga mínima
         if res.get('pontuacao') is None:
-            # fallback: vers�o compat�vel com a fun��o antiga
+            # fallback: versão compatível com a função antiga
             db = get_db()
             pontuacao = None
             try:
@@ -992,7 +985,7 @@ def get_aluno_estado_atual(aluno_id):
         return {'comportamento': None, 'pontuacao': None}
 
 def get_circunstancias(tipo):
-    """Retorna circunst�ncias por tipo"""
+    """Retorna circunstâncias por tipo"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
@@ -1005,14 +998,14 @@ def get_circunstancias(tipo):
 
 
 def get_proximo_nmd_id(incrementar=False):
-    """Gera o pr�ximo ID de Notifica��o de Medida Disciplinar"""
+    """Gera o próximo ID de Notificação de Medida Disciplinar"""
     ano_atual = str(datetime.now().year)
     conn = None
     try:
         conn = get_db()
         c = conn.cursor()
 
-        # Verificar se existe sequ�ncia para NMD
+        # Verificar se existe sequência para NMD
         c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='nmd_sequencia'")
         if not c.fetchone():
             c.execute('''
@@ -1048,12 +1041,12 @@ def get_proximo_nmd_id(incrementar=False):
             conn.rollback()
         return f"NMD-{ano_atual}-ERRO"
     
-# Nota: este � um patch/adi��o ao seu m�dulo models.py existente.
-# Inserir as fun��es abaixo em models.py (ou mesclar com as existentes).
-# Objetivo: garantir migra��es seguras para o m�dulo disciplinar (ocorrencias_alunos + colunas novas).
+# Nota: este é um patch/adição ao seu módulo models.py existente.
+# Inserir as funções abaixo em models.py (ou mesclar com as existentes).
+# Objetivo: garantir migrações seguras para o módulo disciplinar (ocorrencias_alunos + colunas novas).
 #
-# N�O sobrescreva outras fun��es j� presentes no seu models.py sem revisar.
-# A fun��o ensure_disciplinar_migrations(db_conn) � idempotente e pode ser chamada
+# NÃO sobrescreva outras funções já presentes no seu models.py sem revisar.
+# A função ensure_disciplinar_migrations(db_conn) é idempotente e pode ser chamada
 # durante o registro do blueprint disciplinar.
 
 import sqlite3
@@ -1075,29 +1068,29 @@ def _table_has_column(db_conn, table, column):
 
 def column_exists(db_conn, table, column):
     """
-    Retorna True se a coluna j� existe na tabela (usando PRAGMA table_info).
+    Retorna True se a coluna já existe na tabela (usando PRAGMA table_info).
     """
     try:
         cur = db_conn.execute(f"PRAGMA table_info({table});")
         rows = cur.fetchall()
         for row in rows:
-            # row[1] � o nome da coluna retornado pelo PRAGMA table_info
+            # row[1] é o nome da coluna retornado pelo PRAGMA table_info
             if row[1] == column:
                 return True
     except Exception:
         try:
             import logging
-            logging.getLogger('disciplinar').warning("N�o foi poss�vel verificar exist�ncia da coluna %s.%s", table, column)
+            logging.getLogger('disciplinar').warning("Não foi possível verificar existência da coluna %s.%s", table, column)
         except Exception:
             pass
     return False
 def ensure_disciplinar_migrations(db_conn):
     """
-    Cria/atualiza objetos do banco necess�rios para o m�dulo disciplinar (RFO/FMD).
+    Cria/atualiza objetos do banco necessários para o módulo disciplinar (RFO/FMD).
     - Cria tabela ocorrencias_alunos (m:n entre ocorrencias e alunos)
     - Garante colunas adicionais na tabela ocorrencias de forma segura (ALTER TABLE ADD COLUMN)
     - Cria tabela fmd_sequencia se ausente (usada para gerar FMD-XXXX/ANO)
-    Idempotente: pode ser chamada em cada inicializa��o sem efeitos colaterais.
+    Idempotente: pode ser chamada em cada inicialização sem efeitos colaterais.
     """
     try:
         # 1) criar tabela ocorrencias_alunos (muitos-para-muitos)
@@ -1116,7 +1109,7 @@ def ensure_disciplinar_migrations(db_conn):
             # tentativa robusta - ignorar falha mas logar
             logger.exception("Falha criando ocorrencias_alunos (ignorando)")
 
-        # 2) adicionar colunas em ocorrencias se n�o existirem
+        # 2) adicionar colunas em ocorrencias se não existirem
         extra_cols = {
             'tipo_ocorrencia_text': "TEXT",
             'subtipo_elogio': "TEXT",
@@ -1150,12 +1143,12 @@ def ensure_disciplinar_migrations(db_conn):
                         else:
                             try:
                                 import logging
-                                logging.getLogger('disciplinar').info("Coluna %s j� existe em ocorrencias � pulando.", col)
+                                logging.getLogger('disciplinar').info("Coluna %s já existe em ocorrencias — pulando.", col)
                             except Exception:
                                 pass
             else:
-                # tabela ocorrencias n�o existe � pular tentativa de migra��o de colunas
-                logging.getLogger('disciplinar').info("Tabela ocorrencias n�o existe; pulando migra��es de coluna.")
+                # tabela ocorrencias não existe — pular tentativa de migração de colunas
+                logging.getLogger('disciplinar').info("Tabela ocorrencias não existe; pulando migrações de coluna.")
         except Exception:
             logger.exception("Falha ao verificar/executar ALTER TABLE ocorrencias")
         try:
@@ -1213,7 +1206,7 @@ def ensure_disciplinar_migrations(db_conn):
 
 def next_fmd_seq_and_year(db_conn):
     """
-    Retorna (seq, ano) pr�ximo baseado em fmd_sequencia; cria entrada se faltante.
+    Retorna (seq, ano) próximo baseado em fmd_sequencia; cria entrada se faltante.
     """
     ano = datetime.now().year
     try:
@@ -1253,20 +1246,20 @@ def next_fmd_seq_and_year(db_conn):
 
 # End of additions for disciplinar migrations    
 
-# Fun��o adicionada: create_or_update_fmd_for_rfo
+# Função adicionada: create_or_update_fmd_for_rfo
 from datetime import datetime
 
 def create_or_update_fmd_for_rfo(rfo_id, aluno_id, medida_aplicada, pontos_aplicados,
                                  data_registro=None, responsavel_id=None, comportamento_id=None):
     """
     Cria ou atualiza (idempotente) um registro em ficha_medida_disciplinar para o par (rfo_id, aluno_id).
-    - Se j� existir uma ficha com este rfo_id e aluno_id, atualiza campos essenciais.
-    - Caso contr�rio, insere uma nova ficha com fmd_id gerado no formato FMD-XXXX/AAAA.
+    - Se já existir uma ficha com este rfo_id e aluno_id, atualiza campos essenciais.
+    - Caso contrário, insere uma nova ficha com fmd_id gerado no formato FMD-XXXX/AAAA.
     Retorna dict { 'ok': True, 'action': 'insert'|'update', 'fmd_rowid': <rowid> } ou {'ok': False, 'error': str}.
-    Observa��es:
-    - Esta fun��o usa apenas colunas comumente presentes: fmd_id, rfo_id, aluno_id, medida_aplicada,
+    Observações:
+    - Esta função usa apenas colunas comumente presentes: fmd_id, rfo_id, aluno_id, medida_aplicada,
       pontos_aplicados, data_registro, responsavel_id, comportamento_id, criado_em, atualizado_em.
-    - N�o altera pontuacao_bimestral (persist�ncia de bimestre fica por conta do fechamento).
+    - Não altera pontuacao_bimestral (persistência de bimestre fica por conta do fechamento).
     """
     try:
         conn = get_db()
@@ -1281,7 +1274,7 @@ def create_or_update_fmd_for_rfo(rfo_id, aluno_id, medida_aplicada, pontos_aplic
             else:
                 data_registro_str = data_registro.strftime('%Y-%m-%d %H:%M:%S')
 
-        # 1) verificar exist�ncia (idempot�ncia)
+        # 1) verificar existência (idempotência)
         existing = cur.execute(
             "SELECT id FROM ficha_medida_disciplinar WHERE rfo_id = ? AND aluno_id = ? LIMIT 1",
             (rfo_id, aluno_id)
@@ -1291,7 +1284,7 @@ def create_or_update_fmd_for_rfo(rfo_id, aluno_id, medida_aplicada, pontos_aplic
 
         if existing:
             fmd_id = existing['id'] if 'id' in existing.keys() else existing[0]
-            # Atualiza somente os campos principais; mant�m demais campos como est�o
+            # Atualiza somente os campos principais; mantém demais campos como estão
             cur.execute("""
                 UPDATE ficha_medida_disciplinar
                 SET medida_aplicada = ?,
@@ -1305,7 +1298,7 @@ def create_or_update_fmd_for_rfo(rfo_id, aluno_id, medida_aplicada, pontos_aplic
             conn.commit()
             return {'ok': True, 'action': 'update', 'fmd_rowid': fmd_id}
         else:
-            # gerar fmd_id sequencial por ano (formato compat�vel com migra��es anteriores)
+            # gerar fmd_id sequencial por ano (formato compatível com migrações anteriores)
             ano = datetime.utcnow().year
             try:
                 row = cur.execute("SELECT COUNT(*) as c FROM ficha_medida_disciplinar WHERE fmd_id LIKE ?", (f"FMD-%/{ano}",)).fetchone()

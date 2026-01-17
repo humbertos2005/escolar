@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, send_file
-from escola.database import get_db
+from database import get_db
 from .tac_utils import get_next_tac_number
 from .utils import login_required, admin_secundario_required
 from datetime import datetime
@@ -430,12 +430,12 @@ def export_docx(id):
 from docxtpl import DocxTemplate
 import io
 from flask import send_file, current_app, session, flash, redirect, url_for
-from escola.database import get_db
+from database import get_db
 
 from docxtpl import DocxTemplate
 import io
 from flask import send_file, current_app, session, flash, redirect, url_for
-from escola.database import get_db
+from database import get_db
 
 # Cole esta função no final de blueprints/formularios_tac.py
 @formularios_tac_bp.route('/tac/<int:id>/export_docx_template')

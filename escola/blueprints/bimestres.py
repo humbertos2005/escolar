@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, current_app
-from escola.models import get_db
+from models import get_db
 from .utils import login_required, admin_required  # ajuste se usar outro decorator
 from datetime import datetime
 

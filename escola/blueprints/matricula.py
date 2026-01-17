@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-Blueprint m�nimo para atualizar alunos.data_matricula.
+Blueprint mínimo para atualizar alunos.data_matricula.
 
 Rota:
   POST /alunos/<int:aluno_id>/matricula
@@ -11,6 +11,8 @@ Retorno JSON:
   { "ok": True/False, "updated": True/False, "data_matricula_stored": "YYYY-MM-DD" }
 """
 from flask import Blueprint, request, jsonify, current_app
+import sqlite3
+import os
 from datetime import datetime
 
 bp_matricula = Blueprint("matricula_bp", __name__)
@@ -22,12 +24,15 @@ try:
 except Exception:
     login_required = lambda f: f
 
+# caminho relativo ao arquivo do projeto (assume escola.db na raiz do repo)
+DB_PATH = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "escola.db")
+
 def br_to_iso(date_str):
-    """Converte dd/mm/aaaa -> YYYY-MM-DD. Se j� for ISO, retorna como est�."""
+    """Converte dd/mm/aaaa -> YYYY-MM-DD. Se já for ISO, retorna como está."""
     if not date_str:
         return None
     s = date_str.strip()
-    # j� no formato ISO?
+    # já no formato ISO?
     try:
         datetime.strptime(s, "%Y-%m-%d")
         return s
@@ -40,9 +45,6 @@ def br_to_iso(date_str):
     except Exception:
         return None
 
-from escola.models_sqlalchemy import Aluno
-from escola.database import get_db
-
 @bp_matricula.route("/alunos/<int:aluno_id>/matricula", methods=["POST"])
 @login_required
 def update_data_matricula(aluno_id):
@@ -54,17 +56,29 @@ def update_data_matricula(aluno_id):
     raw = (data.get("data_matricula") or data.get("data_matricula_br") or "").strip()
     iso = br_to_iso(raw) if raw else None
     if raw and not iso:
-        return jsonify({"ok": False, "error": "Formato de data inv�lido. Use dd/mm/aaaa ou YYYY-MM-DD."}), 400
+        return jsonify({"ok": False, "error": "Formato de data inválido. Use dd/mm/aaaa ou YYYY-MM-DD."}), 400
 
-    db = get_db()
+    if not os.path.exists(DB_PATH):
+        return jsonify({"ok": False, "error": f"DB não encontrado em {DB_PATH}"}), 500
+
     try:
-        aluno = db.query(Aluno).filter_by(id=aluno_id).first()
-        if not aluno:
-            return jsonify({"ok": False, "error": "Aluno n�o encontrado"}), 404
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        # verifica se aluno existe
+        r = cur.execute("SELECT id FROM alunos WHERE id = ?", (aluno_id,)).fetchone()
+        if not r:
+            return jsonify({"ok": False, "error": "Aluno não encontrado"}), 404
 
-        aluno.data_matricula = iso
-        db.commit()
+        # atualiza (pode ser NULL)
+        cur.execute("UPDATE alunos SET data_matricula = ? WHERE id = ?", (iso, aluno_id))
+        conn.commit()
         return jsonify({"ok": True, "updated": True, "data_matricula_stored": iso}), 200
     except Exception as e:
         current_app.logger.exception("Erro update data_matricula")
         return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass

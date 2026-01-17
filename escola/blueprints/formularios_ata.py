@@ -1,5 +1,5 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
-from escola.database import get_db
+﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from database import get_db
 from datetime import datetime
 from .utils import login_required, admin_required, admin_secundario_required
 import sqlite3
@@ -31,13 +31,13 @@ def detect_alunos(db):
 def list_atas():
     db = get_db()
     try:
-        # tenta detectar a tabela de alunos para fazer LEFT JOIN (schema din�mico)
+        # tenta detectar a tabela de alunos para fazer LEFT JOIN (schema dinâmico)
         aluno_info = detect_alunos(db)
         if aluno_info:
-            # monta consulta que preenche serie_turma a partir de alunos quando necess�rio
+            # monta consulta que preenche serie_turma a partir de alunos quando necessário
             tabela = aluno_info['table']
             id_col = aluno_info['id_col']
-            # COALESCE prioriza serie_turma da ATA, sen�o concatena serie / turma do aluno, sen�o serie do aluno
+            # COALESCE prioriza serie_turma da ATA, senão concatena serie / turma do aluno, senão serie do aluno
             sql = f"""
                 SELECT
                     atas.id,
@@ -116,12 +116,12 @@ def nova_ata():
             return redirect(url_for('formularios_ata_bp.list_atas'))
         except sqlite3.IntegrityError:
             db.rollback()
-            flash('Falha: n�mero duplicado para o ano (unique). Tente novamente.', 'danger')
+            flash('Falha: número duplicado para o ano (unique). Tente novamente.', 'danger')
         except Exception as e:
             db.rollback()
             flash(f'Erro ao criar ATA: {e}', 'danger')
 
-        # calcular pr�ximo n�mero para exibi��o (NNN/AAAA)
+        # calcular próximo número para exibição (NNN/AAAA)
     ano = datetime.now().year
     try:
         cur = db.execute("SELECT MAX(numero) AS last FROM atas WHERE ano = ?", (ano,))
@@ -132,7 +132,7 @@ def nova_ata():
         next_num = 1
     next_number = f"{next_num:03d}/{ano}"
 
-        # normalizar alunos para JSON serializ�vel (Row -> dict)
+        # normalizar alunos para JSON serializável (Row -> dict)
     try:
         if isinstance(alunos, list) and len(alunos) > 0 and not isinstance(alunos[0], dict):
             alunos = [dict(a) for a in alunos]
@@ -146,7 +146,7 @@ def view_ata(ata_id):
     db = get_db()
     ata_row = db.execute("SELECT * FROM atas WHERE id = ?", (ata_id,)).fetchone()
     if not ata_row:
-        flash('ATA n�o encontrada.', 'danger')
+        flash('ATA não encontrada.', 'danger')
         return redirect(url_for('formularios_ata_bp.list_atas'))
 
     ata = dict(ata_row)
@@ -203,7 +203,7 @@ def edit_ata(ata_id):
     db = get_db()
     ata = db.execute("SELECT * FROM atas WHERE id = ?", (ata_id,)).fetchone()
     if not ata:
-        flash('ATA n�o encontrada.', 'danger')
+        flash('ATA não encontrada.', 'danger')
         return redirect(url_for('formularios_ata_bp.list_atas'))
 
     aluno_info = detect_alunos(db)
@@ -241,7 +241,7 @@ def edit_ata(ata_id):
             db.rollback()
             flash(f'Erro ao atualizar ATA: {e}', 'danger')
 
-        # normalizar alunos para JSON serializ�vel (Row -> dict)
+        # normalizar alunos para JSON serializável (Row -> dict)
     try:
         if isinstance(alunos, list) and len(alunos) > 0 and not isinstance(alunos[0], dict):
             alunos = [dict(a) for a in alunos]
@@ -255,12 +255,12 @@ def delete_ata(ata_id):
     db = get_db()
     ata = db.execute("SELECT id, numero, ano FROM atas WHERE id = ?", (ata_id,)).fetchone()
     if not ata:
-        flash('ATA n�o encontrada.', 'danger')
+        flash('ATA não encontrada.', 'danger')
         return redirect(url_for('formularios_ata_bp.list_atas'))
     try:
         db.execute("DELETE FROM atas WHERE id = ?", (ata_id,))
         db.commit()
-        flash(f'ATA {ata["numero"]}/{ata["ano"]} exclu�da.', 'success')
+        flash(f'ATA {ata["numero"]}/{ata["ano"]} excluída.', 'success')
     except Exception as e:
         db.rollback()
         flash(f'Erro ao excluir ATA: {e}', 'danger')
@@ -293,7 +293,7 @@ def api_student(student_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 # --- fim endpoint aluno ---
-# --- API: devolver dados de uma ATA em JSON (usado pela visualiza��o) ---
+# --- API: devolver dados de uma ATA em JSON (usado pela visualização) ---
 @formularios_ata_bp.route("/api/ata/<int:ata_id>")
 def api_ata(ata_id):
     try:
@@ -316,7 +316,7 @@ def api_ata(ata_id):
         except Exception:
             data["participants_json"] = []
 
-        # incluir dados do aluno se poss�vel
+        # incluir dados do aluno se possível
         try:
             aluno_id = data.get("aluno_id") or data.get("aluno")
             if aluno_id:
@@ -333,7 +333,7 @@ def api_ata(ata_id):
 
             def int_to_words_pt(n):
                 # suportar 0..9999 (suficiente para anos como 2025)
-                unidades = {0:"zero",1:"um",2:"dois",3:"tr�s",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
+                unidades = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
                             10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",
                             18:"dezoito",19:"dezenove"}
                 dezenas = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
@@ -374,18 +374,18 @@ def api_ata(ata_id):
             if data.get("created_at"):
                 try:
                     dt = datetime.strptime(data["created_at"], "%Y-%m-%d %H:%M:%S")
-                    months = ["janeiro","fevereiro","mar�o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+                    months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
                     day_words = int_to_words_pt(dt.day)
                     year_words = int_to_words_pt(dt.year)
-                    # formar frase no estilo que voc� pediu:
-                    # "dezesseis dias do m�s de dezembro do ano de dois mil e vinte e cinco"
-                    data["data_extenso"] = f"{day_words} dias do m�s de {months[dt.month-1]} do ano de {year_words}"
+                    # formar frase no estilo que você pediu:
+                    # "dezesseis dias do mês de dezembro do ano de dois mil e vinte e cinco"
+                    data["data_extenso"] = f"{day_words} dias do mês de {months[dt.month-1]} do ano de {year_words}"
                 except Exception:
                     data["data_extenso"] = data.get("created_at")
         except Exception:
             pass
 
-        # normalizar e deduplicar participants_json; garantir inclus�o do respons�vel
+        # normalizar e deduplicar participants_json; garantir inclusão do responsável
         try:
             import unicodedata
             def norm(s):
@@ -410,7 +410,7 @@ def api_ata(ata_id):
                         seen.add(n)
                         parts.append({"name": name, "cargo": cargo})
 
-            # buscar respons�vel (tanto em ata.responsavel quanto em aluno.responsavel)
+            # buscar responsável (tanto em ata.responsavel quanto em aluno.responsavel)
             resp = ""
             if data.get("responsavel"):
                 resp = data.get("responsavel")
@@ -419,7 +419,7 @@ def api_ata(ata_id):
 
             if resp:
                 if norm(resp) not in seen:
-                    parts.append({"name": resp, "cargo": "Respons�vel"})
+                    parts.append({"name": resp, "cargo": "Responsável"})
 
             data["participants_json"] = parts
         except Exception:

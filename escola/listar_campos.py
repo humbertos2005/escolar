@@ -1,13 +1,15 @@
+import sqlite3
+
 import os
-from sqlalchemy import create_engine, inspect
-
-# Caminho do banco pelo ambiente ou padrão
 db_path = os.environ.get("DATABASE_FILE", "escola.db")
-engine = create_engine(f"sqlite:///{db_path}")
-inspector = inspect(engine)
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
 
-tabela = "recuperacao_senha_tokens"
+cursor.execute("PRAGMA table_info(recuperacao_senha_tokens);")
+colunas = cursor.fetchall()
 
-print(f"Campos da tabela '{tabela}':")
-for coluna in inspector.get_columns(tabela):
-    print("-", coluna["name"])
+print("Campos da tabela 'recuperacao_senha_tokens':")
+for coluna in colunas:
+    print("-", coluna[1])
+
+conn.close()
