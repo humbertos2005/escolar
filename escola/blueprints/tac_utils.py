@@ -7,7 +7,7 @@ Agora 100% compatível com SQLAlchemy ORM.
 """
 from datetime import datetime
 import re
-from escola.models_sqlalchemy import TAC
+from models_sqlalchemy import TAC
 
 def format_tac_number(year: int, seq: int) -> str:
     """Formata TAC-YYYY-XXXX com seq zero-padded 4 dígitos."""

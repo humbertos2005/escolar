@@ -1,5 +1,5 @@
-﻿from flask import Blueprint, render_template, request, jsonify, current_app, url_for, send_file, redirect, session
-from escola.database import get_db
+from flask import Blueprint, render_template, request, jsonify, current_app, url_for, send_file, redirect, session
+from database import get_db
 from datetime import datetime
 import os
 import typing
@@ -57,7 +57,7 @@ def get_prontuario_extras(db, prontuario_id):
       - prontuario_pontuacao: number or None
     """
     # SQLAlchemy imports dos modelos necessários:
-    from escola.models_sqlalchemy import (
+    from models_sqlalchemy import (
         ProntuarioRFO, Ocorrencia, FichaMedidaDisciplinar, Usuario, Comportamento
     )
     extras = {
@@ -158,7 +158,7 @@ def get_prontuario_extras(db, prontuario_id):
     return extras
 
 from flask import Blueprint, render_template, request, jsonify, current_app, url_for, send_file, redirect, session
-from escola.database import get_db
+from database import get_db
 from urllib.parse import unquote
 import os
 
@@ -250,7 +250,7 @@ def insert_prontuario_history(db, prontuario_obj, action='update', changed_by=No
     Insere snapshot do prontuário em prontuarios_history (usando SQLAlchemy).
     prontuario_obj pode ser um modelo ORM ou dict.
     """
-    from escola.models_sqlalchemy import ProntuarioHistory
+    from models_sqlalchemy import ProntuarioHistory
     try:
         if hasattr(prontuario_obj, '__dict__'):
             payload = {k: v for k, v in prontuario_obj.__dict__.items() if not k.startswith('_')}
@@ -280,7 +280,7 @@ def load_document_header(db):
     Recupera o cabeçalho (estado, secretaria, coordenacao, escola) e logo,
     lendo da tabela ORM Cabecalho (de models_sqlalchemy).
     """
-    from escola.models_sqlalchemy import Cabecalho
+    from models_sqlalchemy import Cabecalho
     try:
         ch = db.query(Cabecalho).order_by(Cabecalho.id.desc()).first()
         if ch:
@@ -314,7 +314,7 @@ def load_document_header(db):
         current_app.logger.exception("Erro ao carregar cabecalho (Cabecalho ORM)")
     return None
 
-from escola.models_sqlalchemy import Prontuario, Aluno
+from models_sqlalchemy import Prontuario, Aluno
 
 @formularios_prontuario_bp.route('/prontuario', methods=['GET'])
 def prontuario():
@@ -394,7 +394,7 @@ def api_alunos_autocomplete():
         current_app.logger.exception("Erro no endpoint /formularios/api/alunos")
         return jsonify([]), 500
 
-from escola.models_sqlalchemy import Aluno, Ocorrencia
+from models_sqlalchemy import Aluno, Ocorrencia
 import io
 
 @formularios_prontuario_bp.route('/api/aluno/<int:aluno_id>/rfos', methods=['GET'])
@@ -523,7 +523,7 @@ def api_aluno_foto(aluno_id):
         current_app.logger.exception("Erro ao servir foto do aluno")
         return '', 500
 
-from escola.models_sqlalchemy import Prontuario, Aluno
+from models_sqlalchemy import Prontuario, Aluno
 
 @formularios_prontuario_bp.route('/prontuario/<int:prontuario_id>', methods=['GET'])
 def visualizar_prontuario(prontuario_id):
@@ -612,7 +612,7 @@ def editar_prontuario(prontuario_id):
     Edita o prontuário. Em POST atualiza os campos (usado pelo formulário).
     """
     db = get_db()
-    from escola.models_sqlalchemy import ProntuarioHistory
+    from models_sqlalchemy import ProntuarioHistory
     if request.method == 'GET':
         p = db.query(Prontuario).filter_by(id=prontuario_id).first()
         if not p:
@@ -652,7 +652,7 @@ def editar_prontuario(prontuario_id):
 
         return jsonify({"success": True, "message": "Prontuário atualizado com sucesso."})
 
-from escola.models_sqlalchemy import Prontuario, Aluno
+from models_sqlalchemy import Prontuario, Aluno
 
 @formularios_prontuario_bp.route('/prontuario/<int:prontuario_id>/delete', methods=['POST'])
 def excluir_prontuario(prontuario_id):
@@ -834,7 +834,7 @@ def visualizar_prontuario_visualizacao(prontuario_id):
             viewer_name=None,
         ), 500
     
-from escola.models_sqlalchemy import Prontuario
+from models_sqlalchemy import Prontuario
 
 @formularios_prontuario_bp.route('/prontuario/save', methods=['POST'])
 def salvar_prontuario():

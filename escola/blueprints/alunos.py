@@ -1,5 +1,5 @@
-﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, jsonify
-from escola.database import get_db  # Garante session SQLAlchemy do projeto
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response, jsonify
+from database import get_db  # Garante session SQLAlchemy do projeto
 import csv
 import io
 import pandas as pd
@@ -58,7 +58,7 @@ def process_aluno_data(data_source):
 
     return data
 
-from escola.models_sqlalchemy import Aluno, Ocorrencia
+from models_sqlalchemy import Aluno, Ocorrencia
 from sqlalchemy import or_
 
 @alunos_bp.route('/listar_alunos')
@@ -195,7 +195,7 @@ def excluir_aluno(aluno_id):
         flash(f'Erro ao excluir aluno: {e}', 'danger')
     return redirect(url_for('alunos_bp.listar_alunos'))
 
-from escola.models_sqlalchemy import Aluno, Ocorrencia, RFOSequencia
+from models_sqlalchemy import Aluno, Ocorrencia, RFOSequencia
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
@@ -222,7 +222,7 @@ def importar_alunos():
                 df = df.fillna('')
                 df = df.dropna(how='all')
                 df.columns = df.columns.str.strip().str.upper()
-                print(f"✓ Colunas encontradas no Excel: {list(df.columns)}")
+                print(f"? Colunas encontradas no Excel: {list(df.columns)}")
                 registros = df.to_dict('records')
             elif filename.endswith('.csv'):
                 try:
@@ -244,7 +244,7 @@ def importar_alunos():
             flash(f'Erro ao ler o arquivo: {str(e)}', 'danger')
             return redirect(request.url)
 
-        print(f"✓ Total de registros a processar: {len(registros)}")
+        print(f"? Total de registros a processar: {len(registros)}")
         for i, row in enumerate(registros, start=2):
             try:
                 matricula = str(row.get('MATRICULA', row.get('MATRÍCULA', ''))).strip()
@@ -289,7 +289,7 @@ def importar_alunos():
                 )
                 db.add(aluno)
                 sucessos += 1
-                print(f"✓ Aluno {nome} cadastrado com sucesso!")
+                print(f"? Aluno {nome} cadastrado com sucesso!")
             except Exception as e:
                 erros_importacao.append({
                     'linha': i,
@@ -297,7 +297,7 @@ def importar_alunos():
                     'nome': nome if 'nome' in locals() else 'N/A',
                     'erro': f'Erro ao processar: {str(e)}'
                 })
-                print(f"✗ Erro na linha {i}: {str(e)}")
+                print(f"? Erro na linha {i}: {str(e)}")
         try:
             db.commit()
             if erros_importacao:
@@ -361,7 +361,7 @@ def excluir_todos():
         flash(f'Erro ao excluir todos os dados: {e}', 'danger')
     return redirect(url_for('alunos_bp.listar_alunos'))
 
-from escola.models_sqlalchemy import Aluno
+from models_sqlalchemy import Aluno
 from sqlalchemy import or_
 
 @alunos_bp.route('/buscar_aluno_json')

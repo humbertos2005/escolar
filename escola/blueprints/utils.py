@@ -1,4 +1,4 @@
-﻿from flask import session, flash, redirect, url_for
+from flask import session, flash, redirect, url_for
 from functools import wraps
 import secrets
 
@@ -166,8 +166,8 @@ def get_proximo_rfo_id(incrementar=False):
     """
     try:
         from datetime import datetime
-        from escola.database import get_db
-        from escola.models_sqlalchemy import Ocorrencia
+        from database import get_db
+        from models_sqlalchemy import Ocorrencia
 
         year = datetime.utcnow().strftime('%Y')
         try:

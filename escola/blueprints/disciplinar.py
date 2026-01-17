@@ -1,9 +1,9 @@
-﻿from flask import (
+from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, session, 
     jsonify, g, current_app, Response, abort
 )
-from escola.database import get_db  # USAR SEMPRE O NOVO
-from escola.models_sqlalchemy import (
+from database import get_db  # USAR SEMPRE O NOVO
+from models_sqlalchemy import (
     Ocorrencia, FichaMedidaDisciplinar, Aluno, TipoOcorrencia, Usuario, 
     PontuacaoBimestral, PontuacaoHistorico, Comportamento, FaltaDisciplinar
     # Inclua outras conforme necessário para as rotas!
@@ -295,7 +295,7 @@ def _next_fmd_sequence(db):
     Se a tabela não existir, tenta computar a partir dos fmd_id existentes.
     """
     ano = datetime.now().year
-    from escola.models_sqlalchemy import FmdSequencia, FichaMedidaDisciplinar
+    from models_sqlalchemy import FmdSequencia, FichaMedidaDisciplinar
     try:
         row = db.query(FmdSequencia).filter_by(ano=ano).first()
         if row and row.seq is not None:
@@ -338,7 +338,7 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
     if not aluno_id:
         return
     ano, bimestre = _get_bimestre_for_date(db, data_tratamento_str)
-    from escola.models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
+    from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
     try:
         row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre).first()
         if row:
@@ -901,7 +901,7 @@ def tratar_rfo(ocorrencia_id):
             if not tipos_csv:
                 error = 'Tipo de falta é obrigatório.'
             elif not falta_ids_list:
-                error = 'A descrição da falta é obrigat��ria.'
+                error = 'A descrição da falta é obrigat??ria.'
             elif not medida_aplicada:
                 error = 'A medida aplicada é obrigatória.'
 
@@ -976,7 +976,7 @@ def tratar_rfo(ocorrencia_id):
                         falta_ids_val = falta_ids_csv
                         tipo_falta_list_val = tipos_csv
 
-                        from escola.models_sqlalchemy import FichaMedidaDisciplinar
+                        from models_sqlalchemy import FichaMedidaDisciplinar
                         if rfo_id:
                             existing = db.query(FichaMedidaDisciplinar).filter_by(rfo_id=rfo_id).first()
                             if existing:
@@ -1472,25 +1472,25 @@ def fmd_novo_real(fmd_id):
 
     # REMOVIDO: from models import get_aluno_estado_atual
 
-comportamento = None
-pontuacao = None
-estado = {}
+    comportamento = None
+    pontuacao = None
+    estado = {}
 
-# Recupera comportamento e pontuação do aluno diretamente via SQLAlchemy
-if aluno and hasattr(aluno, 'id'):
-    # Exemplo: busca última pontuação e comportamento vinculados ao aluno
-    pontuacao_row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno.id).order_by(PontuacaoBimestral.ano.desc(), PontuacaoBimestral.bimestre.desc()).first()
-    comportamento_row = db.query(Comportamento).filter_by(id=getattr(aluno, "comportamento_id", None)).first() if hasattr(aluno, "comportamento_id") else None
+    # Recupera comportamento e pontuação do aluno diretamente via SQLAlchemy
+    if aluno and hasattr(aluno, 'id'):
+        # Exemplo: busca última pontuação e comportamento vinculados ao aluno
+        pontuacao_row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno.id).order_by(PontuacaoBimestral.ano.desc(), PontuacaoBimestral.bimestre.desc()).first()
+        comportamento_row = db.query(Comportamento).filter_by(id=getattr(aluno, "comportamento_id", None)).first() if hasattr(aluno, "comportamento_id") else None
 
-    if pontuacao_row:
-        pontuacao = pontuacao_row.pontuacao_atual
-    if comportamento_row:
-        comportamento = comportamento_row.descricao
+        if pontuacao_row:
+            pontuacao = pontuacao_row.pontuacao_atual
+        if comportamento_row:
+            comportamento = comportamento_row.descricao
 
-    estado = {
-        "pontuacao": pontuacao,
-        "comportamento": comportamento
-    }
+        estado = {
+            "pontuacao": pontuacao,
+            "comportamento": comportamento
+        }
 
     # ==== 4. Busca ocorrência relacionada (RFO) ====
     rfo = db.query(Ocorrencia).filter_by(rfo_id=fmd.rfo_id).first() or {}

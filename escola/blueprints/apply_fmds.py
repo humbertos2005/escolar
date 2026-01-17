@@ -29,8 +29,8 @@ except Exception:
         utils_mod = None
 
 # IMPORTAÇÃO DO ORM
-from escola.database import get_db
-from escola.models_sqlalchemy import Ocorrencia
+from database import get_db
+from models_sqlalchemy import Ocorrencia
 
 bp_apply_fmds = Blueprint("apply_fmds_bp", __name__)
 

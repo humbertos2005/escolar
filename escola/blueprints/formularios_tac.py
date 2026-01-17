@@ -1,12 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, send_file, session
-from escola.database import get_db
+from database import get_db
 from .tac_utils import get_next_tac_number
 from .utils import login_required, admin_secundario_required
 from datetime import datetime
 import os
 import time
 
-from escola.models_sqlalchemy import (
+from models_sqlalchemy import (
     TAC, TACObrigacao, TACParticipante, Aluno, Cabecalho, DadosEscola
 )
 

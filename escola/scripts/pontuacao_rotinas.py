@@ -19,7 +19,7 @@ from database import get_db
 from blueprints import disciplinar
 
 # IMPORT MODELS ORM
-from escola.models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
+from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
 
 def get_media_bimestral(db, aluno_id, ano, bimestre):
     """

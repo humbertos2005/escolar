@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from flask import session, current_app
 
 def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
@@ -13,7 +13,7 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
     usuario = usuario or (session.get('username') if session else 'system')
 
     # ----- Importa os modelos necessários -----
-    from escola.models_sqlalchemy import (
+    from models_sqlalchemy import (
         Prontuario, ProntuarioRFO, Ocorrencia, Aluno
     )
     # Checar se já existe vínculo

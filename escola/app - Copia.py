@@ -50,7 +50,7 @@ def datetimeformat(value, format="%d/%m/%Y"):
     if not value:
         return ""
     try:
-        
+        # Se vier sÛ 'YYYY-MM-DD'
         if len(value) == 10 and value[4] == '-' and value[7] == '-':
             dt = datetime.strptime(value, "%Y-%m-%d")
         else:
@@ -129,14 +129,14 @@ from sqlalchemy import func
 
 @app.template_filter('data_br')
 def formatar_data_br(data_str):
-    """Filtro personalizado para formatar datas no padr√£o brasileiro"""
+    """Filtro personalizado para formatar datas no padr„o brasileiro"""
     if not data_str:
         return '-'
 
     from datetime import datetime
 
     try:
-        # Tentar v√°rios formatos de entrada
+        # Tentar v·rios formatos de entrada
         formatos = [
             '%Y-%m-%d',           # 2025-01-24
             '%Y-%m-%d %H:%M:%S',  # 2025-01-24 14:30:00
@@ -167,7 +167,7 @@ def nl2br_filter(value):
 
 @app.template_filter('datetime_br')
 def formatar_datetime_br(data_str):
-    """Filtro para formatar data e hora no padr√£o brasileiro"""
+    """Filtro para formatar data e hora no padr„o brasileiro"""
     if not data_str:
         return '-'
 
@@ -182,7 +182,7 @@ def formatar_datetime_br(data_str):
         for formato in formatos:
             try:
                 data_obj = datetime.strptime(str(data_str).strip(), formato)
-                return data_obj.strftime('%d/%m/%Y √†s %H:%M')
+                return data_obj.strftime('%d/%m/%Y ‡s %H:%M')
             except ValueError:
                 continue
 
@@ -294,6 +294,6 @@ try:
     from blueprints.matricula import bp_matricula
     app.register_blueprint(bp_matricula)
 except Exception:
-    
+    # se algo falhar aqui (por ordem de imports ou contexto), n„o quebramos a aplicaÁ„o
     pass
 # --- fim registro matricula ---

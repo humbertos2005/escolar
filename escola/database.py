@@ -1,8 +1,11 @@
-﻿import locale
+import locale
 from flask import g
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base  # ADICIONADO declarative_base
 import os
+
+# Definição do Base para uso com SQLAlchemy
+Base = declarative_base()  # <<--- LINHA CRUCIAL
 
 # Tentar configurar localização brasileira
 try:
@@ -44,5 +47,5 @@ def init_db():
     """
     Inicializa o banco, criando todas as tabelas definidas em models_sqlalchemy.py.
     """
-    from escola.models_sqlalchemy import Base  # Importa apenas aqui para evitar ciclos
+    from models_sqlalchemy import Base  # Importa apenas aqui para evitar ciclos
     Base.metadata.create_all(bind=engine)

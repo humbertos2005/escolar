@@ -4,14 +4,14 @@ from datetime import datetime, timedelta, date
 import calendar
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from escola.models_sqlalchemy import (
+from models_sqlalchemy import (
     RFOSequencia, FMDSequencia,
     FaltaDisciplinar, TipoOcorrencia, Elogio,
     Circunstancia, Comportamento,
     PontuacaoBimestral, FichaMedidaDisciplinar, Aluno
     # Se criar futuramente: NMDSequencia, OcorrenciaAluno, etc.
 )
-from escola.database import get_db  # Deve retornar a session do SQLAlchemy
+from database import get_db  # Deve retornar a session do SQLAlchemy
 
 # --- Sequenciais ---
 
@@ -52,7 +52,7 @@ def get_proximo_nmd_id(incrementar=False):
     db = get_db()
     ano_atual = str(datetime.now().year)
     try:
-        from escola.models_sqlalchemy import NMDSequencia
+        from models_sqlalchemy import NMDSequencia
     except ImportError:
         return f"NMD-{ano_atual}-ERRO"
     seq = db.query(NMDSequencia).filter_by(ano=ano_atual).first()
@@ -273,7 +273,7 @@ def get_aluno_estado_atual(aluno_id):
 def ensure_disciplinar_migrations():
     db = get_db()
     try:
-        from escola.models_sqlalchemy import OcorrenciaAluno
+        from models_sqlalchemy import OcorrenciaAluno
         # Criação de tabela OcorrenciaAluno (ocorrencias_alunos - muitos para muitos)
         if not db.engine.dialect.has_table(db.connection(), 'ocorrencias_alunos'):
             OcorrenciaAluno.__table__.create(db.engine)

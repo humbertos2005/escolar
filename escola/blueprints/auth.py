@@ -1,10 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from escola.database import get_db
+from database import get_db
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime, timedelta
 
 from .utils import login_required, admin_required, NIVEL_MAP, gerar_token_seguro
-from escola.models_sqlalchemy import Usuario, RecuperacaoSenhaToken, DadosEscola
+from models_sqlalchemy import Usuario, RecuperacaoSenhaToken, DadosEscola
 
 # Definição da Blueprint
 auth_bp = Blueprint('auth_bp', __name__)
@@ -225,7 +225,7 @@ def resetar_senha():
 
     return render_template('resetar_senha.html')
 
-from escola.models_sqlalchemy import Usuario  # coloque este import no topo do arquivo se ainda não estiver
+from models_sqlalchemy import Usuario  # coloque este import no topo do arquivo se ainda não estiver
 
 @auth_bp.route('/gerenciar_usuarios')
 @admin_required

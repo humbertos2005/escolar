@@ -1,5 +1,5 @@
-﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, session
-from escola.database import get_db
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, session
+from database import get_db
 from .utils import login_required, admin_secundario_required, NIVEL_MAP
 from flask_login import current_user
 import os
@@ -137,7 +137,7 @@ def _get_logo_data_and_file(cabecalho):
 
 # ... (todas as demais funções auxiliares do bloco, inclusive a gestão de browsers e o _allowed_file, is_admin) ...
 
-from escola.models_sqlalchemy import Usuario, Aluno
+from models_sqlalchemy import Usuario, Aluno
 from sqlalchemy import or_
 
 @visualizacoes_bp.route('/usuarios')
@@ -278,7 +278,7 @@ def upload_foto(aluno_id):
         current_app.logger.exception('Erro ao salvar referência de foto no banco')
         return jsonify({'success': False, 'error': 'Erro ao atualizar banco.'}), 500
 
-from escola.models_sqlalchemy import Aluno, Ocorrencia, Usuario
+from models_sqlalchemy import Aluno, Ocorrencia, Usuario
 from sqlalchemy import or_
 
 @visualizacoes_bp.route('/excluir_aluno/<int:aluno_id>', methods=['POST'])
@@ -425,7 +425,7 @@ def listar_rfos():
 
     return render_template('visualizacoes/listar_rfos.html', rfos=rfos, status_filter=q_status)
 
-from escola.models_sqlalchemy import Ocorrencia, TAC, Aluno
+from models_sqlalchemy import Ocorrencia, TAC, Aluno
 from sqlalchemy import or_
 
 @visualizacoes_bp.route('/rfo/<int:rfo_id>/cancel', methods=['POST'])
@@ -448,7 +448,7 @@ def cancelar_rfo(rfo_id):
 
 # Modelo auxiliar SQLAlchemy para removidos
 from sqlalchemy import Column, Integer, Text, String, DateTime
-from escola.database import Base
+from database import Base
 
 class OcorrenciaRemovida(Base):
     __tablename__ = "ocorrencias_removidas"
@@ -573,7 +573,7 @@ def baixar_tac(id):
         flash('Erro ao baixar TAC.', 'danger')
     return redirect(request.referrer or url_for('visualizacoes_bp.tac_command'))
 
-from escola.models_sqlalchemy import TAC, FichaMedidaDisciplinar, Aluno
+from models_sqlalchemy import TAC, FichaMedidaDisciplinar, Aluno
 
 @visualizacoes_bp.route('/tac/<int:id>/reativar', methods=['POST'])
 @admin_secundario_required
@@ -668,8 +668,8 @@ def reativar_fmd(id):
         flash('Erro ao reativar FMD.', 'danger')
     return redirect(request.referrer or url_for('visualizacoes_bp.listar_fmds'))
 
-from escola.models_sqlalchemy import Ata, Aluno, Cabecalho
-from escola.database import get_db
+from models_sqlalchemy import Ata, Aluno, Cabecalho
+from database import get_db
 
 @visualizacoes_bp.route("/ata/<int:ata_id>/pdf")
 def ata_pdf(ata_id):
@@ -889,8 +889,8 @@ def ata_pdf(ata_id):
                      as_attachment=False,
                      download_name=f"ata_{ata_id}.pdf")
     
-    from escola.models_sqlalchemy import Ata, Aluno, Cabecalho
-from escola.database import get_db
+    from models_sqlalchemy import Ata, Aluno, Cabecalho
+from database import get_db
 
 @visualizacoes_bp.route("/ata/<int:ata_id>/pdf")
 def ata_pdf(ata_id):

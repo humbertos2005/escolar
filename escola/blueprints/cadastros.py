@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
-from escola.database import get_db
-from escola.models_sqlalchemy import FaltaDisciplinar, Elogio, Cabecalho, DadosEscola  # use os modelos necessários em cada rota!
+from database import get_db
+from models_sqlalchemy import FaltaDisciplinar, Elogio, Cabecalho, DadosEscola  # use os modelos necessários em cada rota!
 from .utils import login_required, admin_secundario_required
 import re
 
@@ -208,7 +208,7 @@ def excluir_elogio(elogio_id):
 
 from flask import current_app
 from werkzeug.utils import secure_filename
-from escola.database import get_db  # AJUSTAR IMPORT
+from database import get_db  # AJUSTAR IMPORT
 from datetime import datetime
 import os
 

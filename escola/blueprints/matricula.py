@@ -1,6 +1,6 @@
-Ôªø#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
-Blueprint m√≠nimo para atualizar alunos.data_matricula.
+Blueprint mÌnimo para atualizar alunos.data_matricula.
 
 Rota:
   POST /alunos/<int:aluno_id>/matricula
@@ -11,8 +11,8 @@ Retorno JSON:
   { "ok": True/False, "updated": True/False, "data_matricula_stored": "YYYY-MM-DD" }
 """
 from flask import Blueprint, request, jsonify, current_app
-from escola.database import get_db
-from escola.models_sqlalchemy import Aluno
+from database import get_db
+from models_sqlalchemy import Aluno
 from datetime import datetime
 
 bp_matricula = Blueprint("matricula_bp", __name__)
@@ -25,11 +25,11 @@ except Exception:
     login_required = lambda f: f
 
 def br_to_iso(date_str):
-    """Converte dd/mm/aaaa -> YYYY-MM-DD. Se j√° for ISO, retorna como est√°."""
+    """Converte dd/mm/aaaa -> YYYY-MM-DD. Se j· for ISO, retorna como est·."""
     if not date_str:
         return None
     s = date_str.strip()
-    # j√° no formato ISO?
+    # j· no formato ISO?
     try:
         datetime.strptime(s, "%Y-%m-%d")
         return s
@@ -53,13 +53,13 @@ def update_data_matricula(aluno_id):
     raw = (data.get("data_matricula") or data.get("data_matricula_br") or "").strip()
     iso = br_to_iso(raw) if raw else None
     if raw and not iso:
-        return jsonify({"ok": False, "error": "Formato de data inv√°lido. Use dd/mm/aaaa ou YYYY-MM-DD."}), 400
+        return jsonify({"ok": False, "error": "Formato de data inv·lido. Use dd/mm/aaaa ou YYYY-MM-DD."}), 400
 
     db = get_db()
     try:
         aluno = db.query(Aluno).filter_by(id=aluno_id).first()
         if not aluno:
-            return jsonify({"ok": False, "error": "Aluno n√£o encontrado"}), 404
+            return jsonify({"ok": False, "error": "Aluno n„o encontrado"}), 404
 
         aluno.data_matricula = iso
         db.commit()

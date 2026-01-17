@@ -1,9 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
-from escola.database import get_db
+from database import get_db
 from .utils import admin_required
 from datetime import datetime
 from sqlalchemy import func, and_
-from escola.models_sqlalchemy import Bimestre
+from models_sqlalchemy import Bimestre
 
 bimestres_bp = Blueprint('bimestres_bp', __name__, url_prefix='/cadastros/bimestres')
 
