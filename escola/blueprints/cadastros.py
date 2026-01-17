@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
-from database import get_db
-import sqlite3
+from escola.database import get_db
+from escola.models_sqlalchemy import FaltaDisciplinar, Elogio, Cabecalho, DadosEscola  # use os modelos necessários em cada rota!
 from .utils import login_required, admin_secundario_required
 import re
 
@@ -25,12 +25,7 @@ def dados_disciplinares():
 def listar_faltas():
     """Lista todas as faltas disciplinares cadastradas."""
     db = get_db()
-    faltas = db.execute('''
-    SELECT id, natureza, descricao, data_criacao 
-    FROM faltas_disciplinares 
-    ORDER BY id ASC
-''').fetchall()
-    
+    faltas = db.query(FaltaDisciplinar).order_by(FaltaDisciplinar.id.asc()).all()
     return render_template('cadastros/listar_faltas.html', faltas=faltas)
 
 @cadastros_bp.route('/faltas/adicionar', methods=['GET', 'POST'])
@@ -50,14 +45,13 @@ def adicionar_falta():
         if error is None:
             db = get_db()
             try:
-                db.execute('''
-                    INSERT INTO faltas_disciplinares (natureza, descricao)
-                    VALUES (?, ?)
-                ''', (natureza, descricao))
+                falta = FaltaDisciplinar(natureza=natureza, descricao=descricao)
+                db.add(falta)
                 db.commit()
                 flash(f'Falta disciplinar cadastrada com sucesso!', 'success')
                 return redirect(url_for('cadastros_bp.listar_faltas'))
-            except sqlite3.Error as e:
+            except Exception as e:
+                db.rollback()
                 error = f'Erro ao cadastrar falta: {e}'
         
         flash(error, 'danger')
@@ -69,8 +63,8 @@ def adicionar_falta():
 def editar_falta(falta_id):
     """Edita uma falta disciplinar."""
     db = get_db()
-    falta = db.execute('SELECT * FROM faltas_disciplinares WHERE id = ?', (falta_id,)).fetchone()
-    
+    falta = db.query(FaltaDisciplinar).filter_by(id=falta_id).first()
+
     if falta is None:
         flash('Falta não encontrada.', 'danger')
         return redirect(url_for('cadastros_bp.listar_faltas'))
@@ -78,29 +72,27 @@ def editar_falta(falta_id):
     if request.method == 'POST':
         natureza = request.form.get('natureza', '').strip()
         descricao = request.form.get('descricao', '').strip()
-        
+
         error = None
         if not natureza:
             error = 'A natureza da falta é obrigatória.'
         elif not descricao:
             error = 'A descrição da falta é obrigatória.'
-        
+
         if error is None:
             try:
-                db.execute('''
-                    UPDATE faltas_disciplinares 
-                    SET natureza = ?, descricao = ?
-                    WHERE id = ?
-                ''', (natureza, descricao, falta_id))
+                falta.natureza = natureza
+                falta.descricao = descricao
                 db.commit()
                 flash('Falta disciplinar atualizada com sucesso!', 'success')
                 return redirect(url_for('cadastros_bp.listar_faltas'))
-            except sqlite3.Error as e:
+            except Exception as e:
+                db.rollback()
                 error = f'Erro ao atualizar falta: {e}'
-        
+
         flash(error, 'danger')
-    
-    return render_template('cadastros/editar_falta.html', falta=dict(falta))
+
+    return render_template('cadastros/editar_falta.html', falta=falta)
 
 @cadastros_bp.route('/faltas/excluir/<int:falta_id>', methods=['POST'])
 @admin_secundario_required
@@ -108,10 +100,15 @@ def excluir_falta(falta_id):
     """Exclui uma falta disciplinar."""
     db = get_db()
     try:
-        db.execute('DELETE FROM faltas_disciplinares WHERE id = ?', (falta_id,))
-        db.commit()
-        flash('Falta disciplinar excluída com sucesso.', 'success')
-    except sqlite3.Error as e:
+        falta = db.query(FaltaDisciplinar).filter_by(id=falta_id).first()
+        if falta:
+            db.delete(falta)
+            db.commit()
+            flash('Falta disciplinar excluída com sucesso.', 'success')
+        else:
+            flash('Falta não encontrada.', 'danger')
+    except Exception as e:
+        db.rollback()
         flash(f'Erro ao excluir falta: {e}', 'danger')
     
     return redirect(url_for('cadastros_bp.listar_faltas'))
@@ -121,12 +118,7 @@ def excluir_falta(falta_id):
 def listar_elogios():
     """Lista todos os elogios cadastrados."""
     db = get_db()
-    elogios = db.execute('''
-        SELECT id, tipo, descricao, data_criacao 
-        FROM elogios 
-        ORDER BY tipo, descricao
-    ''').fetchall()
-    
+    elogios = db.query(Elogio).order_by(Elogio.tipo, Elogio.descricao).all()
     return render_template('cadastros/listar_elogios.html', elogios=elogios)
 
 @cadastros_bp.route('/elogios/adicionar', methods=['GET', 'POST'])
@@ -146,14 +138,13 @@ def adicionar_elogio():
         if error is None:
             db = get_db()
             try:
-                db.execute('''
-                    INSERT INTO elogios (tipo, descricao)
-                    VALUES (?, ?)
-                ''', (tipo, descricao))
+                elogio = Elogio(tipo=tipo, descricao=descricao)
+                db.add(elogio)
                 db.commit()
                 flash(f'Elogio cadastrado com sucesso!', 'success')
                 return redirect(url_for('cadastros_bp.listar_elogios'))
-            except sqlite3.Error as e:
+            except Exception as e:
+                db.rollback()
                 error = f'Erro ao cadastrar elogio: {e}'
         
         flash(error, 'danger')
@@ -165,7 +156,7 @@ def adicionar_elogio():
 def editar_elogio(elogio_id):
     """Edita um elogio."""
     db = get_db()
-    elogio = db.execute('SELECT * FROM elogios WHERE id = ?', (elogio_id,)).fetchone()
+    elogio = db.query(Elogio).filter_by(id=elogio_id).first()
     
     if elogio is None:
         flash('Elogio não encontrado.', 'danger')
@@ -183,20 +174,18 @@ def editar_elogio(elogio_id):
         
         if error is None:
             try:
-                db.execute('''
-                    UPDATE elogios 
-                    SET tipo = ?, descricao = ?
-                    WHERE id = ?
-                ''', (tipo, descricao, elogio_id))
+                elogio.tipo = tipo
+                elogio.descricao = descricao
                 db.commit()
                 flash('Elogio atualizado com sucesso!', 'success')
                 return redirect(url_for('cadastros_bp.listar_elogios'))
-            except sqlite3.Error as e:
+            except Exception as e:
+                db.rollback()
                 error = f'Erro ao atualizar elogio: {e}'
         
         flash(error, 'danger')
     
-    return render_template('cadastros/editar_elogio.html', elogio=dict(elogio))
+    return render_template('cadastros/editar_elogio.html', elogio=elogio)
 
 @cadastros_bp.route('/elogios/excluir/<int:elogio_id>', methods=['POST'])
 @admin_secundario_required
@@ -204,18 +193,22 @@ def excluir_elogio(elogio_id):
     """Exclui um elogio.""" 
     db = get_db()
     try:
-        db.execute('DELETE FROM elogios WHERE id = ?', (elogio_id,))
-        db.commit()
-        flash('Elogio excluído com sucesso.', 'success')
-    except sqlite3.Error as e:
+        elogio = db.query(Elogio).filter_by(id=elogio_id).first()
+        if elogio:
+            db.delete(elogio)
+            db.commit()
+            flash('Elogio excluído com sucesso.', 'success')
+        else:
+            flash('Elogio não encontrado.', 'danger')
+    except Exception as e:
+        db.rollback()
         flash(f'Erro ao excluir elogio: {e}', 'danger')
     
     return redirect(url_for('cadastros_bp.listar_elogios'))
 
-# BLOCO A SER INSERIDO NO FINAL DE blueprints/cadastros.py
-from flask import current_app, request, redirect, url_for, flash, jsonify, send_from_directory, render_template
+from flask import current_app
 from werkzeug.utils import secure_filename
-from database import get_db
+from escola.database import get_db  # AJUSTAR IMPORT
 from datetime import datetime
 import os
 
@@ -236,24 +229,12 @@ def _ensure_upload_dir():
 @cadastros_bp.route('/cabecalho/listar')
 def listar_cabecalhos():
     db = get_db()
-    rows = db.execute('SELECT * FROM cabecalhos ORDER BY id DESC').fetchall()
-    cabecalhos = [dict(r) for r in rows]
+    cabecalhos = db.query(Cabecalho).order_by(Cabecalho.id.desc()).all()
     # montar url completo para imagens
     for c in cabecalhos:
-        if c.get('logo_estado'):
-            c['logo_estado_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_estado"]}')
-        else:
-            c['logo_estado_url'] = None
-        if c.get('logo_escola'):
-            c['logo_escola_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_escola"]}')
-        else:
-            c['logo_escola_url'] = None
-        # novo campo logo_prefeitura (pode não existir na tabela até você executar a migração)
-        if c.get('logo_prefeitura'):
-            c['logo_prefeitura_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_prefeitura"]}')
-        else:
-            c['logo_prefeitura_url'] = None
-    # NOTE: usar o nome do template que já existe no projeto (listar_cabecalho.html)
+        c.logo_estado_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_estado}') if c.logo_estado else None
+        c.logo_escola_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_escola}') if c.logo_escola else None
+        c.logo_prefeitura_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_prefeitura}') if getattr(c, "logo_prefeitura", None) else None
     return render_template('cadastros/listar_cabecalho.html', cabecalhos=cabecalhos)
 
 @cadastros_bp.route('/cabecalho/novo', methods=['GET', 'POST'])
@@ -280,7 +261,7 @@ def cabecalho_novo():
                 logo_estado_filename = f"estado_{int(datetime.utcnow().timestamp())}.{ext}"
                 f.save(os.path.join(upload_dir, logo_estado_filename))
 
-        # processar logo_prefeitura (novo)
+        # processar logo_prefeitura
         if 'logo_prefeitura' in request.files:
             f = request.files['logo_prefeitura']
             if f and f.filename and _allowed_file(f.filename):
@@ -299,14 +280,22 @@ def cabecalho_novo():
                 f.save(os.path.join(upload_dir, logo_escola_filename))
 
         try:
-            db.execute('''
-                INSERT INTO cabecalhos (estado, secretaria, coordenacao, escola, logo_estado, logo_escola, logo_prefeitura, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (estado, secretaria, coordenacao, escola, logo_estado_filename, logo_escola_filename, logo_prefeitura_filename, datetime.utcnow().isoformat()))
+            cabecalho = Cabecalho(
+                estado=estado,
+                secretaria=secretaria,
+                coordenacao=coordenacao,
+                escola=escola,
+                logo_estado=logo_estado_filename,
+                logo_escola=logo_escola_filename,
+                logo_prefeitura=logo_prefeitura_filename,
+                created_at=datetime.utcnow().isoformat()
+            )
+            db.add(cabecalho)
             db.commit()
             flash('Cabeçalho salvo com sucesso.', 'success')
             return redirect(url_for('cadastros_bp.listar_cabecalhos'))
         except Exception as e:
+            db.rollback()
             current_app.logger.exception('Erro ao salvar cabeçalho')
             flash('Erro ao salvar cabeçalho.', 'danger')
             return redirect(url_for('cadastros_bp.cabecalho_novo'))
@@ -317,11 +306,10 @@ def cabecalho_novo():
 @cadastros_bp.route('/cabecalho/editar/<int:id>', methods=['GET', 'POST'])
 def cabecalho_editar(id):
     db = get_db()
-    row = db.execute('SELECT * FROM cabecalhos WHERE id = ?', (id,)).fetchone()
-    if row is None:
+    cabecalho = db.query(Cabecalho).filter_by(id=id).first()
+    if cabecalho is None:
         flash('Cabeçalho não encontrado.', 'danger')
         return redirect(url_for('cadastros_bp.listar_cabecalhos'))
-    cabecalho = dict(row)
 
     if request.method == 'POST':
         estado = request.form.get('estado', '').strip()
@@ -340,14 +328,14 @@ def cabecalho_editar(id):
                 logo_estado_filename = f"estado_{int(datetime.utcnow().timestamp())}.{ext}"
                 f.save(os.path.join(upload_dir, logo_estado_filename))
                 # remover anterior se existir
-                if cabecalho.get('logo_estado'):
+                if cabecalho.logo_estado:
                     try:
-                        os.remove(os.path.join(upload_dir, cabecalho['logo_estado']))
+                        os.remove(os.path.join(upload_dir, cabecalho.logo_estado))
                     except Exception:
                         pass
-                cabecalho['logo_estado'] = logo_estado_filename
+                cabecalho.logo_estado = logo_estado_filename
 
-        # processar logo_prefeitura (novo)
+        # processar logo_prefeitura
         if 'logo_prefeitura' in request.files:
             f = request.files['logo_prefeitura']
             if f and f.filename and _allowed_file(f.filename):
@@ -356,12 +344,12 @@ def cabecalho_editar(id):
                 logo_prefeitura_filename = f"prefeitura_{int(datetime.utcnow().timestamp())}.{ext}"
                 f.save(os.path.join(upload_dir, logo_prefeitura_filename))
                 # remover anterior se existir
-                if cabecalho.get('logo_prefeitura'):
+                if cabecalho.logo_prefeitura:
                     try:
-                        os.remove(os.path.join(upload_dir, cabecalho['logo_prefeitura']))
+                        os.remove(os.path.join(upload_dir, cabecalho.logo_prefeitura))
                     except Exception:
                         pass
-                cabecalho['logo_prefeitura'] = logo_prefeitura_filename
+                cabecalho.logo_prefeitura = logo_prefeitura_filename
 
         # processar logo_escola
         if 'logo_escola' in request.files:
@@ -372,68 +360,70 @@ def cabecalho_editar(id):
                 logo_escola_filename = f"escola_{int(datetime.utcnow().timestamp())}.{ext}"
                 f.save(os.path.join(upload_dir, logo_escola_filename))
                 # remover anterior se existir
-                if cabecalho.get('logo_escola'):
+                if cabecalho.logo_escola:
                     try:
-                        os.remove(os.path.join(upload_dir, cabecalho['logo_escola']))
+                        os.remove(os.path.join(upload_dir, cabecalho.logo_escola))
                     except Exception:
                         pass
-                cabecalho['logo_escola'] = logo_escola_filename
+                cabecalho.logo_escola = logo_escola_filename
+
+        # Atualizar campos de texto
+        cabecalho.estado = estado
+        cabecalho.secretaria = secretaria
+        cabecalho.coordenacao = coordenacao
+        cabecalho.escola = escola
 
         try:
-            # atualizar incluindo logo_prefeitura
-            db.execute('''
-                UPDATE cabecalhos SET estado=?, secretaria=?, coordenacao=?, escola=?, logo_estado=?, logo_escola=?, logo_prefeitura=?
-                WHERE id = ?
-            ''', (estado, secretaria, coordenacao, escola, cabecalho.get('logo_estado'), cabecalho.get('logo_escola'), cabecalho.get('logo_prefeitura'), id))
             db.commit()
             flash('Cabeçalho atualizado com sucesso.', 'success')
             return redirect(url_for('cadastros_bp.listar_cabecalhos'))
         except Exception as e:
+            db.rollback()
             current_app.logger.exception('Erro ao atualizar cabeçalho')
             flash('Erro ao atualizar cabeçalho.', 'danger')
             return redirect(url_for('cadastros_bp.cabecalho_editar', id=id))
 
     # GET: montar urls de imagens
-    if cabecalho.get('logo_estado'):
-        cabecalho['logo_estado_url'] = url_for('static', filename=f'uploads/cabecalhos/{cabecalho["logo_estado"]}')
-    else:
-        cabecalho['logo_estado_url'] = None
-    if cabecalho.get('logo_escola'):
-        cabecalho['logo_escola_url'] = url_for('static', filename=f'uploads/cabecalhos/{cabecalho["logo_escola"]}')
-    else:
-        cabecalho['logo_escola_url'] = None
-    # novo campo logo_prefeitura (pode não existir na tabela)
-    if cabecalho.get('logo_prefeitura'):
-        cabecalho['logo_prefeitura_url'] = url_for('static', filename=f'uploads/cabecalhos/{cabecalho["logo_prefeitura"]}')
-    else:
-        cabecalho['logo_prefeitura_url'] = None
+    cabecalho_dict = {
+        "id": cabecalho.id,
+        "estado": cabecalho.estado,
+        "secretaria": cabecalho.secretaria,
+        "coordenacao": cabecalho.coordenacao,
+        "escola": cabecalho.escola,
+        "logo_estado": cabecalho.logo_estado,
+        "logo_escola": cabecalho.logo_escola,
+        "logo_prefeitura": getattr(cabecalho, "logo_prefeitura", None),
+        "logo_estado_url": url_for('static', filename=f'uploads/cabecalhos/{cabecalho.logo_estado}') if cabecalho.logo_estado else None,
+        "logo_escola_url": url_for('static', filename=f'uploads/cabecalhos/{cabecalho.logo_escola}') if cabecalho.logo_escola else None,
+        "logo_prefeitura_url": url_for('static', filename=f'uploads/cabecalhos/{cabecalho.logo_prefeitura}') if getattr(cabecalho, "logo_prefeitura", None) else None
+    }
 
-    return render_template('cadastros/cabecalho_form.html', cabecalho=cabecalho)
+    return render_template('cadastros/cabecalho_form.html', cabecalho=cabecalho_dict)
 
 @cadastros_bp.route('/cabecalho/excluir/<int:id>', methods=['POST'])
 def cabecalho_excluir(id):
     db = get_db()
-    row = db.execute('SELECT * FROM cabecalhos WHERE id = ?', (id,)).fetchone()
-    if row:
+    cabecalho = db.query(Cabecalho).filter_by(id=id).first()
+    if cabecalho:
         try:
             # remover arquivos associados
             upload_dir = _ensure_upload_dir()
-            if row.get('logo_estado'):
+            if cabecalho.logo_estado:
                 try:
-                    os.remove(os.path.join(upload_dir, row['logo_estado']))
+                    os.remove(os.path.join(upload_dir, cabecalho.logo_estado))
                 except Exception:
                     pass
-            if row.get('logo_escola'):
+            if cabecalho.logo_escola:
                 try:
-                    os.remove(os.path.join(upload_dir, row['logo_escola']))
+                    os.remove(os.path.join(upload_dir, cabecalho.logo_escola))
                 except Exception:
                     pass
-            if row.get('logo_prefeitura'):
+            if getattr(cabecalho, 'logo_prefeitura', None):
                 try:
-                    os.remove(os.path.join(upload_dir, row['logo_prefeitura']))
+                    os.remove(os.path.join(upload_dir, cabecalho.logo_prefeitura))
                 except Exception:
                     pass
-            db.execute('DELETE FROM cabecalhos WHERE id = ?', (id,))
+            db.delete(cabecalho)
             db.commit()
             flash('Cabeçalho excluído.', 'success')
         except Exception:
@@ -455,35 +445,22 @@ def dados_documentos():
     """Página unificada Dados Escolar / Documentos com 3 abas (Dados Escola, Novo Cabeçalho, Cabeçalho Documentos)."""
     db = get_db()
 
-    # carregar cabecalhos (mesma lógica de listar_cabecalhos)
-    rows = db.execute('SELECT * FROM cabecalhos ORDER BY id DESC').fetchall()
-    cabecalhos = [dict(r) for r in rows]
+    # carregar cabecalhos
+    cabecalhos = db.query(Cabecalho).order_by(Cabecalho.id.desc()).all()
     for c in cabecalhos:
-        if c.get('logo_estado'):
-            c['logo_estado_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_estado"]}')
-        else:
-            c['logo_estado_url'] = None
-        if c.get('logo_escola'):
-            c['logo_escola_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_escola"]}')
-        else:
-            c['logo_escola_url'] = None
-        if c.get('logo_prefeitura'):
-            c['logo_prefeitura_url'] = url_for('static', filename=f'uploads/cabecalhos/{c["logo_prefeitura"]}')
-        else:
-            c['logo_prefeitura_url'] = None
+        c.logo_estado_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_estado}') if c.logo_estado else None
+        c.logo_escola_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_escola}') if c.logo_escola else None
+        c.logo_prefeitura_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_prefeitura}') if getattr(c, 'logo_prefeitura', None) else None
 
-    # carregar dados da escola (mesma lógica de listar_dados_escola)
-    rows2 = db.execute("SELECT * FROM dados_escola ORDER BY id DESC").fetchall()
-    dados = [dict(r) for r in rows2]
+    # carregar dados da escola
+    dados = db.query(DadosEscola).order_by(DadosEscola.id.desc()).all()
     for d in dados:
-        if d.get('cabecalho_id'):
-            ch = db.execute("SELECT escola FROM cabecalhos WHERE id = ?", (d['cabecalho_id'],)).fetchone()
-            d['escola_origem'] = ch['escola'] if ch else None
+        if d.cabecalho_id:
+            ch = db.query(Cabecalho).filter_by(id=d.cabecalho_id).first()
+            d.escola_origem = ch.escola if ch else None
         else:
-            d['escola_origem'] = None
+            d.escola_origem = None
 
-    # Renderizar o novo template (a seguir eu entrego o arquivo templates/cadastros/dados_documentos.html)
-    # Passamos cabecalhos e dados. Passamos cabecalho/dados None para os formulários "novo".
     return render_template('cadastros/dados_documentos.html',
                            cabecalhos=cabecalhos,
                            dados=dados,
@@ -494,15 +471,13 @@ def dados_documentos():
 def listar_dados_escola():
     """Listagem de Dados da Escola"""
     db = get_db()
-    rows = db.execute("SELECT * FROM dados_escola ORDER BY id DESC").fetchall()
-    dados = [dict(r) for r in rows]
-    # opcional: buscar nome do cabecalho relacionado
+    dados = db.query(DadosEscola).order_by(DadosEscola.id.desc()).all()
     for d in dados:
-        if d.get('cabecalho_id'):
-            ch = db.execute("SELECT escola FROM cabecalhos WHERE id = ?", (d['cabecalho_id'],)).fetchone()
-            d['escola_origem'] = ch['escola'] if ch else None
+        if d.cabecalho_id:
+            ch = db.query(Cabecalho).filter_by(id=d.cabecalho_id).first()
+            d.escola_origem = ch.escola if ch else None
         else:
-            d['escola_origem'] = None
+            d.escola_origem = None
     return render_template('cadastros/listar_dados_escola.html', dados=dados)
 
 @cadastros_bp.route('/dados_escola/novo', methods=['GET', 'POST'])
@@ -530,27 +505,35 @@ def dados_escola_novo():
         cnpj = request.form.get('cnpj','').strip()
         diretor_nome = request.form.get('diretor_nome','').strip()
         diretor_cpf = request.form.get('diretor_cpf','').strip()
-
-        # >>>>>>>>> NOVOS CAMPOS ADICIONADOS <<<<<<<<<<
         email_remetente = request.form.get('email_remetente','').strip()
         senha_email_app = request.form.get('senha_email_app','').strip()
-        dominio_sistema = request.form.get('dominio_sistema','').strip()  # <-- ADICIONADO
-        # <<<<<<<< FIM DOS NOVOS CAMPOS <<<<<<<<<<
+        dominio_sistema = request.form.get('dominio_sistema','').strip()
 
         try:
-            db.execute('''
-            INSERT INTO dados_escola (
-                cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj, diretor_nome, diretor_cpf,
-                email_remetente, senha_email_app, dominio_sistema, telefone
+            dados_escola = DadosEscola(
+                cabecalho_id=cabecalho_id,
+                escola=escola,
+                rua=rua,
+                numero=numero,
+                complemento=complemento,
+                bairro=bairro,
+                cidade=cidade,
+                estado=estado,
+                cep=cep,
+                cnpj=cnpj,
+                diretor_nome=diretor_nome,
+                diretor_cpf=diretor_cpf,
+                email_remetente=email_remetente,
+                senha_email_app=senha_email_app,
+                dominio_sistema=dominio_sistema,
+                telefone=telefone
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''',
-            (cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj,
-             diretor_nome, diretor_cpf, email_remetente, senha_email_app, dominio_sistema, telefone))
+            db.add(dados_escola)
             db.commit()
             flash('Dados da Escola salvos.', 'success')
             return redirect(url_for('cadastros_bp.listar_dados_escola'))
         except Exception:
+            db.rollback()
             current_app.logger.exception('Erro ao salvar dados da escola')
             flash('Erro ao salvar dados da escola.', 'danger')
             return redirect(url_for('cadastros_bp.dados_escola_novo'))
@@ -563,19 +546,19 @@ def dados_escola_novo():
 def dados_escola_editar(id):
     db = get_db()
     telefone = request.form.get('telefone', '').strip()
-    row = db.execute("SELECT * FROM dados_escola WHERE id = ?", (id,)).fetchone()
-    if not row:
+    dados = db.query(DadosEscola).filter_by(id=id).first()
+    if not dados:
         flash('Registro não encontrado.', 'warning')
         return redirect(url_for('cadastros_bp.listar_dados_escola'))
-    dados = dict(row)
+
     if request.method == 'POST':
         cabecalho_id = request.form.get('cabecalho_id') or None
-        escola = request.form.get('escola','').strip()
-        rua = request.form.get('rua','').strip()
-        numero = request.form.get('numero','').strip()
-        complemento = request.form.get('complemento','').strip()
-        bairro = request.form.get('bairro','').strip()
-        cidade = request.form.get('cidade','').strip()
+        escola = request.form.get('escola', '').strip()
+        rua = request.form.get('rua', '').strip()
+        numero = request.form.get('numero', '').strip()
+        complemento = request.form.get('complemento', '').strip()
+        bairro = request.form.get('bairro', '').strip()
+        cidade = request.form.get('cidade', '').strip()
         # normalizar e validar estado (sigla)
         estado_raw = request.form.get('estado','').strip()
         estado_norm = re.sub(r'[^A-Za-z]', '', estado_raw).upper()[:2] if estado_raw else ''
@@ -584,30 +567,37 @@ def dados_escola_editar(id):
             return redirect(url_for('cadastros_bp.dados_escola_editar', id=id))
         estado = estado_norm
 
-        cep = request.form.get('cep','').strip()
-        cnpj = request.form.get('cnpj','').strip()
-        diretor_nome = request.form.get('diretor_nome','').strip()
-        diretor_cpf = request.form.get('diretor_cpf','').strip()
-
-        # NOVOS CAMPOS
-        email_remetente = request.form.get('email_remetente','').strip()
-        senha_email_app = request.form.get('senha_email_app','').strip()
-        dominio_sistema = request.form.get('dominio_sistema','').strip()  # <-- ADICIONADO
+        cep = request.form.get('cep', '').strip()
+        cnpj = request.form.get('cnpj', '').strip()
+        diretor_nome = request.form.get('diretor_nome', '').strip()
+        diretor_cpf = request.form.get('diretor_cpf', '').strip()
+        email_remetente = request.form.get('email_remetente', '').strip()
+        senha_email_app = request.form.get('senha_email_app', '').strip()
+        dominio_sistema = request.form.get('dominio_sistema', '').strip()
 
         try:
-            db.execute('''
-                UPDATE dados_escola SET 
-                    cabecalho_id=?, escola=?, rua=?, numero=?, complemento=?, bairro=?, cidade=?, estado=?, cep=?, cnpj=?, 
-                    diretor_nome=?, diretor_cpf=?, email_remetente=?, senha_email_app=?, dominio_sistema=?, telefone=?
-                WHERE id=?
-            ''', (
-                cabecalho_id, escola, rua, numero, complemento, bairro, cidade, estado, cep, cnpj,
-                diretor_nome, diretor_cpf, email_remetente, senha_email_app, dominio_sistema, telefone, id
-            ))
+            dados.cabecalho_id = cabecalho_id
+            dados.escola = escola
+            dados.rua = rua
+            dados.numero = numero
+            dados.complemento = complemento
+            dados.bairro = bairro
+            dados.cidade = cidade
+            dados.estado = estado
+            dados.cep = cep
+            dados.cnpj = cnpj
+            dados.diretor_nome = diretor_nome
+            dados.diretor_cpf = diretor_cpf
+            dados.email_remetente = email_remetente
+            dados.senha_email_app = senha_email_app
+            dados.dominio_sistema = dominio_sistema
+            dados.telefone = telefone
+
             db.commit()
             flash('Dados da Escola atualizados.', 'success')
             return redirect(url_for('cadastros_bp.listar_dados_escola'))
         except Exception:
+            db.rollback()
             current_app.logger.exception('Erro ao atualizar dados da escola')
             flash('Erro ao atualizar dados da escola.', 'danger')
             return redirect(url_for('cadastros_bp.dados_escola_editar', id=id))
@@ -620,10 +610,15 @@ def dados_escola_editar(id):
 def dados_escola_excluir(id):
     db = get_db()
     try:
-        db.execute("DELETE FROM dados_escola WHERE id = ?", (id,))
-        db.commit()
-        flash('Registro excluído.', 'success')
+        dados = db.query(DadosEscola).filter_by(id=id).first()
+        if dados:
+            db.delete(dados)
+            db.commit()
+            flash('Registro excluído.', 'success')
+        else:
+            flash('Registro não encontrado.', 'danger')
     except Exception:
+        db.rollback()
         current_app.logger.exception('Erro ao excluir dados da escola')
         flash('Erro ao excluir registro.', 'danger')
     return redirect(url_for('cadastros_bp.listar_dados_escola'))
@@ -631,14 +626,14 @@ def dados_escola_excluir(id):
 # API: autocomplete puxando da tabela cabecalhos (campo escola)
 @cadastros_bp.route('/api/cabecalhos_autocomplete')
 def cabecalhos_autocomplete():
-    q = request.args.get('q','').strip()
+    q = request.args.get('q', '').strip()
     db = get_db()
     if not q:
-        rows = db.execute("SELECT id, escola FROM cabecalhos ORDER BY id DESC LIMIT 30").fetchall()
+        results_qs = db.query(Cabecalho).order_by(Cabecalho.id.desc()).limit(30).all()
     else:
         qlike = f"%{q.upper()}%"
-        rows = db.execute("SELECT id, escola FROM cabecalhos WHERE UPPER(escola) LIKE ? ORDER BY escola LIMIT 30", (qlike,)).fetchall()
-    results = [{'id': r['id'], 'escola': r['escola']} for r in rows]
+        results_qs = db.query(Cabecalho).filter(Cabecalho.escola.ilike(qlike)).order_by(Cabecalho.escola).limit(30).all()
+    results = [{'id': c.id, 'escola': c.escola} for c in results_qs]
     return jsonify(results)
 
 # API: obter cabecalho por id (para popular endereço quando usuário escolher)
@@ -647,11 +642,12 @@ def cabecalho_by_id():
     cid = request.args.get('id')
     db = get_db()
     if not cid:
-        return jsonify({'error':'missing id'}), 400
-    row = db.execute("SELECT * FROM cabecalhos WHERE id = ?", (cid,)).fetchone()
-    if not row:
-        return jsonify({'error':'not found'}), 404
-    rd = dict(row)
+        return jsonify({'error': 'missing id'}), 400
+    cabecalho = db.query(Cabecalho).filter_by(id=cid).first()
+    if not cabecalho:
+        return jsonify({'error': 'not found'}), 404
+    # Converte objeto SQLAlchemy para dict
+    rd = {c.name: getattr(cabecalho, c.name) for c in Cabecalho.__table__.columns}
     return jsonify(rd)
 
 # [adicione este trecho ao final do arquivo blueprints/cadastros.py]
@@ -666,10 +662,11 @@ def api_dados_escola_by_cabecalho():
         return jsonify({'error': 'missing cabecalho_id'}), 400
     db = get_db()
     try:
-        row = db.execute("SELECT * FROM dados_escola WHERE cabecalho_id = ? LIMIT 1", (cid,)).fetchone()
-        if not row:
+        dados = db.query(DadosEscola).filter_by(cabecalho_id=cid).first()
+        if not dados:
             return jsonify({'error': 'not found'}), 404
-        return jsonify(dict(row))
+        result = {c.name: getattr(dados, c.name) for c in DadosEscola.__table__.columns}
+        return jsonify(result)
     except Exception:
         current_app.logger.exception('Erro ao buscar dados_escola por cabecalho_id')
         return jsonify({'error': 'internal'}), 500

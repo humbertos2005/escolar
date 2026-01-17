@@ -1,10 +1,12 @@
-﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, g, current_app
-from models import (
-    get_db,
-    get_proximo_rfo_id,
-    get_tipos_ocorrencia,
-    get_proximo_fmd_id,
-    get_faltas_disciplinares
+﻿from flask import (
+    Blueprint, render_template, request, redirect, url_for, flash, session, 
+    jsonify, g, current_app, Response, abort
+)
+from escola.database import get_db  # USAR SEMPRE O NOVO
+from escola.models_sqlalchemy import (
+    Ocorrencia, FichaMedidaDisciplinar, Aluno, TipoOcorrencia, Usuario, 
+    PontuacaoBimestral, PontuacaoHistorico, Comportamento, FaltaDisciplinar
+    # Inclua outras conforme necessário para as rotas!
 )
 from .utils import (
     login_required,
@@ -16,93 +18,60 @@ from .utils import (
     MEDIDAS_MAP
 )
 from datetime import datetime, date
-import sqlite3
 import re
 import os
-import models
-
-# Adicionar (logo após os imports já existentes)
 import pdfkit
 import shutil
 from werkzeug.utils import secure_filename
-from flask import Response, abort
-
-# adicionar no topo do arquivo (junto com outros imports)
 from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
 
 disciplinar_bp = Blueprint('disciplinar_bp', __name__, url_prefix='/disciplinar')
 
-@disciplinar_bp.before_app_request
-def _ensure_disciplinar_schema():
-    # roda apenas uma vez por processo/app usando flag em current_app (idempotente)
-    if getattr(current_app, "_disciplinar_migrations_done", False):
-        return
-    try:
-        db = get_db()
-        models.ensure_disciplinar_migrations(db)
-        current_app._disciplinar_migrations_done = True
-        current_app.logger.info("ensure_disciplinar_migrations executed")
-    except Exception as e:
-        current_app.logger.exception("Erro ao garantir migrations disciplinar: %s", e)
+# Este bloco não é necessário em projetos 100% SQLAlchemy com migrations ORM/Alembic!
+# Removido _ensure_disciplinar_schema.
 
-# Utilitário robusto para criar uma FMD mínima para um aluno (se a tabela existir)
 def _create_fmd_for_aluno(db, aluno_id, medida_aplicada, descricao, data_fmd=None):
     from datetime import date
     if data_fmd is None:
         data_fmd = date.today().isoformat()
     try:
-        cur = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ficha_medida_disciplinar'").fetchone()
-        if not cur:
+        # Verifica se a tabela existe usando SQLAlchemy
+        if not db.bind.has_table("ficha_medida_disciplinar"):
             return False
-        seq, ano = models.next_fmd_seq_and_year(db)
+
+        seq, ano = next_fmd_seq_and_year(db)  # Função a ser adaptada para SQLAlchemy
         fmd_id = f"FMD-{seq}/{ano}"
-        try:
-            db.execute("""
-                INSERT INTO ficha_medida_disciplinar (fmd_id, aluno_id, data_fmd, medida_aplicada, descricao_falta, status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (fmd_id, aluno_id, data_fmd, medida_aplicada, descricao or '', 'ATIVA'))
-        except Exception:
-            db.execute("""
-                INSERT INTO ficha_medida_disciplinar (fmd_id, aluno_id, data_fmd, medida_aplicada)
-                VALUES (?, ?, ?, ?)
-            """, (fmd_id, aluno_id, data_fmd, medida_aplicada))
-        try:
-            db.commit()
-        except Exception:
-            pass
+
+        fmd_kwargs = dict(
+            fmd_id=fmd_id,
+            aluno_id=aluno_id,
+            data_fmd=data_fmd,
+            medida_aplicada=medida_aplicada
+        )
+        if descricao is not None:
+            fmd_kwargs['descricao_falta'] = descricao
+        if 'status' in FichaMedidaDisciplinar.__table__.columns:
+            fmd_kwargs['status'] = 'ATIVA'
+
+        fmd = FichaMedidaDisciplinar(**fmd_kwargs)
+        db.add(fmd)
+        db.commit()
         return True
     except Exception:
+        db.rollback()
         return False
 
-# -----------------------
-# Novos helpers para detecção de colunas e compatibilidade
-# -----------------------
-def _get_table_columns(db_conn, table):
-    """Retorna lista de nomes de colunas para a tabela (SQLite PRAGMA ou fallback)."""
-    try:
-        rows = db_conn.execute(f"PRAGMA table_info({table})").fetchall()
-        cols = []
-        for r in rows:
-            # row pode ser sqlite3.Row com index ou dict-like
-            if isinstance(r, dict):
-                cols.append(r.get('name'))
-            else:
-                # PRAGMA result: cid, name, type, notnull, dflt_value, pk
-                cols.append(r[1])
-        return [c for c in cols if c]
-    except Exception:
-        return []
+def _get_table_columns(db, model):
+    """Retorna lista de nomes de colunas para a tabela (SQLAlchemy)"""
+    return [col.name for col in model.__table__.columns]
 
-def _find_first_column(db_conn, table, candidates):
-    cols = _get_table_columns(db_conn, table)
+def _find_first_column(db, model, candidates):
+    cols = _get_table_columns(db, model)
     for c in candidates:
         if c in cols:
             return c
     return None
 
-# -----------------------
-# API: checa reincidência
-# -----------------------
 @disciplinar_bp.route('/api/check_reincidencia', methods=['GET'])
 @login_required
 def api_check_reincidencia():
@@ -120,71 +89,57 @@ def api_check_reincidencia():
     if not aluno_id:
         return jsonify(error='Parâmetro aluno_id é obrigatório'), 400
 
-    # detectar colunas
-    aluno_col = _find_first_column(db, 'ocorrencias', ['aluno_id', 'aluno', 'matricula'])
-    tipo_col = _find_first_column(db, 'ocorrencias', ['tipo_falta', 'tipo', 'tipo_ocorrencia', 'falta_tipo', 'classificacao'])
-    created_col = _find_first_column(db, 'ocorrencias', ['data_tratamento', 'data_registro', 'created_at', 'data'])
-
-    item_id_col = _find_first_column(db, 'ocorrencias', ['falta_disciplinar_id', 'falta_id', 'item_id', 'item'])
-    descr_cols_candidates = ['descricao', 'descricao_falta', 'item_descricao', 'falta_descricao', 'descricao_ocorrencia', 'relato_observador', 'relato_faltas', 'obs']
-
-    descr_cols = [c for c in _get_table_columns(db, 'ocorrencias') if c in descr_cols_candidates]
-
-    if not aluno_col:
-        return jsonify(error='Coluna de identificação do aluno não encontrada na tabela ocorrencias'), 500
-
-    where_clauses = []
-    params = []
-    where_clauses.append(f"{aluno_col} = ?")
-    params.append(aluno_id)
-
+    query = db.query(Ocorrencia).filter(Ocorrencia.aluno_id == aluno_id)
     if falta_id is not None:
-        if item_id_col:
-            where_clauses.append(f"{item_id_col} = ?")
-            params.append(falta_id)
+        if hasattr(Ocorrencia, 'falta_disciplinar_id'):
+            query = query.filter(Ocorrencia.falta_disciplinar_id == falta_id)
+        elif hasattr(Ocorrencia, 'falta_id'):
+            query = query.filter(Ocorrencia.falta_id == falta_id)
+        elif hasattr(Ocorrencia, 'item_id'):
+            query = query.filter(Ocorrencia.item_id == falta_id)
         else:
             return jsonify(error='falta_id fornecido, mas coluna correspondente não encontrada'), 400
     elif descricao:
-        if not descr_cols:
+        descricao_filters = []
+        descricao_fields = [
+            'descricao',
+            'descricao_falta',
+            'item_descricao',
+            'falta_descricao',
+            'descricao_ocorrencia',
+            'relato_observador',
+            'relato_faltas',
+            'obs'
+        ]
+        found = False
+        for field in descricao_fields:
+            if hasattr(Ocorrencia, field):
+                descricao_filters.append(getattr(Ocorrencia, field).ilike(f"%{descricao}%"))
+                descricao_filters.append(getattr(Ocorrencia, field) == descricao)
+                found = True
+        if not found:
             return jsonify(error='Descrição fornecida, mas não foi encontrada coluna de descrição na tabela ocorrencias'), 400
-        sub = []
-        for c in descr_cols:
-            sub.append(f"({c} = ? OR {c} LIKE ?)")
-            params.extend([descricao, f"%{descricao}%"])
-        where_clauses.append("(" + " OR ".join(sub) + ")")
+        query = query.filter(or_(*descricao_filters))
     else:
         return jsonify(error='Parâmetro falta_id ou descricao é obrigatório'), 400
 
-    where_sql = " AND ".join(where_clauses)
-
-    # contar ocorrências e buscar a última (por created_at ou por id descendente)
-    try:
-        count_row = db.execute(f"SELECT COUNT(*) as cnt FROM ocorrencias WHERE {where_sql}", params).fetchone()
-        count = count_row['cnt'] if isinstance(count_row, dict) else count_row[0]
-    except Exception:
-        current_app.logger.exception('Erro ao contar ocorrências para check_reincidencia')
-        return jsonify(error='Erro ao consultar banco'), 500
-
-    order_by = f"{created_col} DESC" if created_col else "id DESC"
-    tipo_select = tipo_col if tipo_col else 'NULL as tipo'
-    created_select = created_col if created_col else 'NULL as created_at'
-    try:
-        last_row = db.execute(f"SELECT id, {tipo_select} as tipo, {created_select} as created_at FROM ocorrencias WHERE {where_sql} ORDER BY {order_by} LIMIT 1", params).fetchone()
-    except Exception:
-        current_app.logger.exception('Erro ao buscar última ocorrência para check_reincidencia')
-        last_row = None
-
-    if last_row:
-        last_obj = dict(last_row) if not isinstance(last_row, tuple) else {'id': last_row[0], 'tipo': last_row[1], 'created_at': last_row[2]}
+    count = query.count()
+    last = query.order_by(getattr(Ocorrencia, 'data_tratamento', None) or 
+                          getattr(Ocorrencia, 'data_registro', None) or 
+                          getattr(Ocorrencia, 'created_at', None) or 
+                          Ocorrencia.id.desc()).first()
+    
+    if last:
+        last_obj = {
+            'id': last.id,
+            'tipo': getattr(last, 'tipo_falta', None) or getattr(last, 'tipo', None) or getattr(last, 'tipo_ocorrencia', None) or getattr(last, 'falta_tipo', None) or getattr(last, 'classificacao', None),
+            'created_at': getattr(last, 'data_tratamento', None) or getattr(last, 'data_registro', None) or getattr(last, 'created_at', None) or getattr(last, 'data', None)
+        }
     else:
         last_obj = None
 
     return jsonify(exists=(count > 0), count=count, last=last_obj)
 
-
-# -----------------------
-# Endpoint: reclassificar ocorrência existente (atualiza tipo)
-# -----------------------
 @disciplinar_bp.route('/reclassificar_ocorrencia', methods=['POST'])
 @login_required
 def reclassificar_ocorrencia():
@@ -206,12 +161,22 @@ def reclassificar_ocorrencia():
     if not new_tipo:
         return jsonify(error='new_tipo é obrigatório'), 400
 
-    tipo_col = _find_first_column(db, 'ocorrencias', ['tipo_falta', 'tipo', 'falta_tipo', 'classificacao'])
+    # Tenta encontrar o campo correto para o tipo
+    tipo_fields = ['tipo_falta', 'tipo', 'falta_tipo', 'classificacao']
+    ocorrencia = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
+    if not ocorrencia:
+        return jsonify(error='Ocorrência não encontrada'), 404
+
+    tipo_col = None
+    for field in tipo_fields:
+        if hasattr(ocorrencia, field):
+            tipo_col = field
+            break
     if not tipo_col:
         return jsonify(error='Coluna onde gravar tipo não encontrada'), 500
 
     try:
-        db.execute(f"UPDATE ocorrencias SET {tipo_col} = ? WHERE id = ?", (new_tipo, ocorrencia_id))
+        setattr(ocorrencia, tipo_col, new_tipo)
         db.commit()
     except Exception:
         current_app.logger.exception('Erro ao reclassificar ocorrência')
@@ -220,52 +185,26 @@ def reclassificar_ocorrencia():
 
     return jsonify(success=True)
 
-
-# -----------------------
-# Funções existentes do arquivo (mantive integrações; apenas acrescentei compatibilidade abaixo)
-# -----------------------
-
 # Helper: salva relações ocorrencia <-> faltas selecionadas
-def salvar_faltas_relacionadas(db_conn, ocorrencia_id, falta_ids_list):
+def salvar_faltas_relacionadas(db, ocorrencia_id, falta_ids_list):
     """
-    Garante a existência da tabela relacional e salva as relações ocorrencia <-> faltas.
+    Salva as relações ocorrencia <-> faltas usando SQLAlchemy.
     falta_ids_list: lista de ids (inteiros)
     Observação: não faz commit; o chamador deve commitar.
     """
-    try:
-        db_conn.execute('''
-            CREATE TABLE IF NOT EXISTS ocorrencias_faltas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ocorrencia_id INTEGER NOT NULL,
-                falta_id INTEGER NOT NULL,
-                FOREIGN KEY (ocorrencia_id) REFERENCES ocorrencias(id) ON DELETE CASCADE,
-                FOREIGN KEY (falta_id) REFERENCES faltas_disciplinares(id)
-            );
-        ''')
-    except Exception:
-        # Se falhar, segue em frente (possível em ambientes restritos)
-        pass
-
-    try:
-        db_conn.execute('DELETE FROM ocorrencias_faltas WHERE ocorrencia_id = ?', (ocorrencia_id,))
-    except Exception:
-        pass
-
+    # Remove relações antigas
+    db.query(OcorrenciaFalta).filter_by(ocorrencia_id=ocorrencia_id).delete()
     if not falta_ids_list:
         return
-
     for fid in falta_ids_list:
         try:
-            db_conn.execute('INSERT INTO ocorrencias_faltas (ocorrencia_id, falta_id) VALUES (?, ?)', (ocorrencia_id, fid))
+            rel = OcorrenciaFalta(ocorrencia_id=ocorrencia_id, falta_id=fid)
+            db.add(rel)
         except Exception:
-            # ignora ids inválidos
             pass
 
-# -----------------------
-# Helpers novos para pontuação (mantive inalterados)
-# -----------------------
-def _get_config_values(db_conn):
-    """Lê tabela_disciplinar_config e retorna dict de valores (fallback defaults se ausente)."""
+def _get_config_values(db):
+    """Lê tabela_disciplinar_config e retorna dict de valores (ORM; fallback defaults se ausente)."""
     defaults = {
         'advertencia_oral': -0.1,
         'advertencia_escrita': -0.3,
@@ -275,21 +214,17 @@ def _get_config_values(db_conn):
         'elogio_coletivo': 0.3
     }
     try:
-        rows = db_conn.execute('SELECT chave, valor FROM tabela_disciplinar_config').fetchall()
+        rows = db.query(TabelaDisciplinarConfig).all()
         for r in rows:
-            defaults[r['chave']] = float(r['valor'])
+            defaults[getattr(r, 'chave')] = float(getattr(r, 'valor'))
     except Exception:
-        # tabela pode não existir ainda
         pass
     return defaults
 
-def _get_bimestre_for_date(db_conn, data_str):
+def _get_bimestre_for_date(db, data_str):
     """
-    Determina (ano_int, bimestre_int) consultando a tabela 'bimestres'.
-    Usa as colunas (ano, numero, inicio, fim). Para o ano da data, procura
-    uma linha cujo intervalo inicio..fim contenha a data e retorna (ano, numero).
-    Se não encontrar ou ocorrer erro, faz fallback para 4 bimestres por ano
-    (cada 3 meses) para manter compatibilidade.
+    Determina (ano_int, bimestre_int) consultando a tabela 'bimestres' com SQLAlchemy.
+    Se não encontrar ou erro, faz fallback para 4 bimestres por ano.
     """
     try:
         d = datetime.strptime(data_str[:10], '%Y-%m-%d').date()
@@ -297,37 +232,28 @@ def _get_bimestre_for_date(db_conn, data_str):
         d = date.today()
     ano = d.year
     try:
-        rows = db_conn.execute(
-            "SELECT numero, inicio, fim FROM bimestres WHERE ano = ? ORDER BY numero",
-            (ano,)
-        ).fetchall()
+        rows = db.query(Bimestre).filter_by(ano=ano).order_by(Bimestre.numero).all()
         if rows:
             for r in rows:
+                num = int(getattr(r, 'numero')) if getattr(r, 'numero') is not None else None
+                inicio = getattr(r, 'inicio')
+                fim = getattr(r, 'fim')
                 try:
-                    num = int(r['numero']) if r['numero'] is not None else None
-                except Exception:
-                    num = None
-                inicio = r.get('inicio') if isinstance(r, dict) else r['inicio']
-                fim = r.get('fim') if isinstance(r, dict) else r['fim']
-                try:
-                    inicio_date = datetime.strptime(inicio[:10], '%Y-%m-%d').date() if inicio else None
+                    inicio_date = datetime.strptime(str(inicio)[:10], '%Y-%m-%d').date() if inicio else None
                 except Exception:
                     inicio_date = None
                 try:
-                    fim_date = datetime.strptime(fim[:10], '%Y-%m-%d').date() if fim else None
+                    fim_date = datetime.strptime(str(fim)[:10], '%Y-%m-%d').date() if fim else None
                 except Exception:
                     fim_date = None
-                # Se inicio/fim não definidos, consideramos compatível (aberto)
                 if (inicio_date is None or inicio_date <= d) and (fim_date is None or fim_date >= d):
                     if num is not None:
                         return ano, num
     except Exception:
         try:
-            from flask import current_app
             current_app.logger.debug("Erro ao consultar tabela bimestres; usando fallback.")
         except Exception:
             pass
-    # fallback: 4 bimestres por ano (cada 3 meses)
     b = ((d.month - 1) // 3) + 1
     return ano, b
 
@@ -344,13 +270,11 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
         qtd = float(qtd or 1)
     except Exception:
         qtd = 1.0
-    # comparações simples — adaptáveis conforme nomes exatos em MEDIDAS_MAP
     if 'ORAL' in m and 'ADVERT' in m:
         return qtd * float(config.get('advertencia_oral', -0.1))
     if 'ESCRIT' in m and 'ADVERT' in m:
         return qtd * float(config.get('advertencia_escrita', -0.3))
     if 'SUSPENS' in m:
-        # tentar extrair dias numéricos do texto
         nums = re.findall(r'(\d+)', m)
         dias = int(nums[0]) if nums else int(qtd)
         return dias * float(config.get('suspensao_dia', -0.5))
@@ -362,32 +286,30 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
         return qtd * float(config.get('elogio_individual', 0.5))
     if 'ELOGIO' in m and 'COLET' in m:
         return qtd * float(config.get('elogio_coletivo', 0.3))
-    # fallback
     return 0.0
 
-def _next_fmd_sequence(db_conn):
+def _next_fmd_sequence(db):
     """
     Retorna (seq_int, ano_int) com o próximo número sequencial para o ano corrente.
-    Mantém/atualiza tabela fmd_sequencia (ano INTEGER PRIMARY KEY, seq INTEGER).
-    Se a tabela não existir, a função tenta computar a sequência a partir dos fmd_id existentes.
+    Mantém/atualiza Tabela FmdSequencia (model) (ano INTEGER PRIMARY KEY, seq INTEGER).
+    Se a tabela não existir, tenta computar a partir dos fmd_id existentes.
     """
     ano = datetime.now().year
+    from escola.models_sqlalchemy import FmdSequencia, FichaMedidaDisciplinar
     try:
-        row = db_conn.execute('SELECT seq FROM fmd_sequencia WHERE ano = ?', (ano,)).fetchone()
-        if row and row['seq'] is not None:
-            seq = int(row['seq']) + 1
-            db_conn.execute('UPDATE fmd_sequencia SET seq = ? WHERE ano = ?', (seq, ano))
+        row = db.query(FmdSequencia).filter_by(ano=ano).first()
+        if row and row.seq is not None:
+            seq = int(row.seq) + 1
+            row.seq = seq
+            db.commit()
             return seq, ano
     except Exception:
-        # continua para tentativa de calcular a partir dos fmd_id existentes
         pass
-
-    # calcula o maior seq já presente no formato FMD-NNNN/YYYY (caso haja fmd_id já no novo formato)
     maxseq = 0
     try:
-        rows = db_conn.execute("SELECT fmd_id FROM ficha_medida_disciplinar WHERE fmd_id LIKE ?", (f"FMD-%/{ano}",)).fetchall()
-        for r in rows:
-            fid = r['fmd_id'] or ''
+        fmds = db.query(FichaMedidaDisciplinar).filter(FichaMedidaDisciplinar.fmd_id.like(f"FMD-%/{ano}")).all()
+        for f in fmds:
+            fid = f.fmd_id or ''
             m = re.match(r'^FMD-(\d{1,})/' + str(ano) + r'$', fid)
             if m:
                 try:
@@ -398,46 +320,58 @@ def _next_fmd_sequence(db_conn):
                     pass
     except Exception:
         maxseq = 0
-
     seq = maxseq + 1
     try:
-        db_conn.execute('INSERT INTO fmd_sequencia (ano, seq) VALUES (?, ?)', (ano, seq))
+        fmd_seq = FmdSequencia(ano=ano, seq=seq)
+        db.add(fmd_seq)
+        db.commit()
     except Exception:
-        # se insert falhar, ainda assim retornamos seq calculado
         pass
     return seq, ano
 
-def _apply_delta_pontuacao(db_conn, aluno_id, data_tratamento_str, delta, ocorrencia_id=None, tipo_evento=None):
+def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_id=None, tipo_evento=None):
     """
     Aplica delta na pontuacao_bimestral do aluno (cria linha se inexistente).
-    Garante limites mínimos/ máximos (0.0 .. 10.0).
+    Garante limites mínimos/máximos (0.0 .. 10.0).
     Registra no pontuacao_historico.
     """
     if not aluno_id:
         return
-    ano, bimestre = _get_bimestre_for_date(db_conn, data_tratamento_str)
+    ano, bimestre = _get_bimestre_for_date(db, data_tratamento_str)
+    from escola.models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
     try:
-        row = db_conn.execute('SELECT id, pontuacao_inicial, pontuacao_atual FROM pontuacao_bimestral WHERE aluno_id = ? AND ano = ? AND bimestre = ?', (aluno_id, ano, bimestre)).fetchone()
+        row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre).first()
         if row:
-            atual = float(row['pontuacao_atual'])
+            atual = float(row.pontuacao_atual)
             novo = max(0.0, min(10.0, atual + float(delta)))
-            db_conn.execute('UPDATE pontuacao_bimestral SET pontuacao_atual = ?, atualizado_em = ? WHERE id = ?', (novo, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), row['id']))
+            row.pontuacao_atual = novo
+            row.atualizado_em = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         else:
             inicial = 8.0
             novo = max(0.0, min(10.0, inicial + float(delta)))
-            db_conn.execute('INSERT INTO pontuacao_bimestral (aluno_id, ano, bimestre, pontuacao_inicial, pontuacao_atual, atualizado_em) VALUES (?, ?, ?, ?, ?, ?)', (aluno_id, ano, bimestre, inicial, novo, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        # historico
-        db_conn.execute('INSERT INTO pontuacao_historico (aluno_id, ano, bimestre, ocorrencia_id, tipo_evento, valor_delta, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?)', (
-            aluno_id, ano, bimestre, ocorrencia_id, tipo_evento, float(delta), datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        ))
+            row = PontuacaoBimestral(
+                aluno_id=aluno_id,
+                ano=ano,
+                bimestre=bimestre,
+                pontuacao_inicial=inicial,
+                pontuacao_atual=novo,
+                atualizado_em=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            )
+            db.add(row)
+        hist = PontuacaoHistorico(
+            aluno_id=aluno_id,
+            ano=ano,
+            bimestre=bimestre,
+            ocorrencia_id=ocorrencia_id,
+            tipo_evento=tipo_evento,
+            valor_delta=float(delta),
+            criado_em=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        )
+        db.add(hist)
+        db.commit()
     except Exception:
-        # se tabela nao existe, ignora (migration pendente)
         current_app.logger.exception('Erro ao aplicar delta pontuacao (possível tabela ausente).')
-
-
-# -----------------------
-# Rotas existentes (mantive as definições originais)
-# -----------------------
+        db.rollback()
 
 @disciplinar_bp.route('/buscar_alunos_json')
 @login_required
@@ -457,73 +391,58 @@ def buscar_alunos_json():
     try:
         if termo_busca.isdigit() or (matricula_part and matricula_part.isdigit()):
             num = matricula_part if matricula_part and matricula_part.isdigit() else termo_busca
-            rows = db.execute('''
-                SELECT id, matricula, nome, serie, turma
-                FROM alunos
-                WHERE id = ? OR matricula LIKE ? OR nome LIKE ?
-                ORDER BY nome
-                LIMIT 20
-            ''', (int(num), f'%{num}%', f'%{num}%')).fetchall()
+            alunos = db.query(Aluno).filter(
+                (Aluno.id == int(num)) |
+                (Aluno.matricula.like(f"%{num}%")) |
+                (Aluno.nome.like(f"%{num}%"))
+            ).order_by(Aluno.nome).limit(20).all()
         else:
             if len(termo_busca) < 3:
                 return jsonify([])
             q_like = f'%{termo_busca}%'
-            rows = db.execute('''
-                SELECT id, matricula, nome, serie, turma
-                FROM alunos
-                WHERE matricula LIKE ? OR nome LIKE ?
-                ORDER BY nome
-                LIMIT 20
-            ''', (q_like, q_like)).fetchall()
+            alunos = db.query(Aluno).filter(
+                (Aluno.matricula.like(q_like)) |
+                (Aluno.nome.like(q_like))
+            ).order_by(Aluno.nome).limit(20).all()
 
-        for aluno in rows:
+        for aluno in alunos:
             resultados.append({
-                'id': aluno['id'],
-                'value': f"{aluno['matricula']} - {aluno['nome']}",
-                'matricula': aluno['matricula'],
-                'nome': aluno['nome'],
-                'data': {'serie': aluno.get('serie') if isinstance(aluno, dict) else aluno['serie'],
-                         'turma': aluno.get('turma') if isinstance(aluno, dict) else aluno['turma']}
+                'id': aluno.id,
+                'value': f"{aluno.matricula} - {aluno.nome}",
+                'matricula': aluno.matricula,
+                'nome': aluno.nome,
+                'data': {
+                    'serie': getattr(aluno, "serie", ""),
+                    'turma': getattr(aluno, "turma", "")
+                }
             })
-    except sqlite3.Error:
+    except Exception:
         return jsonify([])
 
     return jsonify(resultados)
-
 
 @disciplinar_bp.route('/registrar_rfo', methods=['GET', 'POST'])
 @login_required
 def registrar_rfo():
     db = get_db()
-    cursor = db.cursor()
     rfo_id_gerado = get_proximo_rfo_id()
     tipos_ocorrencia = get_tipos_ocorrencia()
 
     if request.method == 'POST':
-        # aceitar múltiplos alunos: getlist ou CSV/single
         aluno_ids = request.form.getlist('aluno_id')
         if not aluno_ids or all(not a for a in aluno_ids):
             raw = request.form.get('aluno_ids') or request.form.get('aluno_id') or ''
             aluno_ids = [s.strip() for s in raw.split(',') if s.strip()]
 
-        # leitura do formulário (capturar tipo de RFO e subtipo de elogio)
-        # leitura do formulário (capturar tipo de RFO e subtipo de elogio)
         tipo_ocorrencia_id = request.form.get('tipo_ocorrencia_id')
         data_ocorrencia = request.form.get('data_ocorrencia')
         observador_id = request.form.get('observador_id')
         relato_observador = request.form.get('relato_observador', '').strip()
-
-        # tipo_rfo é o radio (Falta Disciplinar / Elogio)
         tipo_rfo = request.form.get('tipo_rfo', '').strip()
         subtipo_elogio = request.form.get('subtipo_elogio', '').strip()
-
-        # material_recolhido e advertencia_oral vêm do formulário
         material_recolhido = request.form.get('material_recolhido', '').strip()
         advertencia_oral = request.form.get('advertencia_oral', '').strip()
 
-        # validações mínimas:
-        # - campos obrigatórios básicos (tipo_ocorrencia_id, data, observador, relato)
-        # - advertencia_oral só é obrigatório quando não for Elogio
         error = None
         if not aluno_ids or not all([tipo_ocorrencia_id, data_ocorrencia, observador_id, relato_observador]):
             error = 'Por favor, preencha todos os campos obrigatórios.'
@@ -538,25 +457,15 @@ def registrar_rfo():
                                    request_form=request.form,
                                    g=g)
 
-        # garantir valor coerente de advertencia_oral
         if tipo_rfo == 'Elogio':
             advertencia_oral = 'nao'
         else:
             advertencia_oral = advertencia_oral or 'nao'
 
-        # gerar RFO final e persistir
         try:
             rfo_id_final = get_proximo_rfo_id(incrementar=True)
+            valid_aluno_ids = aluno_ids
 
-            # Compatibilidade: garantir que valid_aluno_ids esteja definido (padrão para aluno_ids)
-            try:
-                valid_aluno_ids  # apenas testa existência
-            except NameError:
-                try:
-                    valid_aluno_ids = aluno_ids
-                except NameError:
-                    valid_aluno_ids = []
-            
             if not valid_aluno_ids:
                 flash('Nenhum aluno válido selecionado.', 'danger')
                 return render_template('disciplinar/registrar_rfo.html',
@@ -564,54 +473,40 @@ def registrar_rfo():
                                        tipos_ocorrencia=tipos_ocorrencia,
                                        request_form=request.form,
                                        g=g)
-            
+
             primeiro_aluno = valid_aluno_ids[0]
 
-            # Inserir ocorrência principal, gravando também tratamento_tipo e subtipo_elogio
-            cursor.execute("""
-                INSERT INTO ocorrencias (
-                    rfo_id, aluno_id, tipo_ocorrencia_id, data_ocorrencia,
-                    observador_id, relato_observador, advertencia_oral, material_recolhido,
-                    tratamento_tipo, subtipo_elogio,
-                    responsavel_registro_id, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AGUARDANDO TRATAMENTO')
-            """, (
-                rfo_id_final, primeiro_aluno, tipo_ocorrencia_id, data_ocorrencia,
-                observador_id, relato_observador, advertencia_oral, material_recolhido,
-                tipo_rfo, subtipo_elogio,
-                session.get('user_id')
-            ))
+            ocorrencia = Ocorrencia(
+                rfo_id=rfo_id_final,
+                aluno_id=primeiro_aluno,
+                tipo_ocorrencia_id=tipo_ocorrencia_id,
+                data_ocorrencia=data_ocorrencia,
+                observador_id=observador_id,
+                relato_observador=relato_observador,
+                advertencia_oral=advertencia_oral,
+                material_recolhido=material_recolhido,
+                tratamento_tipo=tipo_rfo,
+                subtipo_elogio=subtipo_elogio,
+                responsavel_registro_id=session.get('user_id'),
+                status='AGUARDANDO TRATAMENTO'
+            )
+            db.add(ocorrencia)
             db.commit()
-            ocorrencia_id = cursor.lastrowid
 
-            # vincular todos os alunos em ocorrencias_alunos (mantém comportamento anterior)
+            ocorrencia_id = ocorrencia.id
+
             for aid in valid_aluno_ids:
                 try:
-                    cursor.execute("INSERT INTO ocorrencias_alunos (ocorrencia_id, aluno_id) VALUES (?, ?)",
-                                   (ocorrencia_id, aid))
+                    oa = OcorrenciaAluno(ocorrencia_id=ocorrencia_id, aluno_id=aid)
+                    db.add(oa)
                 except Exception:
                     try:
-                        cursor.execute("INSERT INTO ocorrencias_alunos (ocorrencia_id, aluno_id) VALUES (?, ?)",
-                                       (ocorrencia_id, str(aid)))
+                        oa = OcorrenciaAluno(ocorrencia_id=ocorrencia_id, aluno_id=str(aid))
+                        db.add(oa)
                     except Exception:
-                        # ignora caso não seja possível vincular um aluno
                         pass
             db.commit()
 
-            # sucesso: informar e redirecionar
-            flash(f'RFO {rfo_id_final} registrado com sucesso!', 'success')
-            return redirect(url_for('disciplinar_bp.listar_rfo'))
-
-        except sqlite3.IntegrityError as e:
-            db.rollback()
-            flash(f'Erro de integridade ao registrar RFO: {e}', 'danger')
-        except sqlite3.Error as e:
-            db.rollback()
-            flash(f'Erro ao registrar RFO: {e}', 'danger')
-        except Exception as e:
-            db.rollback()
-            current_app.logger.exception("Erro ao registrar RFO")
-            flash(f'Erro ao registrar RFO: {e}', 'danger')
             flash(f'RFO {rfo_id_final} registrado com sucesso!', 'success')
             return redirect(url_for('disciplinar_bp.listar_rfo'))
 
@@ -619,16 +514,6 @@ def registrar_rfo():
             db.rollback()
             current_app.logger.exception("Erro ao registrar RFO")
             flash(f'Erro ao registrar RFO: {e}', 'danger')
-
-        except sqlite3.IntegrityError as e:
-            flash(f'Erro de integridade ao registrar RFO: {e}', 'danger')
-            db.rollback()
-        except sqlite3.Error as e:
-            flash(f'Erro ao registrar RFO: {e}', 'danger')
-            db.rollback()
-        except Exception as e:
-            flash(f'Ocorreu um erro inesperado: {e}', 'danger')
-            db.rollback()
 
     return render_template('disciplinar/registrar_rfo.html',
                            rfo_id_gerado=rfo_id_gerado,
@@ -639,32 +524,42 @@ def registrar_rfo():
 @admin_secundario_required
 def listar_rfo():
     db = get_db()
+    from sqlalchemy.orm import joinedload
+    from sqlalchemy import func, or_
 
-    rfos = db.execute('''
-        SELECT
-            o.id, o.rfo_id, o.data_ocorrencia, o.tipo_ocorrencia_id, o.status,
-            o.relato_observador, o.advertencia_oral, o.material_recolhido,
-            GROUP_CONCAT(oa_alunos.nome, '; ') AS alunos,
-            COALESCE(main_aluno.matricula, oa_alunos.matricula) AS matricula,
-            COALESCE(main_aluno.nome, oa_alunos.nome) AS nome_aluno,
-            COALESCE(
-                GROUP_CONCAT(oa_alunos.serie || ' - ' || oa_alunos.turma, '; '),
-                main_aluno.serie || ' - ' || main_aluno.turma
-            ) AS series_turmas,
-            u.username AS responsavel_registro_username,
-            tipo_oc.nome AS tipo_ocorrencia_nome
-        FROM ocorrencias o
-        LEFT JOIN ocorrencias_alunos oa ON oa.ocorrencia_id = o.id
-        LEFT JOIN alunos oa_alunos ON oa_alunos.id = oa.aluno_id
-        LEFT JOIN alunos main_aluno ON main_aluno.id = o.aluno_id
-        LEFT JOIN usuarios u ON o.responsavel_registro_id = u.id
-        LEFT JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        WHERE o.status = 'AGUARDANDO TRATAMENTO'
-        GROUP BY o.id
-        ORDER BY o.data_registro DESC
-    ''').fetchall()
+    # Consulta principal com JOINs para obter informações relevantes e agrupamentos
+    ocorrencias = (
+        db.query(
+            Ocorrencia.id,
+            Ocorrencia.rfo_id,
+            Ocorrencia.data_ocorrencia,
+            Ocorrencia.tipo_ocorrencia_id,
+            Ocorrencia.status,
+            Ocorrencia.relato_observador,
+            Ocorrencia.advertencia_oral,
+            Ocorrencia.material_recolhido,
+            func.group_concat(Aluno2.nome, '; ').label('alunos'),
+            func.coalesce(Aluno1.matricula, Aluno2.matricula).label('matricula'),
+            func.coalesce(Aluno1.nome, Aluno2.nome).label('nome_aluno'),
+            func.coalesce(
+                func.group_concat(func.concat(Aluno2.serie, " - ", Aluno2.turma), '; '),
+                func.concat(Aluno1.serie, " - ", Aluno1.turma)
+            ).label('series_turmas'),
+            Usuario.username.label('responsavel_registro_username'),
+            TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
+        )
+        .join(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id, isouter=True)
+        .join(Aluno2 := Aluno, Aluno2.id == OcorrenciaAluno.aluno_id, isouter=True)
+        .join(Aluno1 := Aluno, Aluno1.id == Ocorrencia.aluno_id, isouter=True)
+        .join(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id, isouter=True)
+        .join(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id, isouter=True)
+        .filter(Ocorrencia.status == 'AGUARDANDO TRATAMENTO')
+        .group_by(Ocorrencia.id)
+        .order_by(Ocorrencia.data_registro.desc())
+        .all()
+    )
 
-    rfos_list = [dict(rfo) for rfo in rfos]
+    rfos_list = [dict(rfo._asdict()) for rfo in ocorrencias]
     return render_template('disciplinar/listar_rfo.html', rfos=rfos_list)
 
 
@@ -672,65 +567,66 @@ def listar_rfo():
 @admin_secundario_required
 def visualizar_rfo(ocorrencia_id):
     db = get_db()
+    from sqlalchemy import func
 
-    rfo = db.execute('''
-        SELECT
-            o.*,
-            GROUP_CONCAT(a.nome, '; ') AS alunos,
-            GROUP_CONCAT(a.serie || ' - ' || a.turma, '; ') AS series_turmas,
-            a.matricula, a.nome AS nome_aluno, a.serie, a.turma,
-            tipo_oc.nome AS tipo_ocorrencia_nome,
-            u.username AS responsavel_registro_username
-        FROM ocorrencias o
-        LEFT JOIN ocorrencias_alunos oa ON oa.ocorrencia_id = o.id
-        LEFT JOIN alunos a ON a.id = oa.aluno_id
-        LEFT JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        LEFT JOIN usuarios u ON o.responsavel_registro_id = u.id
-        WHERE o.id = ?
-        GROUP BY o.id
-    ''', (ocorrencia_id,)).fetchone()
+    rfo = (
+        db.query(
+            Ocorrencia,
+            func.group_concat(Aluno.nome, '; ').label('alunos'),
+            func.group_concat(func.concat(Aluno.serie, " - ", Aluno.turma), '; ').label('series_turmas'),
+            Aluno.matricula.label('matricula'),
+            Aluno.nome.label('nome_aluno'),
+            Aluno.serie.label('serie'),
+            Aluno.turma.label('turma'),
+            TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
+            Usuario.username.label('responsavel_registro_username'),
+        )
+        .select_from(Ocorrencia)
+        .outerjoin(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id)
+        .outerjoin(Aluno, Aluno.id == OcorrenciaAluno.aluno_id)
+        .outerjoin(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id)
+        .outerjoin(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id)
+        .filter(Ocorrencia.id == ocorrencia_id)
+        .group_by(Ocorrencia.id)
+        .first()
+    )
 
-    if rfo is None:
+    if not rfo:
         flash('RFO não encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
-    # transformar em dict mutável
-    rfo_dict = dict(rfo)
+    # rfo é uma namedtuple (ou Row); transformar em dict mutável para manipulação
+    rfo_dict = dict(rfo._asdict() if hasattr(rfo, "_asdict") else rfo)
 
-    # Reforçar montagem explícita de séries/turmas lendo ocorrencias_alunos para garantir exibição correta
-    alunos_rows = db.execute('''
-        SELECT al.matricula, al.nome, al.serie, al.turma
-        FROM ocorrencias_alunos oa
-        LEFT JOIN alunos al ON al.id = oa.aluno_id
-        WHERE oa.ocorrencia_id = ?
-        ORDER BY oa.id
-    ''', (ocorrencia_id,)).fetchall()
-
+    # Montar alunos_rows para nomes/séries/turmas (ordem garantida)
+    alunos_rows = (
+        db.query(
+            Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma
+        )
+        .join(OcorrenciaAluno, OcorrenciaAluno.aluno_id == Aluno.id)
+        .filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id)
+        .order_by(OcorrenciaAluno.id)
+        .all()
+    )
     series_list = []
     names_list = []
     for ar in alunos_rows:
-        s = (ar['serie'] or '') 
-        t = (ar['turma'] or '')
+        s = (ar.serie or '')
+        t = (ar.turma or '')
         if s or t:
             series_list.append(f"{s} - {t}".strip(' - '))
-        # montar nomes também como fonte única de verdade (caso queira sincronizar)
-        names_list.append(ar['nome'] or '')
+        names_list.append(ar.nome or '')
 
-    # preferir string construída a partir de ocorrencias_alunos quando houver
     if series_list:
         rfo_dict['series_turmas'] = '; '.join(series_list)
     else:
-        # fallback ao que veio no SELECT (ou campos individuais)
         rfo_dict['series_turmas'] = rfo_dict.get('series_turmas') or ((rfo_dict.get('serie') and rfo_dict.get('turma')) and f"{rfo_dict.get('serie')} - {rfo_dict.get('turma')}" or '')
 
-    # garantir que 'alunos' contenha os nomes corretos (preferir lista construída)
     if any(names_list):
-        # manter ordem dos alunos da tabela ocorrencias_alunos
         rfo_dict['alunos'] = '; '.join([n for n in names_list if n])
     else:
         rfo_dict['alunos'] = rfo_dict.get('alunos') or rfo_dict.get('nome_aluno') or ''
 
-    # material_recolhido_info: use material_recolhido quando presente; caso contrário construir a partir de tratamento
     tratamento = rfo_dict.get('tratamento_tipo') or rfo_dict.get('tipo_ocorrencia_text') or rfo_dict.get('tipo_ocorrencia_nome') or ''
     associado = (rfo_dict.get('advertencia_oral') or rfo_dict.get('subtipo_elogio') or '')
     if isinstance(associado, bool):
@@ -744,91 +640,70 @@ def visualizar_rfo(ocorrencia_id):
 
     return render_template('disciplinar/visualizar_rfo.html', rfo=rfo_dict)
 
-    if rfo is None:
-        flash('RFO não encontrado.', 'danger')
-        return redirect(url_for('disciplinar_bp.listar_rfo'))
-
-    # Garantir dict mutável e adicionar campo de exibição material_recolhido_info
-    rfo_dict = dict(rfo)
-    tipo = rfo_dict.get('trata_se') or rfo_dict.get('tipo_rfo') or rfo_dict.get('tipo') or rfo_dict.get('trata_tipo') or ''
-    associado = (rfo_dict.get('advertencia_oral')
-                 or rfo_dict.get('tipo_elogio')
-                 or rfo_dict.get('subtipo')
-                 or rfo_dict.get('considerar_advertencia_oral')
-                 or '')
-    if isinstance(associado, bool):
-        associado = 'Sim' if associado else 'Não'
-    material_info = tipo
-    if associado:
-        material_info = f"{tipo} — {associado}"
-    rfo_dict['material_recolhido_info'] = material_info
-
-    return render_template('disciplinar/visualizar_rfo.html', rfo=rfo_dict)
-
-    if rfo is None:
-        flash('RFO não encontrado.', 'danger')
-        return redirect(url_for('disciplinar_bp.listar_rfo'))
-
-    return render_template('disciplinar/visualizar_rfo.html', rfo=dict(rfo))
-
-
 @disciplinar_bp.route('/imprimir_rfo/<int:ocorrencia_id>')
 @admin_secundario_required
 def imprimir_rfo(ocorrencia_id):
     db = get_db()
 
-    rfo = db.execute('''
-        SELECT
-            o.*, a.matricula, a.nome AS nome_aluno, a.serie, a.turma,
-            tipo_oc.nome AS tipo_ocorrencia_nome,
-            u.username AS responsavel_registro_username
-        FROM ocorrencias o
-        JOIN alunos a ON o.aluno_id = a.id
-        JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        LEFT JOIN usuarios u ON o.responsavel_registro_id = u.id
-        WHERE o.id = ?
-    ''', (ocorrencia_id,)).fetchone()
+    rfo = (
+        db.query(
+            Ocorrencia,
+            Aluno.matricula,
+            Aluno.nome.label('nome_aluno'),
+            Aluno.serie,
+            Aluno.turma,
+            TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
+            Usuario.username.label('responsavel_registro_username')
+        )
+        .join(Aluno, Ocorrencia.aluno_id == Aluno.id)
+        .join(TipoOcorrencia, Ocorrencia.tipo_ocorrencia_id == TipoOcorrencia.id)
+        .outerjoin(Usuario, Ocorrencia.responsavel_registro_id == Usuario.id)
+        .filter(Ocorrencia.id == ocorrencia_id)
+        .first()
+    )
 
-    if rfo is None:
+    if not rfo:
         flash('RFO não encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
-    return render_template('formularios/rfo_impressao.html', rfo=dict(rfo))
+    return render_template('formularios/rfo_impressao.html', rfo=dict(rfo._asdict() if hasattr(rfo, "_asdict") else rfo))
 
 @disciplinar_bp.route('/export_prontuario/<int:ocorrencia_id>')
 @admin_secundario_required
 def export_prontuario_pdf(ocorrencia_id):
     db = get_db()
+    from sqlalchemy import func
 
-    # Reutiliza a mesma consulta usada em visualizar_rfo/imprimir_rfo para obter dados
-    rfo = db.execute('''
-        SELECT
-            o.*,
-            GROUP_CONCAT(a.nome, '; ') AS alunos,
-            GROUP_CONCAT(a.serie || ' - ' || a.turma, '; ') AS series_turmas,
-            a.matricula, a.nome AS nome_aluno, a.serie, a.turma,
-            tipo_oc.nome AS tipo_ocorrencia_nome,
-            u.username AS responsavel_registro_username
-        FROM ocorrencias o
-        LEFT JOIN ocorrencias_alunos oa ON oa.ocorrencia_id = o.id
-        LEFT JOIN alunos a ON a.id = oa.aluno_id
-        LEFT JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        LEFT JOIN usuarios u ON o.responsavel_registro_id = u.id
-        WHERE o.id = ?
-        GROUP BY o.id
-    ''', (ocorrencia_id,)).fetchone()
+    rfo = (
+        db.query(
+            Ocorrencia,
+            func.group_concat(Aluno.nome, '; ').label('alunos'),
+            func.group_concat(func.concat(Aluno.serie, " - ", Aluno.turma), '; ').label('series_turmas'),
+            Aluno.matricula.label('matricula'),
+            Aluno.nome.label('nome_aluno'),
+            Aluno.serie.label('serie'),
+            Aluno.turma.label('turma'),
+            TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
+            Usuario.username.label('responsavel_registro_username'),
+        )
+        .select_from(Ocorrencia)
+        .outerjoin(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id)
+        .outerjoin(Aluno, Aluno.id == OcorrenciaAluno.aluno_id)
+        .outerjoin(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id)
+        .outerjoin(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id)
+        .filter(Ocorrencia.id == ocorrencia_id)
+        .group_by(Ocorrencia.id)
+        .first()
+    )
 
-    if rfo is None:
+    if not rfo:
         flash('RFO não encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
-    rfo_dict = dict(rfo)
+    rfo_dict = dict(rfo._asdict() if hasattr(rfo, "_asdict") else rfo)
 
-    # Renderizamos um template específico para o PDF (criaremos o template depois).
-    # Use, por exemplo, templates/disciplinar/prontuario_pdf.html
     html = render_template('disciplinar/prontuario_pdf.html', rfo=rfo_dict)
 
-    # Detecta wkhtmltopdf (procura no PATH, senão usa o local padrão do Windows)
     wk_path = shutil.which('wkhtmltopdf')
     if not wk_path:
         wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
@@ -837,7 +712,6 @@ def export_prontuario_pdf(ocorrencia_id):
         abort(500, description=f"wkhtmltopdf não encontrado em: {wk_path}")
 
     config = pdfkit.configuration(wkhtmltopdf=wk_path)
-
     options = {
         'page-size': 'A4',
         'encoding': 'UTF-8',
@@ -853,7 +727,6 @@ def export_prontuario_pdf(ocorrencia_id):
     if not pdf_bytes:
         abort(500, description="Falha ao gerar o PDF.")
 
-    # Monta nome seguro do arquivo
     nome_aluno = rfo_dict.get('nome_aluno') or 'aluno'
     safe_name = secure_filename(f"prontuario_{nome_aluno}.pdf")
 
@@ -869,71 +742,87 @@ def gerar_ficha_medida(ocorrencia_id):
     flash('Funcionalidade de Ficha de Medida Disciplinar em desenvolvimento.', 'info')
     return redirect(url_for('disciplinar_bp.listar_rfo'))
 
-
 @disciplinar_bp.route('/ocorrencias')
 @login_required
 def listar_ocorrencias():
     db = get_db()
 
-    ocorrencias = db.execute('''
-        SELECT
-            o.id, o.rfo_id, o.data_ocorrencia, o.status, o.data_tratamento,
-            o.tipo_falta, o.medida_aplicada, o.relato_observador,
-            o.aluno_id, a.matricula, a.nome AS nome_aluno,
-            tipo_oc.nome AS tipo_ocorrencia_nome,
-            o.relato_estudante, o.despacho_gestor, o.data_despacho,
-            o.reincidencia
-        FROM ocorrencias o
-        JOIN alunos a ON o.aluno_id = a.id
-        JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        WHERE o.status = 'TRATADO'
-        ORDER BY o.data_tratamento DESC
-    ''').fetchall()
+    ocorrencias = (
+        db.query(
+            Ocorrencia.id,
+            Ocorrencia.rfo_id,
+            Ocorrencia.data_ocorrencia,
+            Ocorrencia.status,
+            Ocorrencia.data_tratamento,
+            Ocorrencia.tipo_falta,
+            Ocorrencia.medida_aplicada,
+            Ocorrencia.relato_observador,
+            Ocorrencia.aluno_id,
+            Aluno.matricula,
+            Aluno.nome.label('nome_aluno'),
+            TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
+            Ocorrencia.relato_estudante,
+            Ocorrencia.despacho_gestor,
+            Ocorrencia.data_despacho,
+            Ocorrencia.reincidencia
+        )
+        .join(Aluno, Ocorrencia.aluno_id == Aluno.id)
+        .join(TipoOcorrencia, Ocorrencia.tipo_ocorrencia_id == TipoOcorrencia.id)
+        .filter(Ocorrencia.status == 'TRATADO')
+        .order_by(Ocorrencia.data_tratamento.desc())
+        .all()
+    )
 
-    ocorrencias_list = [dict(o) for o in ocorrencias]
+    ocorrencias_list = [dict(o._asdict() if hasattr(o, "_asdict") else o) for o in ocorrencias]
     return render_template('disciplinar/listar_ocorrencias.html', ocorrencias=ocorrencias_list)
 
-# Substitua a função tratar_rfo existente por este bloco completo.
 @disciplinar_bp.route('/tratar_rfo/<int:ocorrencia_id>', methods=['GET', 'POST'])
 @admin_secundario_required
 def tratar_rfo(ocorrencia_id):
     db = get_db()
 
-    ocorrencia = db.execute('''
-        SELECT
-            o.*, a.matricula, a.nome AS nome_aluno, a.serie, a.turma,
-            tipo_oc.nome AS tipo_ocorrencia_nome,
-            u.username AS responsavel_registro_username
-        FROM ocorrencias o
-        JOIN alunos a ON o.aluno_id = a.id
-        JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        LEFT JOIN usuarios u ON o.responsavel_registro_id = u.id
-        WHERE o.id = ? AND o.status = 'AGUARDANDO TRATAMENTO'
-    ''', (ocorrencia_id,)).fetchone()
+    ocorrencia = (
+        db.query(
+            Ocorrencia,
+            Aluno.matricula,
+            Aluno.nome.label('nome_aluno'),
+            Aluno.serie,
+            Aluno.turma,
+            TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
+            Usuario.username.label('responsavel_registro_username')
+        )
+        .join(Aluno, Ocorrencia.aluno_id == Aluno.id)
+        .join(TipoOcorrencia, Ocorrencia.tipo_ocorrencia_id == TipoOcorrencia.id)
+        .outerjoin(Usuario, Ocorrencia.responsavel_registro_id == Usuario.id)
+        .filter(Ocorrencia.id == ocorrencia_id)
+        .filter(Ocorrencia.status == 'AGUARDANDO TRATAMENTO')
+        .first()
+    )
 
-    if ocorrencia is None:
+    if not ocorrencia:
         flash('RFO não encontrado ou já tratado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
-    ocorrencia_dict = dict(ocorrencia)
-    
-    # ---------- NOVO: montar lista completa de alunos associados à ocorrencia ----------
-    alunos_rows = db.execute('''
-        SELECT al.matricula, al.nome, al.serie, al.turma
-        FROM ocorrencias_alunos oa
-        LEFT JOIN alunos al ON al.id = oa.aluno_id
-        WHERE oa.ocorrencia_id = ?
-        ORDER BY oa.id
-    ''', (ocorrencia_id,)).fetchall()
+    ocorrencia_dict = dict(ocorrencia._asdict() if hasattr(ocorrencia, "_asdict") else ocorrencia)
+
+    alunos_rows = (
+        db.query(
+            Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma
+        )
+        .join(OcorrenciaAluno, OcorrenciaAluno.aluno_id == Aluno.id)
+        .filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id)
+        .order_by(OcorrenciaAluno.id)
+        .all()
+    )
 
     alunos_list = []
     series_list = []
     nomes_list = []
     for ar in alunos_rows:
-        nome = ar.get('nome') if isinstance(ar, dict) else ar['nome']
-        matricula = ar.get('matricula') if isinstance(ar, dict) else ar['matricula']
-        serie = ar.get('serie') if isinstance(ar, dict) else ar['serie']
-        turma = ar.get('turma') if isinstance(ar, dict) else ar['turma']
+        nome = getattr(ar, 'nome', None)
+        matricula = getattr(ar, 'matricula', None)
+        serie = getattr(ar, 'serie', None)
+        turma = getattr(ar, 'turma', None)
         alunos_list.append({
             'nome': nome or '',
             'matricula': matricula or '',
@@ -946,7 +835,6 @@ def tratar_rfo(ocorrencia_id):
             series_list.append(f"{s} - {t}".strip(' - '))
         nomes_list.append(nome or '')
 
-    # manter compatibilidade com o que as outras views/templates esperam
     ocorrencia_dict['alunos_list'] = alunos_list
     ocorrencia_dict['alunos'] = '; '.join([n for n in nomes_list if n]) if any(nomes_list) else ocorrencia_dict.get('alunos') or ocorrencia_dict.get('nome_aluno') or ''
     if series_list:
@@ -954,13 +842,10 @@ def tratar_rfo(ocorrencia_id):
     else:
         ocorrencia_dict['series_turmas'] = ocorrencia_dict.get('series_turmas') or ((ocorrencia_dict.get('serie') and ocorrencia_dict.get('turma')) and f"{ocorrencia_dict.get('serie')} - {ocorrencia_dict.get('turma')}" or '')
 
-    # -------------------------------------------------------------------------------
-
     tipos_falta = TIPO_FALTA_MAP
     medidas_map = MEDIDAS_MAP
 
     if request.method == 'POST':
-        # (mantive todo o fluxo POST como estava; só adaptado para usar ocorrencia_dict após)
         tipos_raw = request.form.get('tipo_falta_list', '').strip()
         if tipos_raw:
             tipos_list = [t.strip() for t in tipos_raw.split(',') if t.strip()]
@@ -986,16 +871,13 @@ def tratar_rfo(ocorrencia_id):
         circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'
         circ_ag = request.form.get('circunstancias_agravantes', '').strip() or 'Não há'
 
-        # --- INÍCIO: detectar se este tratamento refere-se a um ELOGIO ---
         tratamento_classificacao = request.form.get('tratamento_classificacao', '').strip() or ''
         tipo_rfo_post = request.form.get('tipo_rfo', '').strip() or ''
         oc_tipo = ocorrencia_dict.get('tipo_rfo') or ocorrencia_dict.get('tipo_ocorrencia_nome') or ''
 
-        # também aceitar sinalização direta enviada no POST (is_elogio)
         is_elogio_form = request.form.get('is_elogio')
         is_elogio_from_form = str(is_elogio_form).strip().lower() in ('1', 'true', 'on')
 
-        # is_elogio será True se qualquer uma das fontes indicar "elogio" ou se o form sinalizou
         is_elogio = False
         for v in (tratamento_classificacao, medida_aplicada or '', tipo_rfo_post, oc_tipo):
             try:
@@ -1008,26 +890,21 @@ def tratar_rfo(ocorrencia_id):
         if not is_elogio and is_elogio_from_form:
             is_elogio = True
 
-        # Se for elogio, limpar campos de falta (não se aplicam) para evitar validação desnecessária
         if is_elogio:
             tipos_csv = ''
             falta_ids_list = []
             falta_ids_csv = ''
-            # tentar inferir medida_aplicada a partir de classificações/tipo (caso frontend não tenha enviado)
             if not medida_aplicada:
                 medida_aplicada = (tratamento_classificacao or tipo_rfo_post or oc_tipo or '').strip()
-        # --- FIM: detecção de ELOGIO ---
         error = None
-        # somente exigir campos de falta/medida quando NÃO for elogio
         if not is_elogio:
             if not tipos_csv:
                 error = 'Tipo de falta é obrigatório.'
             elif not falta_ids_list:
-                error = 'A descrição da falta é obrigatória.'
+                error = 'A descrição da falta é obrigat��ria.'
             elif not medida_aplicada:
                 error = 'A medida aplicada é obrigatória.'
 
-        # checagens comuns (reincidência, despacho) válidas para ambos os casos
         if error is None:
             if reincidencia not in [0, 1]:
                 error = 'Reincidência deve ser "Sim" ou "Não".'
@@ -1049,40 +926,21 @@ def tratar_rfo(ocorrencia_id):
 
                 data_trat = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                cols = _get_table_columns(db, 'ocorrencias')
-                update_cols = [
-                    "status = 'TRATADO'",
-                    "data_tratamento = ?",
-                    "tipo_falta = ?",
-                    "falta_disciplinar_id = ?",
-                    "medida_aplicada = ?",
-                    "reincidencia = ?",
-                    "relato_estudante = ?",
-                    "despacho_gestor = ?",
-                    "data_despacho = ?"
-                ]
-                params = [
-                    data_trat,
-                    tipos_csv,
-                    primeiro_falta_id,
-                    medida_aplicada,
-                    reincidencia,
-                    relato_estudante,
-                    despacho_gestor,
-                    data_despacho
-                ]
-
-                if 'circunstancias_atenuantes' in cols:
-                    update_cols.append("circunstancias_atenuantes = ?")
-                    params.append(circ_at)
-                if 'circunstancias_agravantes' in cols:
-                    update_cols.append("circunstancias_agravantes = ?")
-                    params.append(circ_ag)
-
-                update_sql = f"UPDATE ocorrencias SET {', '.join(update_cols)} WHERE id = ?"
-                params.append(ocorrencia_id)
-
-                db.execute(update_sql, tuple(params))
+                # Atualiza a ocorrência
+                oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
+                oc_obj.status = 'TRATADO'
+                oc_obj.data_tratamento = data_trat
+                oc_obj.tipo_falta = tipos_csv
+                oc_obj.falta_disciplinar_id = primeiro_falta_id
+                oc_obj.medida_aplicada = medida_aplicada
+                oc_obj.reincidencia = reincidencia
+                oc_obj.relato_estudante = relato_estudante
+                oc_obj.despacho_gestor = despacho_gestor
+                oc_obj.data_despacho = data_despacho
+                if hasattr(oc_obj, 'circunstancias_atenuantes'):
+                    oc_obj.circunstancias_atenuantes = circ_at
+                if hasattr(oc_obj, 'circunstancias_agravantes'):
+                    oc_obj.circunstancias_agravantes = circ_ag
 
                 falta_ids_ints = []
                 for fid in falta_ids_list:
@@ -1095,85 +953,65 @@ def tratar_rfo(ocorrencia_id):
 
                 # --- INTEGRAÇÃO: calcular delta e aplicar pontuação ---
                 try:
-                    # Aplicar pontuação apenas quando houver uma medida válida (pode ocorrer em elogios)
                     if medida_aplicada:
                         try:
                             config = _get_config_values(db)
                             qtd_form = request.form.get('sim_qtd') or request.form.get('dias') or request.form.get('quantidade') or 1
                             delta = _calcular_delta_por_medida(medida_aplicada, qtd_form, config)
-                            # manter comportamento anterior: usa ocorrencia['aluno_id'] (se existir)
-                            _apply_delta_pontuacao(db, ocorrencia.get('aluno_id'), data_trat, delta, ocorrencia_id, medida_aplicada)
+                            _apply_delta_pontuacao(db, oc_obj.aluno_id, data_trat, delta, ocorrencia_id, medida_aplicada)
                         except Exception:
-                            # falha no cálculo de pontuação não deve abortar o tratamento; registrar erro em log
                             current_app.logger.exception("Erro ao aplicar delta de pontuação")
                     else:
-                        # sem medida_aplicada — não há base para pontuar; registrar aviso (útil para auditoria)
                         current_app.logger.warning(
                             "Tratamento salvo sem aplicar pontuação: ocorrencia_id=%s, medida_aplicada ausente (possível elogio sem medida)",
                             ocorrencia_id
                         )
 
                     try:
-                        if isinstance(ocorrencia, dict):
-                            rfo_id = ocorrencia.get('rfo_id')
-                            aluno_id_local = ocorrencia.get('aluno_id')
-                            responsavel_id = ocorrencia.get('responsavel_registro_id') or ocorrencia.get('observador_id')
-                        else:
-                            try:
-                                rfo_id = ocorrencia['rfo_id']
-                            except Exception:
-                                rfo_id = None
-                            try:
-                                aluno_id_local = ocorrencia['aluno_id']
-                            except Exception:
-                                aluno_id_local = None
-                            try:
-                                responsavel_id = ocorrencia['responsavel_registro_id']
-                            except Exception:
-                                responsavel_id = None
-                            if not responsavel_id:
-                                try:
-                                    responsavel_id = ocorrencia['observador_id']
-                                except Exception:
-                                    responsavel_id = None
-
+                        rfo_id = getattr(oc_obj, 'rfo_id', None)
+                        aluno_id_local = getattr(oc_obj, 'aluno_id', None)
+                        responsavel_id = getattr(oc_obj, 'responsavel_registro_id', None) or getattr(oc_obj, 'observador_id', None)
                         responsavel_id = int(responsavel_id) if responsavel_id is not None else 0
-                        tipo_falta_val = tipos_csv if 'tipos_csv' in locals() else (medida_aplicada or '')
-                        falta_ids_val = falta_ids_csv if 'falta_ids_csv' in locals() else ''
-                        tipo_falta_list_val = tipos_csv if 'tipos_csv' in locals() else ''
+                        tipo_falta_val = tipos_csv
+                        falta_ids_val = falta_ids_csv
+                        tipo_falta_list_val = tipos_csv
 
+                        from escola.models_sqlalchemy import FichaMedidaDisciplinar
                         if rfo_id:
-                            existing = db.execute('SELECT id FROM ficha_medida_disciplinar WHERE rfo_id = ?', (rfo_id,)).fetchone()
+                            existing = db.query(FichaMedidaDisciplinar).filter_by(rfo_id=rfo_id).first()
                             if existing:
-                                # NOTE: delta pode não existir se não houve medida_aplicada; usar 0.0 por segurança
-                                db.execute('UPDATE ficha_medida_disciplinar SET pontos_aplicados = ? WHERE rfo_id = ?', (float(delta) if 'delta' in locals() else 0.0, rfo_id))
+                                existing.pontos_aplicados = float(delta) if 'delta' in locals() else 0.0
                             else:
                                 seq, seq_ano = _next_fmd_sequence(db)
                                 fmd_id = f"FMD-{seq:04d}/{seq_ano}"
                                 data_fmd = datetime.now().strftime('%Y-%m-%d')
-                                db.execute(
-                                    'INSERT INTO ficha_medida_disciplinar (fmd_id, aluno_id, rfo_id, data_fmd, tipo_falta, medida_aplicada, descricao_falta, observacoes, responsavel_id, data_registro, falta_disciplinar_ids, tipo_falta_list, pontos_aplicados) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                                    (fmd_id, aluno_id_local, rfo_id, data_fmd, tipo_falta_val, medida_aplicada, '', '', responsavel_id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), falta_ids_val, tipo_falta_list_val, float(delta) if 'delta' in locals() else 0.0)
+                                fmd_obj = FichaMedidaDisciplinar(
+                                    fmd_id=fmd_id,
+                                    aluno_id=aluno_id_local,
+                                    rfo_id=rfo_id,
+                                    data_fmd=data_fmd,
+                                    tipo_falta=tipo_falta_val,
+                                    medida_aplicada=medida_aplicada,
+                                    descricao_falta='',
+                                    observacoes='',
+                                    responsavel_id=responsavel_id,
+                                    data_registro=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                    falta_disciplinar_ids=falta_ids_val,
+                                    tipo_falta_list=tipo_falta_list_val,
+                                    pontos_aplicados=float(delta) if 'delta' in locals() else 0.0
                                 )
-                    except Exception:
-                        current_app.logger.exception('Erro ao gravar pontos_aplicados em ficha_medida_disciplinar')
-
-                    try:
+                                db.add(fmd_obj)
                         if ocorrencia_id:
-                            db.execute('UPDATE ocorrencias SET pontos_aplicados = ? WHERE id = ?', (float(delta) if 'delta' in locals() else 0.0, ocorrencia_id))
+                            oc_obj.pontos_aplicados = float(delta) if 'delta' in locals() else 0.0
                     except Exception:
-                        current_app.logger.exception('Erro ao gravar pontos_aplicados em ocorrencias')
+                        current_app.logger.exception('Erro ao gravar pontos_aplicados em ficha_medida_disciplinar/ocorrencias')
 
                 except Exception:
                     current_app.logger.exception('Erro ao aplicar atualização de pontuacao')
 
-                # dentro da função que trata o RFO, antes de db.commit()
-                # (apenas inserir estas linhas)
                 try:
-                    # integrar RFO ao prontuário do aluno (evita duplicação)
                     ok, msg = create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
                     if not ok:
-                        # msg pode indicar "já integrado" ou erro; não abortamos o tratamento por isso
                         current_app.logger.debug('create_or_append_prontuario_por_rfo: ' + str(msg))
                 except Exception:
                     current_app.logger.exception('Erro ao integrar RFO ao prontuário (tarefa auxiliar)')
@@ -1209,21 +1047,25 @@ def tratar_rfo(ocorrencia_id):
 @admin_secundario_required
 def editar_ocorrencia(ocorrencia_id):
     db = get_db()
-    ocorrencia = db.execute('''
-        SELECT
-            o.*, a.matricula, a.nome AS nome_aluno,
-            tipo_oc.nome AS tipo_ocorrencia_nome
-        FROM ocorrencias o
-        JOIN alunos a ON o.aluno_id = a.id
-        JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        WHERE o.id = ? AND o.status = 'TRATADO'
-    ''', (ocorrencia_id,)).fetchone()
+    ocorrencia = (
+        db.query(
+            Ocorrencia,
+            Aluno.matricula,
+            Aluno.nome.label('nome_aluno'),
+            TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
+        )
+        .join(Aluno, Ocorrencia.aluno_id == Aluno.id)
+        .join(TipoOcorrencia, Ocorrencia.tipo_ocorrencia_id == TipoOcorrencia.id)
+        .filter(Ocorrencia.id == ocorrencia_id)
+        .filter(Ocorrencia.status == 'TRATADO')
+        .first()
+    )
 
-    if ocorrencia is None:
+    if not ocorrencia:
         flash('Ocorrência não encontrada ou ainda não foi tratada.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_ocorrencias'))
 
-    ocorrencia_dict = dict(ocorrencia)
+    ocorrencia_dict = dict(ocorrencia._asdict() if hasattr(ocorrencia, "_asdict") else ocorrencia)
 
     if request.method == 'POST':
         tipo_falta = request.form.get('tipo_falta', '').strip()
@@ -1243,21 +1085,11 @@ def editar_ocorrencia(ocorrencia_id):
             flash(error, 'danger')
         else:
             try:
-                db.execute('''
-                    UPDATE ocorrencias
-                    SET
-                        tipo_falta = ?,
-                        medida_aplicada = ?,
-                        relato_observador = ?,
-                        advertencia_oral = ?
-                    WHERE id = ?
-                ''', (
-                    tipo_falta,
-                    medida_aplicada,
-                    relato_observador,
-                    advertencia_oral,
-                    ocorrencia_id
-                ))
+                oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
+                oc_obj.tipo_falta = tipo_falta
+                oc_obj.medida_aplicada = medida_aplicada
+                oc_obj.relato_observador = relato_observador
+                oc_obj.advertencia_oral = advertencia_oral
                 db.commit()
                 flash(f'Ocorrência {ocorrencia_dict["rfo_id"]} editada com sucesso.', 'success')
                 return redirect(url_for('disciplinar_bp.listar_ocorrencias'))
@@ -1266,13 +1098,14 @@ def editar_ocorrencia(ocorrencia_id):
                 flash(f'Erro ao editar ocorrência: {e}', 'danger')
 
     tipos_ocorrencia_db = get_tipos_ocorrencia()
-    return render_template('disciplinar/adicionar_ocorrencia.html',
-                            ocorrencia=ocorrencia_dict,
-                            tipos_ocorrencia=tipos_ocorrencia_db,
-                            tipos_falta=TIPO_FALTA_MAP,
-                            medidas_map=MEDIDAS_MAP,
-                            request_form=request.form)
-
+    return render_template(
+        'disciplinar/adicionar_ocorrencia.html',
+        ocorrencia=ocorrencia_dict,
+        tipos_ocorrencia=tipos_ocorrencia_db,
+        tipos_falta=TIPO_FALTA_MAP,
+        medidas_map=MEDIDAS_MAP,
+        request_form=request.form
+    )
 
 @disciplinar_bp.route('/excluir_ocorrencia/<int:ocorrencia_id>', methods=['POST'])
 @admin_required
@@ -1280,15 +1113,15 @@ def excluir_ocorrencia(ocorrencia_id):
     db = get_db()
 
     try:
-        rfo = db.execute('SELECT rfo_id FROM ocorrencias WHERE id = ?', (ocorrencia_id,)).fetchone()
+        ocorrencia = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
 
-        if rfo is None:
+        if not ocorrencia:
             flash('Ocorrência/RFO não encontrado.', 'danger')
             return redirect(url_for('disciplinar_bp.listar_ocorrencias'))
 
-        rfo_id_nome = rfo['rfo_id']
+        rfo_id_nome = getattr(ocorrencia, 'rfo_id', '')
 
-        db.execute('DELETE FROM ocorrencias WHERE id = ?', (ocorrencia_id,))
+        db.delete(ocorrencia)
         db.commit()
 
         flash(f'Oorrência/RFO {rfo_id_nome} excluído com sucesso.', 'success')
@@ -1298,7 +1131,6 @@ def excluir_ocorrencia(ocorrencia_id):
         flash(f'Erro ao excluir ocorrência/RFO: {e}', 'danger')
 
     return redirect(url_for('disciplinar_bp.listar_ocorrencias'))
-
 
 @disciplinar_bp.route('/registrar_fmd', methods=['GET', 'POST'])
 @admin_secundario_required
@@ -1354,42 +1186,33 @@ def registrar_fmd():
         else:
             try:
                 fmd_id_final = get_proximo_fmd_id(incrementar=True)
-
-                db.execute('''
-                    INSERT INTO ficha_medida_disciplinar
-                    (fmd_id, aluno_id, rfo_id, data_fmd, tipo_falta, medida_aplicada,
-                     descricao_falta, observacoes, responsavel_id, status,
-                     data_falta, relato_faltas, itens_faltas_ids,
-                     comportamento_id, pontuacao_id, comparecimento_responsavel,
-                     prazo_comparecimento, atenuantes, agravantes, gestor_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ATIVA', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    fmd_id_final,
-                    int(aluno_id) if aluno_id and str(aluno_id).isdigit() else None,
-                    None,  # rfo_id (opcional)
-                    data_fmd,
-                    tipo_falta_csv,
-                    medida_aplicada,
-                    descricao_falta if descricao_falta else None,
-                    None,  # observacoes (opcional)
-                    session.get('user_id'),
-                    # novos campos
-                    request.form.get('data_falta') or None,
-                    relato_faltas or None,
-                    ','.join(falta_ids_list) if falta_ids_list else None,
-                    int(comportamento_id) if comportamento_id and str(comportamento_id).isdigit() else None,
-                    int(pontuacao_id) if pontuacao_id and str(pontuacao_id).isdigit() else None,
-                    comparecimento_val,
-                    prazo_comparecimento if prazo_comparecimento else None,
-                    atenuantes,
-                    agravantes,
-                    int(gestor_id) if gestor_id and str(gestor_id).isdigit() else session.get('user_id')
-                ))
-
+                nova_fmd = FichaMedidaDisciplinar(
+                    fmd_id=fmd_id_final,
+                    aluno_id=int(aluno_id) if aluno_id and str(aluno_id).isdigit() else None,
+                    rfo_id=None,
+                    data_fmd=data_fmd,
+                    tipo_falta=tipo_falta_csv,
+                    medida_aplicada=medida_aplicada,
+                    descricao_falta=descricao_falta if descricao_falta else None,
+                    observacoes=None,
+                    responsavel_id=session.get('user_id'),
+                    status='ATIVA',
+                    data_falta=request.form.get('data_falta') or None,
+                    relato_faltas=relato_faltas or None,
+                    itens_faltas_ids=','.join(falta_ids_list) if falta_ids_list else None,
+                    comportamento_id=int(comportamento_id) if comportamento_id and str(comportamento_id).isdigit() else None,
+                    pontuacao_id=int(pontuacao_id) if pontuacao_id and str(pontuacao_id).isdigit() else None,
+                    comparecimento_responsavel=comparecimento_val,
+                    prazo_comparecimento=prazo_comparecimento if prazo_comparecimento else None,
+                    atenuantes=atenuantes,
+                    agravantes=agravantes,
+                    gestor_id=int(gestor_id) if gestor_id and str(gestor_id).isdigit() else session.get('user_id')
+                )
+                db.add(nova_fmd)
                 db.commit()
                 flash(f'FMD {fmd_id_final} registrada com sucesso!', 'success')
                 return redirect(url_for('visualizacoes_bp.listar_fmds'))
-            except sqlite3.Error as e:
+            except Exception as e:
                 db.rollback()
                 current_app.logger.exception("Erro ao registrar FMD")
                 flash(f'Erro ao registrar FMD: {e}', 'danger')
@@ -1400,22 +1223,24 @@ def registrar_fmd():
                            medidas_map=MEDIDAS_MAP,
                            g=g)
 
-
 @disciplinar_bp.route('/editar_fmd/<int:fmd_id>', methods=['GET', 'POST'])
 def editar_fmd(fmd_id):
     db = get_db()
-    fmd = db.execute('''
-        SELECT f.*, a.matricula, a.nome AS nome_aluno, a.serie, a.turma
-        FROM ficha_medida_disciplinar f
-        JOIN alunos a ON f.aluno_id = a.id
-        WHERE f.id = ?
-    ''', (fmd_id,)).fetchone()
+    fmd = (
+        db.query(FichaMedidaDisciplinar, Aluno.matricula, Aluno.nome.label('nome_aluno'), Aluno.serie, Aluno.turma)
+        .join(Aluno, FichaMedidaDisciplinar.aluno_id == Aluno.id)
+        .filter(FichaMedidaDisciplinar.id == fmd_id)
+        .first()
+    )
 
-    if fmd is None:
+    if not fmd:
         flash('FMD não encontrada.', 'danger')
         return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
     faltas = get_faltas_disciplinares()
+
+    # fmd pode ser Row, namedtuple ou objeto; padroniza para dict para o template
+    fmd_dict = dict(fmd._asdict() if hasattr(fmd, "_asdict") else fmd)
 
     if request.method == 'POST':
         data_fmd = request.form.get('data_fmd')
@@ -1437,28 +1262,26 @@ def editar_fmd(fmd_id):
 
         if error is None:
             try:
-                db.execute('''
-                    UPDATE ficha_medida_disciplinar
-                    SET data_fmd = ?, tipo_falta = ?, medida_aplicada = ?,
-                        descricao_falta = ?, observacoes = ?, status = ?
-                    WHERE id = ?
-                ''', (data_fmd, tipo_falta, medida_aplicada, descricao_falta,
-                      observacoes, status, fmd_id))
-
+                fmd_obj = db.query(FichaMedidaDisciplinar).filter_by(id=fmd_id).first()
+                fmd_obj.data_fmd = data_fmd
+                fmd_obj.tipo_falta = tipo_falta
+                fmd_obj.medida_aplicada = medida_aplicada
+                fmd_obj.descricao_falta = descricao_falta
+                fmd_obj.observacoes = observacoes
+                fmd_obj.status = status
                 db.commit()
-                flash(f'FMD {fmd["fmd_id"]} atualizada com sucesso!', 'success')
+                flash(f'FMD {fmd_dict["fmd_id"]} atualizada com sucesso!', 'success')
                 return redirect(url_for('visualizacoes_bp.listar_fmds'))
-            except sqlite3.Error as e:
+            except Exception as e:
                 db.rollback()
                 flash(f'Erro ao atualizar FMD: {e}', 'danger')
         else:
             flash(error, 'danger')
 
     return render_template('disciplinar/editar_fmd.html',
-                         fmd=dict(fmd),
+                         fmd=fmd_dict,
                          faltas=faltas,
                          medidas_map=MEDIDAS_MAP)
-
 
 @disciplinar_bp.route('/excluir_fmd/<int:fmd_id>', methods=['POST'])
 @admin_required
@@ -1466,24 +1289,23 @@ def excluir_fmd(fmd_id):
     db = get_db()
 
     try:
-        fmd = db.execute('SELECT fmd_id FROM ficha_medida_disciplinar WHERE id = ?', (fmd_id,)).fetchone()
+        fmd = db.query(FichaMedidaDisciplinar).filter_by(id=fmd_id).first()
 
-        if fmd is None:
+        if not fmd:
             flash('FMD não encontrada.', 'danger')
             return redirect(url_for('visualizacoes_bp.listar_fmds'))
 
-        fmd_id_nome = fmd['fmd_id']
+        fmd_id_nome = getattr(fmd, 'fmd_id', '')
 
-        db.execute('DELETE FROM ficha_medida_disciplinar WHERE id = ?', (fmd_id,))
+        db.delete(fmd)
         db.commit()
 
         flash(f'FMD {fmd_id_nome} excluída com sucesso.', 'success')
-    except sqlite3.Error as e:
+    except Exception as e:
         db.rollback()
         flash(f'Erro ao excluir FMD: {e}', 'danger')
 
     return redirect(url_for('visualizacoes_bp.listar_fmds'))
-
 
 @disciplinar_bp.route('/api/faltas_busca')
 def api_faltas_busca():
@@ -1499,37 +1321,21 @@ def api_faltas_busca():
             ids = sorted(set(ids))
             if not ids:
                 return jsonify([])
-            placeholders = ','.join('?' for _ in ids)
-            sql = f'''
-                SELECT DISTINCT id, descricao
-                FROM faltas_disciplinares
-                WHERE id IN ({placeholders})
-                ORDER BY descricao
-                LIMIT 50
-            '''
-            rows = db.execute(sql, tuple(ids)).fetchall()
+            faltas = db.query(FaltaDisciplinar).filter(FaltaDisciplinar.id.in_(ids)).order_by(FaltaDisciplinar.descricao).limit(50).all()
         else:
             q_like = f'%{q}%'
-            rows = db.execute('''
-                SELECT DISTINCT id, descricao
-                FROM faltas_disciplinares
-                WHERE descricao LIKE ? COLLATE NOCASE
-                ORDER BY descricao
-                LIMIT 50
-            ''', (q_like,)).fetchall()
-
+            faltas = db.query(FaltaDisciplinar).filter(FaltaDisciplinar.descricao.ilike(q_like)).order_by(FaltaDisciplinar.descricao).limit(50).all()
         result = []
         seen = set()
-        for r in rows:
-            rid = int(r['id'])
+        for r in faltas:
+            rid = int(r.id)
             if rid in seen:
                 continue
             seen.add(rid)
-            result.append({'id': rid, 'descricao': r['descricao']})
+            result.append({'id': rid, 'descricao': r.descricao})
         return jsonify(result)
-    except sqlite3.Error:
+    except Exception:
         return jsonify([])
-
 
 @disciplinar_bp.route('/api/comportamentos_busca')
 def api_comportamentos_busca():
@@ -1539,18 +1345,17 @@ def api_comportamentos_busca():
     db = get_db()
     q_like = f'%{q}%'
     try:
-        rows = db.execute('''
-            SELECT DISTINCT id, nome
-            FROM comportamentos
-            WHERE nome LIKE ? COLLATE NOCASE
-            ORDER BY nome
-            LIMIT 50
-        ''', (q_like,)).fetchall()
-    except sqlite3.Error:
+        comportamentos = (
+            db.query(Comportamento)
+            .filter(Comportamento.nome.ilike(q_like))
+            .order_by(Comportamento.nome)
+            .limit(50)
+            .all()
+        )
+    except Exception:
         return jsonify([])
-    result = [{'id': r['id'], 'nome': r['nome']} for r in rows]
+    result = [{'id': r.id, 'nome': r.nome} for r in comportamentos]
     return jsonify(result)
-
 
 @disciplinar_bp.route('/api/pontuacoes_busca')
 def api_pontuacoes_busca():
@@ -1560,18 +1365,17 @@ def api_pontuacoes_busca():
     db = get_db()
     q_like = f'%{q}%'
     try:
-        rows = db.execute('''
-            SELECT DISTINCT id, descricao
-            FROM pontuacoes
-            WHERE descricao LIKE ? COLLATE NOCASE
-            ORDER BY descricao
-            LIMIT 50
-        ''', (q_like,)).fetchall()
-    except sqlite3.Error:
+        pontuacoes = (
+            db.query(Pontuacao)
+            .filter(Pontuacao.descricao.ilike(q_like))
+            .order_by(Pontuacao.descricao)
+            .limit(50)
+            .all()
+        )
+    except Exception:
         return jsonify([])
-    result = [{'id': r['id'], 'descricao': r['descricao']} for r in rows]
+    result = [{'id': r.id, 'descricao': r.descricao} for r in pontuacoes]
     return jsonify(result)
-
 
 @disciplinar_bp.route('/api/usuarios_busca')
 def api_usuarios_busca():
@@ -1581,16 +1385,16 @@ def api_usuarios_busca():
     db = get_db()
     q_like = f'%{q}%'
     try:
-        rows = db.execute('''
-            SELECT id, username, COALESCE(full_name, '') AS full_name
-            FROM usuarios
-            WHERE username LIKE ? OR full_name LIKE ?
-            ORDER BY username
-            LIMIT 50
-        ''', (q_like, q_like)).fetchall()
-    except sqlite3.Error:
+        usuarios = (
+            db.query(Usuario)
+            .filter((Usuario.username.ilike(q_like)) | (Usuario.full_name.ilike(q_like)))
+            .order_by(Usuario.username)
+            .limit(50)
+            .all()
+        )
+    except Exception:
         return jsonify([])
-    result = [{'id': r['id'], 'username': r['username'], 'full_name': r['full_name']} for r in rows]
+    result = [{'id': r.id, 'username': r.username, 'full_name': r.full_name or ''} for r in usuarios]
     return jsonify(result)
 
 from flask import render_template
@@ -1650,102 +1454,96 @@ import sqlite3
 @disciplinar_bp.route('/fmd_novo_real/<path:fmd_id>')
 def fmd_novo_real(fmd_id):
     from flask import session
-    import sqlite3
-    db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
-    db.row_factory = sqlite3.Row
+    db = get_db()
 
     # ==== 1. PEGA O USUÁRIO LOGADO NA SESSÃO ====
     user_id = session.get('user_id')
-    usuario_sessao = None
-    if user_id:
-        usuario_sessao = db.execute("SELECT * FROM usuarios WHERE id = ?", (user_id,)).fetchone()
-    print('[FMD] Usuário ativo:', dict(usuario_sessao) if usuario_sessao else None)
-    if not usuario_sessao or usuario_sessao['nivel'] not in [1, 2]:
+    usuario_sessao = db.query(Usuario).filter(Usuario.id == user_id).first() if user_id else None
+    if not usuario_sessao or getattr(usuario_sessao, "nivel", None) not in [1, 2]:
         return "Você não tem permissão para acessar este documento.", 403
 
     # ==== 2. Busca a FMD ====
-    fmd = db.execute("SELECT * FROM ficha_medida_disciplinar WHERE fmd_id = ?", (fmd_id,)).fetchone()
+    fmd = db.query(FichaMedidaDisciplinar).filter_by(fmd_id=fmd_id).first()
     if not fmd:
         return 'FMD não encontrada', 404
 
     # ==== 3. Busca o aluno relacionado ====
-    aluno = db.execute("SELECT * FROM alunos WHERE id = ?", (fmd['aluno_id'],)).fetchone() or {}
+    aluno = db.query(Aluno).filter_by(id=fmd.aluno_id).first() or {}
+
     from models import get_aluno_estado_atual
 
     estado = {}
     comportamento = None
     pontuacao = None
-    if aluno and 'id' in aluno.keys():
-        estado = get_aluno_estado_atual(aluno['id']) or {}
+    if aluno and hasattr(aluno, 'id'):
+        estado = get_aluno_estado_atual(aluno.id) or {}
         comportamento = estado.get('comportamento')
         pontuacao = estado.get('pontuacao')
 
     # ==== 4. Busca ocorrência relacionada (RFO) ====
-    rfo = db.execute("SELECT * FROM ocorrencias WHERE rfo_id = ?", (fmd['rfo_id'],)).fetchone() or {}
+    rfo = db.query(Ocorrencia).filter_by(rfo_id=fmd.rfo_id).first() or {}
     item_descricoes_faltas = []
 
     ids_faltas = []
-    if 'falta_disciplinar_id' in rfo.keys() and rfo['falta_disciplinar_id']:
-        ids_faltas.append(str(rfo['falta_disciplinar_id']))
-    elif 'falta_ids_csv' in rfo.keys() and rfo['falta_ids_csv']:
-        ids_faltas = [id.strip() for id in str(rfo['falta_ids_csv']).split(',') if id.strip()]
+    if hasattr(rfo, 'falta_disciplinar_id') and rfo.falta_disciplinar_id:
+        ids_faltas.append(str(rfo.falta_disciplinar_id))
+    elif hasattr(rfo, 'falta_ids_csv') and rfo.falta_ids_csv:
+        ids_faltas = [id.strip() for id in str(rfo.falta_ids_csv).split(',') if id.strip()]
 
     for falta_id in ids_faltas:
-        res = db.execute(
-            "SELECT id, descricao FROM faltas_disciplinares WHERE id = ?", 
-            (falta_id,)
-        ).fetchone()
+        res = db.query(FaltaDisciplinar).filter_by(id=falta_id).first()
         if res:
-            item_descricoes_faltas.append(f"{res[0]} - {res[1]}")
+            item_descricoes_faltas.append(f"{res.id} - {res.descricao}")
 
     if item_descricoes_faltas:
         item_descricao_falta = "<br>".join(item_descricoes_faltas)
     else:
         item_descricao_falta = "-"
-    print("RFO ->", dict(rfo))
-    print("RFO TODOS OS CAMPOS:", list(rfo.keys()))
+
+    if rfo:
+        rfo_dict = dict(rfo._asdict() if hasattr(rfo, "_asdict") else rfo)
+    else:
+        rfo_dict = {}
 
     itens_especificacao = (
-        rfo['item_descricao'] if 'item_descricao' in rfo.keys() and rfo['item_descricao'] else
-        rfo['descricao_item'] if 'descricao_item' in rfo.keys() and rfo['descricao_item'] else
-        rfo['descricao'] if 'descricao' in rfo.keys() and rfo['descricao'] else
-        rfo['falta_descricao'] if 'falta_descricao' in rfo.keys() and rfo['falta_descricao'] else
+        rfo_dict.get('item_descricao') or
+        rfo_dict.get('descricao_item') or
+        rfo_dict.get('descricao') or
+        rfo_dict.get('falta_descricao') or
         '-'
     )
 
     # ==== 5. Cabeçalho institucional ====
-    cabecalho = db.execute("SELECT * FROM cabecalhos LIMIT 1;").fetchone() or {}
+    cabecalho = db.query(Cabecalho).first() or {}
 
     escola = {
-        'estado': cabecalho['estado'],
-        'secretaria': cabecalho['secretaria'],
-        'coordenacao': cabecalho['coordenacao'],
-        'nome': cabecalho['escola'],
-        'logotipo_url': '/static/uploads/cabecalhos/' + cabecalho['logo_escola'] if ('logo_escola' in cabecalho.keys() and cabecalho['logo_escola']) else ''
+        'estado': getattr(cabecalho, 'estado', ''),
+        'secretaria': getattr(cabecalho, 'secretaria', ''),
+        'coordenacao': getattr(cabecalho, 'coordenacao', ''),
+        'nome': getattr(cabecalho, 'escola', ''),
+        'logotipo_url': '/static/uploads/cabecalhos/' + cabecalho.logo_escola if hasattr(cabecalho, 'logo_escola') and cabecalho.logo_escola else ''
     }
 
-    # Ajuste para futuro campo correto de envio de e-mail
     envio = {
-        'data_hora': fmd['email_enviado_data'] if 'email_enviado_data' in fmd.keys() and fmd['email_enviado_data'] else None,
-        'email_destinatario': fmd['email_enviado_para'] if 'email_enviado_para' in fmd.keys() and fmd['email_enviado_para'] else None,
+        'data_hora': getattr(fmd, 'email_enviado_data', None),
+        'email_destinatario': getattr(fmd, 'email_enviado_para', None),
     }
 
     # ==== 6. Busca gestor/responsável para carimbo/assinatura ====
-    usuario_id_registro = fmd['gestor_id'] or fmd['responsavel_id']
-    usuario_registro = db.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id_registro,)).fetchone() or {}
-    print("USUARIO REGISTRO -->", dict(usuario_registro) if usuario_registro else "NENHUM")
+    usuario_id_registro = getattr(fmd, 'gestor_id', None) or getattr(fmd, 'responsavel_id', None)
+    usuario_registro = db.query(Usuario).filter_by(id=usuario_id_registro).first() or {}
 
-    atenuantes = fmd['atenuantes'] or (rfo['circunstancias_atenuantes'] if rfo and 'circunstancias_atenuantes' in rfo.keys() else '')
-    agravantes = fmd['agravantes'] or (rfo['circunstancias_agravantes'] if rfo and 'circunstancias_agravantes' in rfo.keys() else '')
+    atenuantes = getattr(fmd, 'atenuantes', '') or rfo_dict.get('circunstancias_atenuantes', '')
+    agravantes = getattr(fmd, 'agravantes', '') or rfo_dict.get('circunstancias_agravantes', '')
 
-    nome_usuario = usuario_sessao['username'] if usuario_sessao and 'username' in usuario_sessao.keys() else '-'
-    cargo_usuario = usuario_sessao['cargo'] if usuario_sessao and 'cargo' in usuario_sessao.keys() else '-'
+    nome_usuario = getattr(usuario_sessao, 'username', '-') if usuario_sessao else '-'
+    cargo_usuario = getattr(usuario_sessao, 'cargo', '-') if usuario_sessao else '-'
 
     contexto = {
         'escola': escola,
-        'aluno': aluno,
-        'fmd': fmd,
-        'rfo': rfo,
+        'aluno': dict(aluno._asdict() if hasattr(aluno, "_asdict") else aluno) if aluno else {},
+        'fmd': dict(fmd._asdict()) if hasattr(fmd, "_asdict") else fmd,
+        'rfo': rfo_dict,
         'nome_usuario': nome_usuario,
         'cargo_usuario': cargo_usuario,
         'envio': envio,
@@ -1760,7 +1558,6 @@ def fmd_novo_real(fmd_id):
         import pdfkit, os
         from urllib.parse import quote
 
-        # AJUSTE: monta o caminho absoluto do logo do PDF
         logo_relativo = contexto.get('escola', {}).get('logotipo_url', '')
         if logo_relativo:
             logo_relativo = logo_relativo.lstrip("/")
@@ -1782,63 +1579,56 @@ def fmd_novo_real(fmd_id):
         pdfkit.from_string(html, pdf_path, configuration=config, options=options)
 
     return render_template('disciplinar/fmd_novo.html', **contexto)
-    
 
 @disciplinar_bp.route('/enviar_email_fmd/<path:fmd_id>', methods=['POST'])
 def enviar_email_fmd(fmd_id):
     from flask import redirect, url_for, flash
     import datetime
-    import sqlite3
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     import os
     from email.mime.application import MIMEApplication
 
-    db = g.db if hasattr(g, 'db') else sqlite3.connect('escola.db')
-    db.row_factory = sqlite3.Row
+    db = get_db()
 
     # Busca os dados da FMD
-    fmd = db.execute("SELECT * FROM ficha_medida_disciplinar WHERE fmd_id = ?", (fmd_id,)).fetchone()
+    fmd = db.query(FichaMedidaDisciplinar).filter_by(fmd_id=fmd_id).first()
     if not fmd:
         flash('FMD não encontrada!', 'alert-danger')
         return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
     # Busca o aluno e seu e-mail
-    aluno = db.execute("SELECT * FROM alunos WHERE id = ?", (fmd['aluno_id'],)).fetchone()
-    email_destinatario = aluno['email'] if aluno and 'email' in aluno.keys() and aluno['email'] else None
+    aluno = db.query(Aluno).filter_by(id=fmd.aluno_id).first()
+    email_destinatario = getattr(aluno, 'email', None) if aluno else None
 
-    # SE NÃO existir e-mail cadastrado, retorna erro e não envia
     if not email_destinatario:
         flash('Não existe e-mail cadastrado para este aluno.', 'alert-danger')
         return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
     # Busca o e-mail e a senha de app da escola
-    dados_escola = db.execute("SELECT email_remetente, senha_email_app, telefone FROM dados_escola LIMIT 1").fetchone()
-    if not dados_escola or not dados_escola['email_remetente'] or not dados_escola['senha_email_app']:
+    dados_escola = db.query(DadosEscola).first()
+    email_remetente = getattr(dados_escola, 'email_remetente', None)
+    senha_email_app = getattr(dados_escola, 'senha_email_app', None)
+    telefone_escola = getattr(dados_escola, 'telefone', '')
+
+    if not email_remetente or not senha_email_app:
         flash('Não há e-mail institucional e/ou senha de aplicativo cadastrados para a escola.', 'danger')
         return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
-    email_remetente = dados_escola['email_remetente']
-    senha_email_app = dados_escola['senha_email_app']
 
-    # MONTE AQUI O CORPO DO E-MAIL (exemplo simples abaixo)
     assunto = "Ficha de Medida Disciplinar"
 
-    # Função utilitária para pegar campo ou retorno vazio
     def get_fmd_field(row, key):
         try:
-            return row[key]
+            return getattr(row, key, '')
         except Exception:
             return ''
-
-    # Pegue o telefone em Python ANTES da string do e-mail
-    telefone_escola = dados_escola['telefone'] if 'telefone' in dados_escola.keys() else ''
 
     corpo_html = f"""
     <html>
     <body>
         <p>Prezado responsável,<br>
-        Segue a Ficha de Medida Disciplinar referente ao(a) aluno(a): <b>{aluno['nome']}</b>.
+        Segue a Ficha de Medida Disciplinar referente ao(a) aluno(a): <b>{getattr(aluno, 'nome', '')}</b>.
         <br><br>
         Tipo de falta: <b>{get_fmd_field(fmd,'tipo_falta')}</b><br>
         Medida aplicada: <b>{get_fmd_field(fmd,'medida_aplicada')}</b><br>
@@ -1851,7 +1641,6 @@ def enviar_email_fmd(fmd_id):
     </html>
     """
 
-    # ========== ENVIO REAL DO E-MAIL ==========
     try:
         temp_dir = "tmp"
         safe_fmd_id = str(fmd_id).replace('/', '_')
@@ -1866,13 +1655,11 @@ def enviar_email_fmd(fmd_id):
         msg['Subject'] = assunto
         msg.attach(MIMEText(corpo_html, 'html'))
 
-        # ----- ANEXO PDF -----
         with open(pdf_path, "rb") as f:
             part = MIMEApplication(f.read(), Name=os.path.basename(pdf_path))
             part['Content-Disposition'] = f'attachment; filename="{os.path.basename(pdf_path)}"'
             msg.attach(part)
-        # ---------------------
-        
+
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(email_remetente, senha_email_app)
@@ -1880,8 +1667,8 @@ def enviar_email_fmd(fmd_id):
         server.quit()
 
         data_envio = datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
-        db.execute("UPDATE ficha_medida_disciplinar SET email_enviado_data=?, email_enviado_para=? WHERE fmd_id=?",
-                   (data_envio, email_destinatario, fmd_id))
+        fmd.email_enviado_data = data_envio
+        fmd.email_enviado_para = email_destinatario
         db.commit()
         flash("FMD enviada por e-mail com sucesso!", "success")
     except Exception as e:
