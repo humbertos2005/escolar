@@ -28,6 +28,10 @@ except Exception:
     except Exception:
         utils_mod = None
 
+# IMPORTAÇÃO DO ORM
+from escola.database import get_db
+from escola.models_sqlalchemy import Ocorrencia
+
 bp_apply_fmds = Blueprint("apply_fmds_bp", __name__)
 
 def _find_cli_script():
@@ -71,29 +75,13 @@ def apply_fmds():
     medida = data.get("medida", "Medida automática")
     apply_flag = bool(data.get("apply", False))
 
-    # --- INÍCIO DO CÓDIGO INSERIDO ---
-    # Importação atrasada para evitar circularidade em ambiente Flask
-    import sqlite3
-
-    # Obtenha caminho correto do banco (ajuste caso use SQLAlchemy/diferente)
-    db_path = os.environ.get("DATABASE_FILE") or os.path.join(current_app.root_path, "..", "escola.db")
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    tipo_rfo = None
-    try:
-        # Busca o tipo_rfo pela coluna correspondente (ajuste se necessário)
-        cur = conn.cursor()
-        cur.execute("SELECT tipo_rfo FROM ocorrencias WHERE rfo_id = ?", (rfo_id,))
-        row = cur.fetchone()
-        if row:
-            tipo_rfo = row["tipo_rfo"]
-    except Exception:
-        tipo_rfo = None
-    finally:
-        conn.close()
+    # === SQLAlchemy: valida se é elogio no ORM ===
+    db = get_db()
+    ocorrencia = db.query(Ocorrencia).filter_by(rfo_id=rfo_id).first()
+    tipo_rfo = getattr(ocorrencia, "tipo_rfo", None) if ocorrencia else None
     if tipo_rfo and str(tipo_rfo).strip().lower() == "elogio":
         return jsonify({"ok": False, "error": "Este RFO é um elogio e não gera FMD automaticamente."}), 200
-    # --- FIM DO CÓDIGO INSERIDO ---
+    # === FIM: SQLAlchemy checagem ===
 
     # build command
     pyexe = sys.executable or "python"

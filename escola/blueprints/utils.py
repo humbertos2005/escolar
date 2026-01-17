@@ -79,9 +79,7 @@ INFRACAO_MAP = {
     42: "Outros atos não especificados que violem o regimento escolar"
 }
 
-
 # --- DECORADORES DE AUTORIZAÇÃO ---
-
 def login_required(f):
     """Verifica se o usuário está logado."""
     @wraps(f)
@@ -163,29 +161,25 @@ def validar_email(email):
 
 def get_proximo_rfo_id(incrementar=False):
     """
-    Gera um identificador para RFO no formato RFO-XXXX/YYYY (ex: RFO-0001/2025).
-    Usa a conexão de banco fornecida por database.get_db() para contar ocorrências
-    do ano atual e retorna RFO-{seq:04d}/{year}. Se houver qualquer erro, cai
-    para um fallback baseado em timestamp (único propósito de garantir retorno).
+    Gera um identificador para RFO no formato RFO-XXXX/YYYY (ex: RFO-0001/2025),
+    usando SQLAlchemy ORM.
     """
     try:
         from datetime import datetime
-        # obtém get_db do módulo database (definido em database.py)
-        from database import get_db
+        from escola.database import get_db
+        from escola.models_sqlalchemy import Ocorrencia
 
         year = datetime.utcnow().strftime('%Y')
         try:
             db = get_db()
-            row = db.execute("SELECT COUNT(*) as c FROM ocorrencias WHERE strftime('%Y', created_at) = ?", (year,)).fetchone()
-            base_count = int(row['c']) if row and row['c'] is not None else 0
+            # Considera 'created_at' no padrão 'YYYY-MM-DD ...'
+            base_count = db.query(Ocorrencia).filter(Ocorrencia.created_at.startswith(f"{year}")).count()
         except Exception:
-            # se por alguma razão não temos acesso ao contexto Flask/get_db, usar 0
             base_count = 0
 
         seq = base_count + 1
         return f"RFO-{seq:04d}/{year}"
     except Exception:
-        # fallback robusto por timestamp (não ideal, mas evita quebrar UI)
         from datetime import datetime
         year = datetime.utcnow().strftime('%Y')
         fallback_seq = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[-6:]

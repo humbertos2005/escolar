@@ -3,121 +3,125 @@ from flask import session, current_app
 
 def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
     """
-    Integra um RFO (ocorrencia_id) ao prontuÃ¡rio do aluno.
-    - cria a tabela prontuario_rfo se nÃ£o existir;
-    - evita duplicaÃ§Ã£o consultando prontuario_rfo;
-    - cria ou atualiza prontuÃ¡rio acrescentando o registro formatado;
-    - copia sÃ©rie/turma (e outros campos bÃ¡sicos) do aluno para o prontuÃ¡rio;
-    - registra vÃ­nculo prontuario_rfo.
+    Integra um RFO (ocorrencia_id) ao prontuário do aluno. Usa ORM/SQLAlchemy.
+    - Evita duplicação consultando ProntuarioRFO.
+    - Cria ou atualiza Prontuario, acrescentando o registro formatado.
+    - Copia série/turma/turno/telefone do aluno para o prontuário.
+    - Registra o vínculo ProntuarioRFO.
     Retorna (True, message) ou (False, message).
     """
     usuario = usuario or (session.get('username') if session else 'system')
 
-    try:
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS prontuario_rfo (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ocorrencia_id INTEGER UNIQUE,
-                prontuario_id INTEGER,
-                created_at TEXT
-            );
-        ''')
-    except Exception:
-        try:
-            db.rollback()
-        except Exception:
-            pass
-        return False, 'Falha ao garantir tabela prontuario_rfo'
-
-    existing_link = db.execute('SELECT id, prontuario_id FROM prontuario_rfo WHERE ocorrencia_id = ?', (ocorrencia_id,)).fetchone()
+    # ----- Importa os modelos necessários -----
+    from escola.models_sqlalchemy import (
+        Prontuario, ProntuarioRFO, Ocorrencia, Aluno
+    )
+    # Checar se já existe vínculo
+    existing_link = db.query(ProntuarioRFO).filter_by(ocorrencia_id=ocorrencia_id).first()
     if existing_link:
-        return False, 'RFO jÃ¡ integrado ao prontuÃ¡rio (vÃ­nculo existente)'
+        return False, 'RFO já integrado ao prontuário (vínculo existente)'
 
-    r = db.execute('''
-        SELECT o.*, a.id AS aluno_id, a.matricula AS aluno_matricula,
-               a.nome AS aluno_nome, a.serie AS aluno_serie, a.turma AS aluno_turma,
-               a.turno AS aluno_turno, a.telefone AS aluno_telefone, a.photo AS aluno_photo
-        FROM ocorrencias o
-        LEFT JOIN alunos a ON o.aluno_id = a.id
-        WHERE o.id = ?
-    ''', (ocorrencia_id,)).fetchone()
+    ocorrencia = (
+        db.query(Ocorrencia)
+        .filter_by(id=ocorrencia_id)
+        .first()
+    )
 
-    if not r:
-        return False, 'OcorrÃªncia/RFO nÃ£o encontrada'
+    if not ocorrencia:
+        return False, 'Ocorrência/RFO não encontrada'
 
-    rdict = dict(r)
-    rfo_numero = rdict.get('rfo_id') or rdict.get('rfo') or rdict.get('codigo') or f"RFO-{rdict.get('id','')}"
-    data_oc = rdict.get('data_ocorrencia') or rdict.get('data') or rdict.get('created_at') or ''
-    relato = rdict.get('relato_observador') or rdict.get('relato') or rdict.get('descricao') or ''
-    tipo = rdict.get('tipo_ocorrencia_nome') or rdict.get('tipo') or ''
-    item_desc = rdict.get('item_descricao') or rdict.get('descricao_item') or ''
-    reinc = 'Sim' if rdict.get('reincidencia') else 'NÃ£o'
-    medida_aplicada = rdict.get('medida_aplicada') or rdict.get('medida') or ''
-    despacho = rdict.get('despacho_gestor') or rdict.get('despacho') or ''
-    data_despacho = rdict.get('data_despacho') or rdict.get('data_tratamento') or ''
+    aluno = db.query(Aluno).filter_by(id=ocorrencia.aluno_id).first() if ocorrencia.aluno_id else None
+    if not aluno:
+        return False, 'Aluno relacionado ao RFO não encontrado'
 
-    registro_line = (f"RFO: {rfo_numero} | Data do RFO: {data_oc} | Relato: {relato} | "
-                     f"Tipo: {tipo} | Item/DescriÃ§Ã£o: {item_desc} | Ã‰ reincidÃªncia? {reinc} | "
-                     f"Medida Aplicada: {medida_aplicada} | Despacho do Gestor: {despacho} | "
-                     f"Data do Despacho: {data_despacho}")
+    # ----- Monta os campos-formatados -----
+    rfo_numero = getattr(ocorrencia, 'rfo_id', None) or getattr(ocorrencia, 'rfo', None) or getattr(ocorrencia, 'codigo', None) or f"RFO-{getattr(ocorrencia, 'id', '')}"
+    data_oc = getattr(ocorrencia, 'data_ocorrencia', None) or getattr(ocorrencia, 'data', None) or getattr(ocorrencia, 'created_at', None) or ''
+    relato = getattr(ocorrencia, 'relato_observador', None) or getattr(ocorrencia, 'relato', None) or getattr(ocorrencia, 'descricao', None) or ''
+    tipo = getattr(ocorrencia, 'tipo_ocorrencia_nome', None) or getattr(ocorrencia, 'tipo', None) or ''
+    item_desc = getattr(ocorrencia, 'item_descricao', None) or getattr(ocorrencia, 'descricao_item', None) or ''
+    reinc = 'Sim' if getattr(ocorrencia, 'reincidencia', False) else 'Não'
+    medida_aplicada = getattr(ocorrencia, 'medida_aplicada', None) or getattr(ocorrencia, 'medida', None) or ''
+    despacho = getattr(ocorrencia, 'despacho_gestor', None) or getattr(ocorrencia, 'despacho', None) or ''
+    data_despacho = getattr(ocorrencia, 'data_despacho', None) or getattr(ocorrencia, 'data_tratamento', None) or ''
 
-    aluno_id = rdict.get('aluno_id')
-    aluno_serie = rdict.get('aluno_serie') or None
-    aluno_turma = rdict.get('aluno_turma') or None
-    aluno_turno = rdict.get('aluno_turno') or None
-    aluno_telefone = rdict.get('aluno_telefone') or None
-    aluno_photo = rdict.get('aluno_photo') or None
+    registro_line = (
+        f"RFO: {rfo_numero} | Data do RFO: {data_oc} | Relato: {relato} | "
+        f"Tipo: {tipo} | Item/Descrição: {item_desc} | É reincidência? {reinc} | "
+        f"Medida Aplicada: {medida_aplicada} | Despacho do Gestor: {despacho} | "
+        f"Data do Despacho: {data_despacho}"
+    )
+
+    aluno_id = aluno.id
+    aluno_serie = getattr(aluno, "serie", None)
+    aluno_turma = getattr(aluno, "turma", None)
+    aluno_turno = getattr(aluno, "turno", None)
+    aluno_telefone = getattr(aluno, "telefone", None)
 
     timestamp = datetime.utcnow().isoformat()
 
-    existing = db.execute('SELECT * FROM prontuarios WHERE aluno_id = ? ORDER BY id DESC LIMIT 1', (aluno_id,)).fetchone()
-
+    prontuario = (
+        db.query(Prontuario)
+        .filter_by(aluno_id=aluno_id)
+        .order_by(Prontuario.id.desc())
+        .first()
+    )
     try:
-        if existing:
-            # salvar histÃ³rico se disponÃ­vel
+        if prontuario:
+            # Salvar histórico se integrador disponível
             try:
                 from blueprints.formularios_prontuario import insert_prontuario_history
-                insert_prontuario_history(db, existing, action='update_before_append', changed_by=usuario)
+                insert_prontuario_history(db, prontuario, action='update_before_append', changed_by=usuario)
             except Exception:
                 pass
 
-            try:
-                existing_rf = existing['registros_fatos'] if 'registros_fatos' in existing.keys() else (existing[10] if len(existing) > 10 else '')
-            except Exception:
-                existing_rf = existing[10] if existing and len(existing) > 10 else ''
-
+            existing_rf = getattr(prontuario, "registros_fatos", '') or ''
             if existing_rf and registro_line:
                 combined = f"{existing_rf}\n\n--- Adicionado em {timestamp} ---\n{registro_line}"
             elif registro_line:
                 combined = f"--- Adicionado em {timestamp} ---\n{registro_line}"
             else:
                 combined = existing_rf
-
-            prontuario_id = existing['id'] if 'id' in existing.keys() else existing[0]
-
-            # Atualizar prontuÃ¡rio: registros_fatos e tambÃ©m copiar serie/turma/turno/telefone se disponÃ­veis
-            db.execute('''
-                UPDATE prontuarios
-                SET registros_fatos = ?, deleted = 0, serie = ?, turma = ?, turno = ?, telefone1 = ?
-                WHERE id = ?
-            ''', (combined, aluno_serie, aluno_turma, aluno_turno, aluno_telefone, prontuario_id))
+            
+            prontuario.registros_fatos = combined
+            prontuario.deleted = 0
+            prontuario.serie = aluno_serie
+            prontuario.turma = aluno_turma
+            prontuario.turno = aluno_turno
+            prontuario.telefone1 = aluno_telefone
+            db.commit()
+            prontuario_id = prontuario.id
         else:
-            # criar novo prontuÃ¡rio incluindo sÃ©rie/turma/turno/telefone se existirem
-            db.execute('''
-                INSERT INTO prontuarios (aluno_id, responsavel, email, registros_fatos, circunstancias_atenuantes, circunstancias_agravantes, created_at, deleted, serie, turma, turno, telefone1)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-            ''', (int(aluno_id) if aluno_id else None, '', '', f"--- Adicionado em {timestamp} ---\n{registro_line}", '', '', timestamp, aluno_serie, aluno_turma, aluno_turno, aluno_telefone))
-            prontuario_id = db.execute('SELECT last_insert_rowid() as id').fetchone()[0]
+            new_prontuario = Prontuario(
+                aluno_id=aluno_id,
+                responsavel='',
+                email='',
+                registros_fatos=f"--- Adicionado em {timestamp} ---\n{registro_line}",
+                circunstancias_atenuantes='',
+                circunstancias_agravantes='',
+                created_at=timestamp,
+                deleted=0,
+                serie=aluno_serie,
+                turma=aluno_turma,
+                turno=aluno_turno,
+                telefone1=aluno_telefone,
+            )
+            db.add(new_prontuario)
+            db.commit()
+            prontuario_id = new_prontuario.id
 
-        # gravar vÃ­nculo (ocorrencia_id -> prontuario_id)
-        db.execute('INSERT OR REPLACE INTO prontuario_rfo (ocorrencia_id, prontuario_id, created_at) VALUES (?, ?, ?)', (ocorrencia_id, prontuario_id, timestamp))
+        # Vincula o RFO ao prontuário
+        new_link = ProntuarioRFO(
+            ocorrencia_id=ocorrencia_id,
+            prontuario_id=prontuario_id,
+            created_at=timestamp
+        )
+        db.add(new_link)
+        db.commit()
 
-        return True, 'RFO integrado ao prontuÃ¡rio'
+        return True, 'RFO integrado ao prontuário'
     except Exception as e:
-        try:
-            db.rollback()
-        except Exception:
-            pass
+        db.rollback()
         current_app.logger.exception('Erro em create_or_append_prontuario_por_rfo')
-        return False, f'Erro ao integrar RFO ao prontuÃ¡rio: {e}'
+        return False, f'Erro ao integrar RFO ao prontuário: {e}'
 
