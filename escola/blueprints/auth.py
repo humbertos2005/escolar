@@ -240,7 +240,8 @@ def gerenciar_usuarios():
             "username": u.username,
             "nivel": u.nivel,
             "cargo": u.cargo,
-            "data_criacao": u.data_criacao
+            "data_criacao": u.data_criacao,
+            "nivel_nome": NIVEL_MAP.get(int(u.nivel), "Desconhecido") if u.nivel is not None else "Desconhecido"
         }
         for u in usuarios
     ]
