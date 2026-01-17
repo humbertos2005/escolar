@@ -9,7 +9,7 @@ from models_sqlalchemy import Ata, Aluno
 formularios_ata_bp = Blueprint('formularios_ata_bp', __name__, url_prefix='/formularios/atas')
 
 def int_to_words_pt(n):
-    unidades = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
+    unidades = {0:"zero",1:"um",2:"dois",3:"trÃªs",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
                 10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",
                 18:"dezoito",19:"dezenove"}
     dezenas = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
@@ -140,11 +140,11 @@ def nova_ata():
         except Exception as e:
             db.rollback()
             if hasattr(e, "orig") and "unique" in str(e.orig).lower():
-                flash('Falha: número duplicado para o ano (unique). Tente novamente.', 'danger')
+                flash('Falha: nÃºmero duplicado para o ano (unique). Tente novamente.', 'danger')
             else:
                 flash(f'Erro ao criar ATA: {e}', 'danger')
 
-    # calcular próximo número para exibição (NNN/AAAA)
+    # calcular prÃ³ximo nÃºmero para exibiÃ§Ã£o (NNN/AAAA)
     ano_atual = datetime.now().year
     try:
         last = db.query(Ata).filter(Ata.ano==ano_atual).order_by(Ata.numero.desc()).first()
@@ -162,7 +162,7 @@ def view_ata(ata_id):
     db = get_db()
     ata_obj = db.query(Ata).filter_by(id=ata_id).first()
     if not ata_obj:
-        flash('ATA não encontrada.', 'danger')
+        flash('ATA nÃ£o encontrada.', 'danger')
         return redirect(url_for('formularios_ata_bp.list_atas'))
 
     ata = ata_obj.__dict__.copy()
@@ -204,7 +204,7 @@ def edit_ata(ata_id):
     db = get_db()
     ata_obj = db.query(Ata).filter_by(id=ata_id).first()
     if not ata_obj:
-        flash('ATA não encontrada.', 'danger')
+        flash('ATA nÃ£o encontrada.', 'danger')
         return redirect(url_for('formularios_ata_bp.list_atas'))
 
     alunos = db.query(Aluno).order_by(Aluno.nome).all()
@@ -244,12 +244,12 @@ def delete_ata(ata_id):
     db = get_db()
     ata = db.query(Ata).filter_by(id=ata_id).first()
     if not ata:
-        flash('ATA não encontrada.', 'danger')
+        flash('ATA nÃ£o encontrada.', 'danger')
         return redirect(url_for('formularios_ata_bp.list_atas'))
     try:
         db.delete(ata)
         db.commit()
-        flash(f'ATA {ata.numero}/{ata.ano} excluída.', 'success')
+        flash(f'ATA {ata.numero}/{ata.ano} excluÃ­da.', 'success')
     except Exception as e:
         db.rollback()
         flash(f'Erro ao excluir ATA: {e}', 'danger')
@@ -262,7 +262,7 @@ def api_student(student_id):
     if not a:
         return jsonify({}), 404
     data = a.__dict__.copy()
-    # Normalizações
+    # NormalizaÃ§Ãµes
     normalized = {}
     normalized['id'] = a.id
     normalized['nome'] = getattr(a, 'nome', None)
@@ -290,7 +290,7 @@ def api_ata(ata_id):
     except Exception:
         data["participants_json"] = []
 
-    # incluir dados do aluno se possível
+    # incluir dados do aluno se possÃ­vel
     try:
         aluno_id = data.get("aluno_id") or data.get("aluno")
         if aluno_id:
@@ -304,14 +304,14 @@ def api_ata(ata_id):
     try:
         if data.get("created_at"):
             dt = datetime.strptime(data["created_at"], "%Y-%m-%d %H:%M:%S")
-            months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+            months = ["janeiro","fevereiro","marÃ§o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
             day_words = int_to_words_pt(dt.day)
             year_words = int_to_words_pt(dt.year)
-            data["data_extenso"] = f"{day_words} dias do mês de {months[dt.month-1]} do ano de {year_words}"
+            data["data_extenso"] = f"{day_words} dias do mÃªs de {months[dt.month-1]} do ano de {year_words}"
     except Exception:
         data["data_extenso"] = data.get("created_at")
 
-    # normalizar/de-duplicar participants_json, sempre incluindo o responsável
+    # normalizar/de-duplicar participants_json, sempre incluindo o responsÃ¡vel
     try:
         parts = []
         seen = set()
@@ -327,7 +327,7 @@ def api_ata(ata_id):
                     seen.add(n)
                     parts.append({"name": name, "cargo": cargo})
 
-        # buscar responsável
+        # buscar responsÃ¡vel
         resp = ""
         if data.get("responsavel"):
             resp = data.get("responsavel")
@@ -335,7 +335,7 @@ def api_ata(ata_id):
             resp = data["aluno"].get("responsavel")
         if resp:
             if norm(resp) not in seen:
-                parts.append({"name": resp, "cargo": "Responsável"})
+                parts.append({"name": resp, "cargo": "ResponsÃ¡vel"})
         data["participants_json"] = parts
     except Exception:
         pass

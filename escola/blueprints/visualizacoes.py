@@ -675,16 +675,18 @@ from database import get_db
 def ata_pdf(ata_id):
     """
     Gera PDF da ATA usando o template visualizacoes/ata_print.html.
-    Lida com todos os campos, participantes, cabeçalho, diretor, responsável e data por extenso.
+    Monta todos os detalhes relevantes da ata e cabeçalho!
     """
     import io
     import re
+    import json
     from flask import render_template, send_file, jsonify, request, url_for
     from datetime import datetime, date
+    # Se possível, deixe essas funções auxiliares fora da view em versão final!
 
     def num_to_words_pt(n):
         units = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
-                 10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",18:"dezoito",19:"dezenove"}
+                10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",18:"dezoito",19:"dezenove"}
         tens = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
         hundreds = {100:"cem",200:"duzentos",300:"trezentos",400:"quatrocentos",500:"quinhentos",600:"seiscentos",700:"setecentos",800:"oitocentos",900:"novecentos"}
         if n < 0:
@@ -761,13 +763,12 @@ def ata_pdf(ata_id):
         except Exception:
             ata["participants_json"] = participants
 
-        # Busca aluno, se houver
+        # Aluno/reponsável
         aluno_id = ata.get("aluno_id")
         if aluno_id:
             a = db.query(Aluno).filter_by(id=aluno_id).first()
             if a:
                 ata["aluno"] = a.__dict__.copy()
-                # também obter responsável se faltar
                 if not ata.get("responsavel"):
                     for k in ("responsavel", "responsavel_nome", "nome_responsavel"):
                         val = getattr(a, k, None)
@@ -775,7 +776,7 @@ def ata_pdf(ata_id):
                             ata["responsavel"] = val
                             break
 
-        # Cabeçalho: pega o mais recente (ou por ID se existir)
+        # Cabeçalho da escola
         cabecalho = {"estado":"", "secretaria":"", "coordenacao":"", "escola":"", "logo_url":""}
         cab_obj = None
         try:
@@ -787,7 +788,6 @@ def ata_pdf(ata_id):
             for k in ("estado", "secretaria", "coordenacao", "escola"):
                 if cabd.get(k): cabecalho[k] = cabd[k]
             logo_fn = cabd.get('logo_estado') or cabd.get('logo')
-            # calcula logo_url padrão se houver logo em uploads/cabecalhos
             if logo_fn:
                 try:
                     cabecalho['logo_url'] = url_for('static', filename=f'uploads/cabecalhos/{logo_fn}')
@@ -815,7 +815,7 @@ def ata_pdf(ata_id):
         except Exception:
             pass
 
-        # Data por extenso prioritária (usa campo já existente ou calcula a partir das opções)
+        # Data por extenso: pega campo ou calcula via fallback
         ata_date = None
         if ata.get("data_extenso") and isinstance(ata.get("data_extenso"), str) and ata.get("data_extenso").strip():
             ata["data_extenso_extenso"] = ata.get("data_extenso")
@@ -838,11 +838,11 @@ def ata_pdf(ata_id):
         except Exception:
             pass
 
-        # gerar logo_data/arquivo
+        # logo_data/arquivo via helper
         logo_data, logo_file = _get_logo_data_and_file(cabecalho)
         cabecalho["logo_file"] = cabecalho.get("logo_file") or logo_file
 
-        # build assinaturas a partir de participants_json
+        # build assinaturas (deduplicando)
         def _normalize_participant(p):
             if isinstance(p, dict):
                 name = p.get('nome') or p.get('name') or p.get('nome_completo') or ""
@@ -860,7 +860,6 @@ def ata_pdf(ata_id):
         except Exception:
             assinaturas = []
 
-        # garantir diretor e responsável estejam entre assinaturas
         if diretor_nome and not any(a['nome'].strip().lower() == diretor_nome.strip().lower() for a in assinaturas):
             assinaturas.append({'nome': diretor_nome, 'cargo': 'Diretor'})
         resp = ata.get("responsavel")
@@ -868,12 +867,11 @@ def ata_pdf(ata_id):
             assinaturas.append({'nome': resp, 'cargo': 'Responsável'})
 
         html = render_template("visualizacoes/ata_print.html",
-           ata=ata, ata_id=ata_id, cabecalho=cabecalho,
-           diretor_nome=diretor_nome,
-           logo_file=cabecalho.get("logo_file"), logo_data=logo_data
+            ata=ata, ata_id=ata_id, cabecalho=cabecalho,
+            diretor_nome=diretor_nome,
+            logo_file=cabecalho.get("logo_file"), logo_data=logo_data
         )
 
-        # garantir base href para recursos relativos
         base = request.url_root.rstrip('/')
         if re.search(r'(?i)<head\b', html):
             html = re.sub(r'(?i)(<head\b[^>]*>)', r'\1<base href="' + base + '">', html, count=1)
@@ -888,163 +886,3 @@ def ata_pdf(ata_id):
                      mimetype="application/pdf",
                      as_attachment=False,
                      download_name=f"ata_{ata_id}.pdf")
-    
-    from models_sqlalchemy import Ata, Aluno, Cabecalho
-from database import get_db
-
-@visualizacoes_bp.route("/ata/<int:ata_id>/pdf")
-def ata_pdf(ata_id):
-    """
-    Gera PDF da ATA usando o template visualizacoes/ata_print.html.
-    Busca registro da ATA, desserializa participants_json se necessário,
-    carrega dados do cabeçalho (cabecalhos / dados_escola via ORM) e retorna PDF.
-    """
-    import io
-    import re
-    import json as _json
-    from flask import render_template, send_file, jsonify, request, url_for
-    from datetime import datetime
-
-    try:
-        db = get_db()
-        ata_obj = db.query(Ata).filter_by(id=ata_id).first()
-        if not ata_obj:
-            return jsonify({"error": "ATA não encontrada."}), 404
-        ata = ata_obj.__dict__.copy()
-
-        # desserializar participants_json se for string
-        if isinstance(ata.get("participants_json"), str) and ata["participants_json"].strip():
-            try:
-                ata["participants_json"] = _json.loads(ata["participants_json"])
-            except Exception:
-                ata["participants_json"] = []
-        elif not ata.get("participants_json"):
-            ata["participants_json"] = []
-
-        # carregar cabeçalho (pega o último de Cabecalho ORM)
-        cab_obj = db.query(Cabecalho).order_by(Cabecalho.id.desc()).first()
-        cabecalho = {"estado": "", "secretaria": "", "coordenacao": "", "escola": "", "logo_url": ""}
-        if cab_obj:
-            cabd = cab_obj.__dict__.copy()
-            for k in ("estado", "secretaria", "coordenacao", "escola"):
-                if cabd.get(k): cabecalho[k] = cabd[k]
-            logo_fn = cabd.get("logo_estado") or cabd.get("logo")
-            if logo_fn:
-                try:
-                    cabecalho["logo_url"] = url_for("static", filename=f"uploads/cabecalhos/{logo_fn}")
-                except Exception:
-                    cabecalho["logo_url"] = f"/static/uploads/cabecalhos/{logo_fn}"
-
-        # preencher dados do aluno caso exista referência
-        aluno_id = ata.get("aluno_id")
-        if aluno_id:
-            a = db.query(Aluno).filter_by(id=aluno_id).first()
-            if a:
-                ata["aluno"] = a.__dict__.copy()
-                # garantir responsável
-                for k in ("responsavel", "responsavel_nome", "nome_responsavel"):
-                    val = getattr(a, k, None)
-                    if val:
-                        ata["responsavel"] = val
-                        break
-
-        # data por extenso: usar field, ou calcular via created_at
-        if not ata.get("data_extenso") and ata.get("created_at"):
-            try:
-                dt = datetime.strptime(ata["created_at"], "%Y-%m-%d %H:%M:%S")
-                meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
-                         "agosto", "setembro", "outubro", "novembro", "dezembro"]
-                day_words = num_to_words_pt(dt.day)
-                year_words = num_to_words_pt(dt.year)
-                ata["data_extenso"] = f"{day_words} dias do mês de {meses[dt.month-1]} do ano de {year_words}"
-            except Exception:
-                ata["data_extenso"] = ata.get("created_at")
-
-        # garantir logo_file e logo_data atualizados
-        logo_data, logo_file = _get_logo_data_and_file(cabecalho)
-        cabecalho["logo_file"] = cabecalho.get("logo_file") or logo_file
-
-        # garantir assinaturas/diretor presentes
-        parts = ata.get("participants_json") or []
-        assinaturas = []
-        def _normalize_participant(p):
-            if isinstance(p, dict):
-                name = p.get('nome') or p.get('name') or ""
-                role = p.get('cargo') or p.get('role') or ""
-                return {'nome': (name or "").strip(), 'cargo': (role or "").strip()}
-            return {'nome': str(p).strip(), 'cargo': ''}
-        for p in parts:
-            np = _normalize_participant(p)
-            if np['nome']:
-                assinaturas.append(np)
-
-        # adicionar diretor a assinaturas se não está
-        diretor_nome = getattr(cab_obj, "diretor", None) if cab_obj else None
-        if diretor_nome and not any(a['nome'].strip().lower() == diretor_nome.strip().lower() for a in assinaturas):
-            assinaturas.append({'nome': diretor_nome, 'cargo': 'Diretor'})
-        resp = ata.get("responsavel")
-        if resp and not any(a['nome'].strip().lower() == resp.strip().lower() for a in assinaturas):
-            assinaturas.append({'nome': resp, 'cargo': 'Responsável'})
-
-        html = render_template("visualizacoes/ata_print.html",
-           ata=ata, ata_id=ata_id, cabecalho=cabecalho,
-           diretor_nome=diretor_nome,
-           logo_file=cabecalho.get("logo_file"), logo_data=logo_data
-        )
-        base = request.url_root.rstrip('/')
-        if re.search(r'(?i)<head\b', html):
-            html = re.sub(r'(?i)(<head\b[^>]*>)', r'\1<base href="' + base + '">', html, count=1)
-        else:
-            html = '<base href="' + base + '">' + html
-
-        pdfbytes = generate_pdf_bytes(html)
-    except Exception as e:
-        return jsonify({"error": "Erro ao gerar PDF: " + str(e)}), 500
-
-    return send_file(io.BytesIO(pdfbytes),
-                     mimetype="application/pdf",
-                     as_attachment=False,
-                     download_name=f"ata_{ata_id}.pdf")
-
-# Helper para numeral por extenso
-def num_to_words_pt(n):
-    units = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
-             10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",18:"dezoito",19:"dezenove"}
-    tens = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
-    hundreds = {100:"cem",200:"duzentos",300:"trezentos",400:"quatrocentos",500:"quinhentos",600:"seiscentos",700:"setecentos",800:"oitocentos",900:"novecentos"}
-    if n < 0:
-        return "menos " + num_to_words_pt(-n)
-    if n < 20:
-        return units[n]
-    if n < 100:
-        t = (n // 10) * 10
-        r = n % 10
-        if r == 0:
-            return tens[t]
-        return tens[t] + " e " + units[r]
-    if n < 1000:
-        h = (n // 100) * 100
-        r = n % 100
-        if n == 100:
-            return "cem"
-        prefix = hundreds.get(h, "")
-        if r == 0:
-            return prefix
-        return prefix + " e " + num_to_words_pt(r)
-    if n < 10000:
-        mil = n // 1000
-        r = n % 1000
-        if mil == 1:
-            prefix = "mil"
-        else:
-            prefix = num_to_words_pt(mil) + " mil"
-        if r == 0:
-            return prefix
-        if r < 100:
-            return prefix + " e " + num_to_words_pt(r)
-        return prefix + " " + num_to_words_pt(r)
-    return str(n)
-
-
-
-

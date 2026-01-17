@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, render_template, g, session, redirect, url_for, flash, jsonify, request
-from database import init_db, close_db, get_db, DATABASE_URL
+from database import close_db, get_db, DATABASE_URL  # sem init_db!
 import sqlite3
 import os
 import locale
 from blueprints.bimestres import bimestres_bp
 from flask_moment import Moment
-#from models import criar_tabelas, criar_admin_inicial, migrar_estrutura_antiga_ocorrencias
+# from models import criar_tabelas, criar_admin_inicial, migrar_estrutura_antiga_ocorrencias
 from blueprints.auth import auth_bp
 from blueprints.alunos import alunos_bp
 from blueprints.disciplinar import disciplinar_bp
@@ -20,12 +20,12 @@ from blueprints.visualizacoes import visualizacoes_bp
 from blueprints import utils
 from blueprints.relatorios_disciplinares import relatorios_disciplinares_bp
 from blueprints.documentos import documentos_bp
-from migrations.init_db import init_db
+# from migrations.init_db import init_db
 from dotenv import load_dotenv
 load_dotenv()
 
-db_path = os.environ.get("DATABASE_FILE", "escola.db")
-init_db(db_path)
+# db_path = os.environ.get("DATABASE_FILE", "escola.db")
+# init_db(db_path)     # <-- REMOVA ou comente ESSA LINHA
 
 # Configurar localização brasileira
 try:
@@ -41,7 +41,7 @@ except:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave-secreta-gestao-escolar-2025-v2")
-app.config['DATABASE'] = DATABASE
+app.config['DATABASE_URL'] = DATABASE_URL
 app.register_blueprint(relatorios_disciplinares_bp, url_prefix='/relatorios_disciplinares')
 
 from datetime import datetime
