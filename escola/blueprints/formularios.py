@@ -1,7 +1,12 @@
-from flask import Blueprint, render_template, request, make_response, jsonify, current_app
-from database import get_db
+from flask import Blueprint, render_template, request, jsonify, current_app
+from escola.database import get_db
 from .utils import login_required, admin_secundario_required
-from datetime import datetime
+from datetime import datetime, date
+from escola.models_sqlalchemy import (
+    FaltaDisciplinar, Ocorrencia, Aluno, FichaMedidaDisciplinar,
+    Usuario, TipoOcorrencia, Bimestre, TabelaDisciplinarConfig,
+    PontuacaoBimestral, PontuacaoHistorico
+)
 
 formularios_bp = Blueprint('formularios_bp', __name__)
 
@@ -10,20 +15,15 @@ formularios_bp = Blueprint('formularios_bp', __name__)
 def tabela_disciplinar():
     """Exibe a tabela disciplinar com todas as faltas e medidas."""
     db = get_db()
-    faltas = db.execute('''
-        SELECT id, natureza, descricao 
-        FROM faltas_disciplinares 
-        ORDER BY 
-            CASE natureza 
-                WHEN 'LEVE' THEN 1 
-                WHEN 'MÉDIA' THEN 2 
-                WHEN 'GRAVE' THEN 3 
-                WHEN 'GRAVÍSSIMA' THEN 4 
-                ELSE 5 
-            END,
-            descricao
-    ''').fetchall()
-    
+    ordem_natureza = {
+        'LEVE': 1, 'MÉDIA': 2, 'GRAVE': 3, 'GRAVÍSSIMA': 4
+    }
+    faltas = db.query(FaltaDisciplinar).all()
+    # Ordena na mesma lógica do SQL
+    faltas = sorted(
+        faltas,
+        key=lambda f: (ordem_natureza.get((f.natureza or '').upper(), 5), f.descricao or '')
+    )
     return render_template('formularios/tabela_disciplinar.html', faltas=faltas)
 
 @formularios_bp.route('/rfo/<int:ocorrencia_id>')
@@ -31,80 +31,84 @@ def tabela_disciplinar():
 def formulario_rfo(ocorrencia_id):
     """Gera o formulário RFO imprimível."""
     db = get_db()
-    
-    rfo = db.execute('''
-        SELECT
-            o.*, 
-            a.matricula, a.nome AS nome_aluno, a.serie, a.turma,
-            tipo_oc.nome AS tipo_ocorrencia_nome,
-            u.username AS responsavel_registro_username
-        FROM ocorrencias o
-        JOIN alunos a ON o.aluno_id = a.id
-        JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        LEFT JOIN usuarios u ON o.responsavel_registro_id = u.id
-        WHERE o.id = ?
-    ''', (ocorrencia_id,)).fetchone()
-    
-    if rfo is None:
+    rfo = (
+        db.query(Ocorrencia, Aluno, TipoOcorrencia, Usuario)
+          .join(Aluno, Ocorrencia.aluno_id == Aluno.id)
+          .join(TipoOcorrencia, Ocorrencia.tipo_ocorrencia_id == TipoOcorrencia.id)
+          .outerjoin(Usuario, Ocorrencia.responsavel_registro_id == Usuario.id)
+          .filter(Ocorrencia.id == ocorrencia_id)
+          .first()
+    )
+    if not rfo:
         return "RFO não encontrado", 404
-    
-    return render_template('formularios/rfo.html', rfo=dict(rfo))
+
+    oc, aluno, tipoc, usuario = rfo
+    # Monta dict para facilitar no template  
+    rfo_dict = {**oc.__dict__, 
+                "matricula": aluno.matricula, "nome_aluno": aluno.nome,
+                "serie": aluno.serie, "turma": aluno.turma,
+                "tipo_ocorrencia_nome": tipoc.nome,
+                "responsavel_registro_username": getattr(usuario, "username", "") if usuario else ""}
+    return render_template('formularios/rfo.html', rfo=rfo_dict)
 
 @formularios_bp.route('/fmd/<int:fmd_id>')
 @admin_secundario_required
 def formulario_fmd(fmd_id):
     """Gera o formulário FMD imprimível."""
     db = get_db()
-    
-    fmd = db.execute('''
-        SELECT
-            f.*, 
-            a.matricula, a.nome AS nome_aluno, a.serie, a.turma,
-            u.username AS responsavel_username
-        FROM ficha_medida_disciplinar f
-        JOIN alunos a ON f.aluno_id = a.id
-        LEFT JOIN usuarios u ON f.responsavel_id = u.id
-        WHERE f.id = ?
-    ''', (fmd_id,)).fetchone()
-    
-    if fmd is None:
+    fmd = (
+        db.query(FichaMedidaDisciplinar, Aluno, Usuario)
+        .join(Aluno, FichaMedidaDisciplinar.aluno_id == Aluno.id)
+        .outerjoin(Usuario, FichaMedidaDisciplinar.responsavel_id == Usuario.id)
+        .filter(FichaMedidaDisciplinar.id == fmd_id)
+        .first()
+    )
+    if not fmd:
         return "FMD não encontrada", 404
-    
-    return render_template('formularios/fmd.html', fmd=dict(fmd))
+
+    fmd_obj, aluno, usuario = fmd
+    fmd_dict = {**fmd_obj.__dict__, 
+                "matricula": aluno.matricula, "nome_aluno": aluno.nome,
+                "serie": aluno.serie, "turma": aluno.turma,
+                "responsavel_username": getattr(usuario, "username", "") if usuario else ""}
+    return render_template('formularios/fmd.html', fmd=fmd_dict)
 
 @formularios_bp.route('/prontuario/<int:aluno_id>')
 @admin_secundario_required
 def prontuario(aluno_id):
     """Gera o prontuário completo do aluno."""
     db = get_db()
-    
-    aluno = db.execute('SELECT * FROM alunos WHERE id = ?', (aluno_id,)).fetchone()
+    aluno = db.query(Aluno).filter_by(id=aluno_id).first()
     if aluno is None:
         return "Aluno não encontrado", 404
-    
-    rfos = db.execute('''
-        SELECT
-            o.rfo_id, o.data_ocorrencia, o.status,
-            tipo_oc.nome AS tipo_ocorrencia_nome,
-            o.tipo_falta, o.medida_aplicada
-        FROM ocorrencias o
-        LEFT JOIN tipos_ocorrencia tipo_oc ON o.tipo_ocorrencia_id = tipo_oc.id
-        WHERE o.aluno_id = ?
-        ORDER BY o.data_ocorrencia DESC
-    ''', (aluno_id,)).fetchall()
-    
-    fmds = db.execute('''
-        SELECT fmd_id, data_fmd, tipo_falta, medida_aplicada, status
-        FROM ficha_medida_disciplinar
-        WHERE aluno_id = ?
-        ORDER BY data_fmd DESC
-    ''', (aluno_id,)).fetchall()
-    
-    return render_template('formularios/prontuario.html', 
-                         aluno=dict(aluno), 
-                         rfos=rfos, 
-                         fmds=fmds)
 
+    rfos = (
+        db.query(
+            Ocorrencia.rfo_id, Ocorrencia.data_ocorrencia, Ocorrencia.status,
+            TipoOcorrencia.nome.label("tipo_ocorrencia_nome"),
+            Ocorrencia.tipo_falta, Ocorrencia.medida_aplicada
+        )
+        .outerjoin(TipoOcorrencia, Ocorrencia.tipo_ocorrencia_id == TipoOcorrencia.id)
+        .filter(Ocorrencia.aluno_id == aluno_id)
+        .order_by(Ocorrencia.data_ocorrencia.desc())
+        .all()
+    )
+    fmds = (
+        db.query(
+            FichaMedidaDisciplinar.fmd_id, FichaMedidaDisciplinar.data_fmd,
+            FichaMedidaDisciplinar.tipo_falta, FichaMedidaDisciplinar.medida_aplicada,
+            FichaMedidaDisciplinar.status
+        )
+        .filter(FichaMedidaDisciplinar.aluno_id == aluno_id)
+        .order_by(FichaMedidaDisciplinar.data_fmd.desc())
+        .all()
+    )
+    return render_template(
+        'formularios/prontuario.html',
+        aluno=aluno,
+        rfos=rfos,
+        fmds=fmds
+    )
 
 # =========================
 # Novos endpoints API
@@ -116,8 +120,12 @@ def api_bimestres():
     """Retorna os bimestres cadastrados: [{ano, numero, inicio, fim}]"""
     db = get_db()
     try:
-        rows = db.execute('SELECT ano, numero, inicio, fim FROM bimestres ORDER BY ano DESC, numero').fetchall()
-        data = [{'ano': r['ano'], 'numero': r['numero'], 'inicio': r['inicio'], 'fim': r['fim']} for r in rows]
+        rows = (
+            db.query(Bimestre)
+              .order_by(Bimestre.ano.desc(), Bimestre.numero)
+              .all()
+        )
+        data = [{'ano': r.ano, 'numero': r.numero, 'inicio': r.inicio, 'fim': r.fim} for r in rows]
         return jsonify(data)
     except Exception:
         return jsonify([])
@@ -132,8 +140,8 @@ def api_config():
     db = get_db()
     if request.method == 'GET':
         try:
-            rows = db.execute('SELECT chave, valor FROM tabela_disciplinar_config').fetchall()
-            res = {r['chave']: float(r['valor']) for r in rows}
+            rows = db.query(TabelaDisciplinarConfig).all()
+            res = {r.chave: float(r.valor) for r in rows}
             # garantir keys padrão
             defaults = {
                 'advertencia_oral': -0.1,
@@ -157,7 +165,6 @@ def api_config():
                 'elogio_coletivo': 0.3
             })
     else:
-        # POST: espera JSON com as chaves e valores numéricos
         try:
             payload = request.get_json(force=True)
             mapping = {
@@ -169,21 +176,25 @@ def api_config():
                 'elogio_coletivo': float(payload.get('elogio_coletivo', 0.3))
             }
             for chave, valor in mapping.items():
-                # INSERT OR REPLACE behavior: attempt update, else insert
-                try:
-                    db.execute('INSERT INTO tabela_disciplinar_config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor, atualizado_em=datetime("now")', (chave, valor))
-                except Exception:
-                    # fallback para SQLite sem DO UPDATE (compatibilidade)
-                    try:
-                        db.execute('INSERT OR REPLACE INTO tabela_disciplinar_config (id, chave, valor, atualizado_em) VALUES ((SELECT id FROM tabela_disciplinar_config WHERE chave = ?), ?, ?, datetime("now"))', (chave, chave, valor))
-                    except Exception:
-                        pass
+                # Tenta atualizar primeiro
+                record = db.query(TabelaDisciplinarConfig).filter_by(chave=chave).first()
+                if record:
+                    record.valor = valor
+                    from datetime import datetime as dt
+                    record.atualizado_em = dt.now().strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    from datetime import datetime as dt
+                    novo = TabelaDisciplinarConfig(
+                        chave=chave, valor=valor,
+                        atualizado_em=dt.now().strftime('%Y-%m-%d %H:%M:%S')
+                    )
+                    db.add(novo)
             db.commit()
             return jsonify({'success': True})
         except Exception as e:
+            db.rollback()
             current_app.logger.exception('Erro ao salvar config de tabela disciplinar')
             return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @formularios_bp.route('/api/aluno_pontuacao')
 @login_required
@@ -198,37 +209,45 @@ def api_aluno_pontuacao():
     bimestre = request.args.get('bimestre')
     db = get_db()
     if not aluno_id:
-        return jsonify({'error':'aluno_id obrigatório'}), 400
+        return jsonify({'error': 'aluno_id obrigatório'}), 400
 
     try:
-        # se não veio ano/bimestre, determina por data atual
         if not ano or not bimestre:
             hoje = datetime.now().strftime('%Y-%m-%d')
-            # tenta encontrar bimestre por data
-            row = db.execute('SELECT ano, numero FROM bimestres WHERE ? BETWEEN inicio AND fim LIMIT 1', (hoje,)).fetchone()
+            row = db.query(Bimestre).filter(
+                Bimestre.inicio <= hoje, Bimestre.fim >= hoje
+            ).order_by(Bimestre.ano.desc(), Bimestre.numero.desc()).first()
             if row:
-                ano = row['ano']; bimestre = row['numero']
+                ano = row.ano
+                bimestre = row.numero
             else:
-                # fallback: bimestre por mês (2 meses por bimestre)
-                from datetime import date
                 m = date.today().month
                 bimestre = ((m - 1) // 2) + 1
                 ano = date.today().year
 
-        row = db.execute('SELECT pontuacao_inicial, pontuacao_atual, atualizado_em FROM pontuacao_bimestral WHERE aluno_id = ? AND ano = ? AND bimestre = ?', (aluno_id, int(ano), int(bimestre))).fetchone()
-        if row:
-            inicial = float(row['pontuacao_inicial'])
-            atual = float(row['pontuacao_atual'])
+        pb = db.query(PontuacaoBimestral).filter_by(
+            aluno_id=aluno_id, ano=int(ano), bimestre=int(bimestre)
+        ).first()
+        if pb:
+            inicial = float(pb.pontuacao_inicial)
+            atual = float(pb.pontuacao_atual)
         else:
             inicial = 8.0
             atual = 8.0
 
-        # Calcular acrescimo diário (projeção) baseado no histórico:
-        last_negative = db.execute('SELECT criado_em FROM pontuacao_historico WHERE aluno_id = ? AND valor_delta < 0 ORDER BY criado_em DESC LIMIT 1', (aluno_id,)).fetchone()
+        last_negative = (
+            db.query(PontuacaoHistorico)
+            .filter(
+                PontuacaoHistorico.aluno_id == aluno_id,
+                PontuacaoHistorico.valor_delta < 0
+            )
+            .order_by(PontuacaoHistorico.criado_em.desc())
+            .first()
+        )
         acrescimo_info = None
         if last_negative:
-            from datetime import datetime, timedelta
-            last_date = datetime.strptime(last_negative['criado_em'][:19], '%Y-%m-%d %H:%M:%S')
+            from datetime import timedelta
+            last_date = datetime.strptime(last_negative.criado_em[:19], '%Y-%m-%d %H:%M:%S')
             diff_days = (datetime.now() - last_date).days
             if diff_days > 60:
                 dias_acresc = diff_days - 60
@@ -244,6 +263,3 @@ def api_aluno_pontuacao():
         })
     except Exception:
         return jsonify({'pontuacao_inicial': 8.0, 'pontuacao_atual': 8.0})
-
-
-# fim de blueprints/formularios.py

@@ -1470,15 +1470,27 @@ def fmd_novo_real(fmd_id):
     # ==== 3. Busca o aluno relacionado ====
     aluno = db.query(Aluno).filter_by(id=fmd.aluno_id).first() or {}
 
-    from models import get_aluno_estado_atual
+    # REMOVIDO: from models import get_aluno_estado_atual
 
-    estado = {}
-    comportamento = None
-    pontuacao = None
-    if aluno and hasattr(aluno, 'id'):
-        estado = get_aluno_estado_atual(aluno.id) or {}
-        comportamento = estado.get('comportamento')
-        pontuacao = estado.get('pontuacao')
+comportamento = None
+pontuacao = None
+estado = {}
+
+# Recupera comportamento e pontuação do aluno diretamente via SQLAlchemy
+if aluno and hasattr(aluno, 'id'):
+    # Exemplo: busca última pontuação e comportamento vinculados ao aluno
+    pontuacao_row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno.id).order_by(PontuacaoBimestral.ano.desc(), PontuacaoBimestral.bimestre.desc()).first()
+    comportamento_row = db.query(Comportamento).filter_by(id=getattr(aluno, "comportamento_id", None)).first() if hasattr(aluno, "comportamento_id") else None
+
+    if pontuacao_row:
+        pontuacao = pontuacao_row.pontuacao_atual
+    if comportamento_row:
+        comportamento = comportamento_row.descricao
+
+    estado = {
+        "pontuacao": pontuacao,
+        "comportamento": comportamento
+    }
 
     # ==== 4. Busca ocorrência relacionada (RFO) ====
     rfo = db.query(Ocorrencia).filter_by(rfo_id=fmd.rfo_id).first() or {}
