@@ -195,7 +195,7 @@ def listar_alunos():
        page=page,
        total_pages=total_pages,
        search=search,
-       is_admin=(session.get("nivel") in [1, 2])
+       is_admin=(str(session.get("nivel")) in ['1', '2'])
     )
 
 @visualizacoes_bp.route('/visualizar_aluno/<int:aluno_id>')
