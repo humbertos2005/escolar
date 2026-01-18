@@ -10,6 +10,13 @@
     <button type="button" class="btn btn-outline-secondary" data-tab="bimestres">Bimestres</button>
   </div>
 
+  <!-- Botão Importar Faltas, agora controlado por JS de abas -->
+  <div id="btn-importar-faltas" class="mb-3" style="display:flex;gap:12px;">
+    <a href="{{ url_for('cadastros_bp.importar_faltas') }}" class="btn btn-success">
+        <i class="fas fa-file-upload"></i> Importar Faltas (CSV/Excel)
+    </a>
+  </div>
+
   <div id="tabs-container">
     <div id="panel-faltas" style="display:block;">
       <iframe id="iframe-faltas" src="{{ url_for('cadastros_bp.listar_faltas') }}?iframe=1"
@@ -50,10 +57,19 @@
       // ajustar altura quando carregado (evento 'load' também faz isso)
       if (iframe && iframe.contentWindow) try { iframe.style.height = Math.max(700, iframe.contentWindow.document.body.scrollHeight + 60) + 'px'; } catch(e){}
     });
+    // controla botão importar faltas
+    toggleBtnImportar(tab);
+  }
+
+  function toggleBtnImportar(tab) {
+    var btn = document.getElementById('btn-importar-faltas');
+    if (btn) btn.style.display = (tab === 'faltas') ? 'flex' : 'none';
   }
 
   document.querySelectorAll('[data-tab]').forEach(b=>{
-    b.addEventListener('click', function(){ show(this.getAttribute('data-tab')); });
+    b.addEventListener('click', function(){ 
+      show(this.getAttribute('data-tab')); 
+    });
   });
 
   // ajustar altura quando cada iframe carregar
@@ -73,7 +89,7 @@
     });
   });
 
-  // ativa tab por ?tab=...
+  // ativa tab por ?tab=... e corrige visibilidade do botão ao carregar página
   try {
     const params = new URLSearchParams(window.location.search);
     const t = params.get('tab');
@@ -85,8 +101,12 @@
         if (s) iframe.setAttribute('src', s);
       }
       show(t);
+    } else {
+      show('faltas');
     }
-  } catch(e){}
+  } catch(e){
+    show('faltas');
+  }
 })();
 </script>
 {% endblock %}

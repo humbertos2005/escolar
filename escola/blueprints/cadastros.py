@@ -670,3 +670,73 @@ def api_dados_escola_by_cabecalho():
     except Exception:
         current_app.logger.exception('Erro ao buscar dados_escola por cabecalho_id')
         return jsonify({'error': 'internal'}), 500
+    
+from werkzeug.utils import secure_filename
+# BLOCO CORRIGIDO (ACEITA .csv e .xlsx):
+import csv
+import io
+import openpyxl
+
+@cadastros_bp.route('/importar_faltas', methods=['GET', 'POST'])
+@admin_secundario_required
+def importar_faltas():
+    db = get_db()
+    mensagem = ""
+    if request.method == 'POST':
+        file = request.files.get('arquivo_csv')
+        count_importados = 0
+        if not file or file.filename == '':
+            mensagem = "Nenhum arquivo enviado."
+        else:
+            filename = file.filename.lower()
+            if filename.endswith('.csv'):
+                try:
+                    content = file.stream.read().decode("utf-8")
+                except UnicodeDecodeError:
+                    file.stream.seek(0)
+                    content = file.stream.read().decode("latin1")
+                stream = io.StringIO(content, newline=None)
+                reader = csv.DictReader(stream, delimiter=';')
+                for row in reader:
+                    natureza = row.get('natureza') or row.get('NATUREZA')
+                    descricao = row.get('descricao') or row.get('DESCRICAO')
+                    if natureza and descricao:
+                        falta = FaltaDisciplinar(
+                            natureza=natureza.strip(),
+                            descricao=descricao.strip()
+                        )
+                        db.add(falta)
+                        count_importados += 1
+                db.commit()
+                mensagem = f"Importação realizada. {count_importados} faltas cadastradas."
+            elif filename.endswith('.xlsx'):
+                wb = openpyxl.load_workbook(file, data_only=True, read_only=True)
+                ws = wb.active
+                headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+                idx_natureza = None
+                idx_descricao = None
+                for i, header in enumerate(headers):
+                    head = (header or '').strip().upper()
+                    if head == 'NATUREZA':
+                        idx_natureza = i
+                    elif head == 'DESCRICAO':
+                        idx_descricao = i
+                if idx_natureza is not None and idx_descricao is not None:
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        natureza = row[idx_natureza]
+                        descricao = row[idx_descricao]
+                        if natureza and descricao:
+                            falta = FaltaDisciplinar(
+                                natureza=str(natureza).strip(),
+                                descricao=str(descricao).strip()
+                            )
+                            db.add(falta)
+                            count_importados += 1
+                    db.commit()
+                    mensagem = f"Importação realizada. {count_importados} faltas cadastradas."
+                else:
+                    mensagem = "Colunas obrigatórias NATUREZA e DESCRICAO não encontradas no Excel."
+            else:
+                mensagem = "Arquivo não suportado. Use CSV (.csv) ou Excel (.xlsx)."
+
+    return render_template('cadastros/importar_faltas.html', mensagem=mensagem)

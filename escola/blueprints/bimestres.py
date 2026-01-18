@@ -72,7 +72,7 @@ def gerenciar_bimestres():
                 dados.append((n, inicio, fim))
 
             # Excluir bimestres antigos do ano antes de adicionar novos
-            db.query(Bimestre).filter(Bimestre.ano == ano).delete()
+            db.query(Bimestre).filter(Bimestre.ano == str(ano)).delete()
             db.commit()
 
             # Adiciona/insere os novos bimestres
@@ -128,7 +128,7 @@ def gerenciar_bimestres():
 def excluir_bimestres(ano):
     db = get_db()
     try:
-        db.query(Bimestre).filter(Bimestre.ano == ano).delete()
+        db.query(Bimestre).filter(Bimestre.ano == str(ano)).delete()
         db.commit()
         flash(f'Bimestres do ano {ano} excluídos.', 'success')
     except Exception as e:
