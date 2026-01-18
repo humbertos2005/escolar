@@ -20,7 +20,7 @@ except:
             print("   [AVISO] Não foi possível configurar localização PT-BR")
 
 # Lê de .env ou variável de ambiente, ou usa SQLite padrão
-DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{os.environ.get('DATABASE_FILE', 'escola.db')}")
+DATABASE_URL = os.environ.get("SQLALCHEMY_DATABASE_URI", f"sqlite:///{os.environ.get('DATABASE_FILE', 'escola.db')}")
 
 # Cria engine e sessionmaker
 engine = create_engine(DATABASE_URL, echo=False, future=True)
