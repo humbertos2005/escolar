@@ -206,8 +206,14 @@ def visualizar_aluno(aluno_id):
     a = db.query(Aluno).filter_by(id=aluno_id).first()
     if a is None:
         return jsonify({'error': 'Aluno não encontrado'}), 404
-    aluno_d = a.__dict__.copy()
-    # montar URL da foto se existir (columns: 'photo', 'foto', 'arquivo_foto', 'foto_filename')
+
+    # Só pega campos primitivos, evita InstanceState e outros incompatíveis com JSON
+    aluno_d = {}
+    for k, v in a.__dict__.items():
+        if k != '_sa_instance_state':
+            aluno_d[k] = v
+    
+    # montar URL da foto se existir
     photo = aluno_d.get('photo') or aluno_d.get('foto') or aluno_d.get('arquivo_foto') or aluno_d.get('foto_filename') or None
     if photo:
         filename = os.path.basename(str(photo).replace('\\', '/'))
@@ -216,7 +222,12 @@ def visualizar_aluno(aluno_id):
         aluno_d['photo_url'] = None
     return jsonify({'aluno': aluno_d})
 
-# --- upload_foto com SQLAlchemy ---
+
+def _allowed_file(filename):
+    allowed_extensions = {"png", "jpg", "jpeg", "gif"}
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
 @visualizacoes_bp.route('/upload_foto/<int:aluno_id>', methods=['POST'])
 @login_required
 def upload_foto(aluno_id):
@@ -232,7 +243,6 @@ def upload_foto(aluno_id):
     if not _allowed_file(file.filename):
         return jsonify({'success': False, 'error': 'Formato de arquivo não permitido.'}), 400
 
-    # utilitários locais
     import unicodedata, re
     def slugify(text, max_len=80):
         if not text:
@@ -244,10 +254,12 @@ def upload_foto(aluno_id):
         if len(text) > max_len:
             text = text[:max_len].rstrip('_')
         return text or 'aluno'
+
     def gerar_nome_foto(matricula_or_id, nome, original_filename):
         ext = os.path.splitext(original_filename)[1].lower() or '.jpg'
         slug = slugify(nome)
         base = f"{matricula_or_id}_{slug}"
+        from werkzeug.utils import secure_filename
         filename = f"{base}{ext}"
         return secure_filename(filename)
 
@@ -277,9 +289,6 @@ def upload_foto(aluno_id):
         db.rollback()
         current_app.logger.exception('Erro ao salvar referência de foto no banco')
         return jsonify({'success': False, 'error': 'Erro ao atualizar banco.'}), 500
-
-from models_sqlalchemy import Aluno, Ocorrencia, Usuario
-from sqlalchemy import or_
 
 @visualizacoes_bp.route('/excluir_aluno/<int:aluno_id>', methods=['POST'])
 @admin_secundario_required
