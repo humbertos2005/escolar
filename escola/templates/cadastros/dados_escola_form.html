@@ -74,11 +74,16 @@
         <select name="diretor_nome" id="diretor_nome" class="form-control" required>
           <option value="">Selecione...</option>
           {% for usuario in usuarios_diretores %}
-            <option value="{{ usuario.nome }}" {% if dados and dados.diretor_nome == usuario.nome %}selected{% endif %}>{{ usuario.nome }}</option>
+            <option value="{{ usuario.nome }}" data-cpf="{{ usuario.cpf }}" {% if dados and dados.diretor_nome == usuario.nome %}selected{% endif %}>
+              {{ usuario.nome }}
+            </option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-6"><label class="form-label">CPF do Diretor</label><input name="diretor_cpf" id="diretor_cpf" class="form-control" value="{{ dados.diretor_cpf if dados else '' }}"></div>
+      <div class="col-md-6">
+        <label class="form-label">CPF do Diretor</label>
+        <input name="diretor_cpf" id="diretor_cpf" class="form-control" value="{{ dados.diretor_cpf if dados else '' }}">
+      </div>
       </div>
 
     <div style="margin-top:12px;">

@@ -541,6 +541,8 @@ def dados_escola_novo():
     # GET: apenas renderizar formulário vazio
     return render_template('cadastros/dados_escola_form.html', dados=None)
 
+from models_sqlalchemy import Usuario
+
 @cadastros_bp.route('/dados_escola/editar/<int:id>', methods=['GET', 'POST'])
 @admin_secundario_required
 def dados_escola_editar(id):
@@ -602,8 +604,9 @@ def dados_escola_editar(id):
             flash('Erro ao atualizar dados da escola.', 'danger')
             return redirect(url_for('cadastros_bp.dados_escola_editar', id=id))
 
-    # GET: renderizar com dados preenchidos
-    return render_template('cadastros/dados_escola_form.html', dados=dados)
+    # GET: renderizar com dados preenchidos e lista de diretores
+    usuarios_diretores = db.query(Usuario).filter(Usuario.cargo.ilike('%diretor%')).all()
+    return render_template('cadastros/dados_escola_form.html', dados=dados, usuarios_diretores=usuarios_diretores)
 
 @cadastros_bp.route('/dados_escola/excluir/<int:id>', methods=['POST'])
 @admin_secundario_required
