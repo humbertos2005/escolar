@@ -183,7 +183,7 @@ def listar_alunos():
 
     alunos_processados = []
     for a in alunos:
-        aluno_dict = a.__dict__.copy()
+        aluno_dict = {c.name: getattr(a, c.name) for c in a.__table__.columns}
         telefones = aluno_dict.get('telefone', '').split(',') if aluno_dict.get('telefone') else []
         aluno_dict['telefone_1'] = telefones[0].strip() if len(telefones) > 0 else '-'
         aluno_dict['telefone_2'] = telefones[1].strip() if len(telefones) > 1 else '-'
