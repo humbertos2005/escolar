@@ -139,6 +139,7 @@ def cadastro_usuario():
         email = request.form.get('email', '').strip()
         nivel = request.form.get('nivel', type=int)
         cargo = request.form.get('cargo', '').strip()
+        cpf = request.form.get('cpf', '').strip()  # Linha adicionada
         error = None
 
         if not username or len(username) < 3:
@@ -151,6 +152,8 @@ def cadastro_usuario():
             error = 'Nível de acesso inválido.'
         elif not cargo:
             error = 'Cargo é obrigatório.'
+        elif not cpf or len(cpf) != 14:
+            error = 'CPF é obrigatório e deve ter o formato 000.000.000-00.'  # Validação simples
 
         if error is None:
             try:
@@ -166,7 +169,8 @@ def cadastro_usuario():
                         email=email,
                         nivel=nivel,
                         data_criacao=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        cargo=cargo
+                        cargo=cargo,
+                        cpf=cpf  # Linha adicionada
                     )
                     db.add(novo_usuario)
                     db.commit()
@@ -267,7 +271,8 @@ def editar_usuario(user_id):
         "username": user.username,
         "nivel": user.nivel,
         "cargo": user.cargo,
-        "email": getattr(user, "email", "")
+        "email": getattr(user, "email", ""),
+        "cpf": getattr(user, "cpf", "")     # Adicionado para envio ao template
     }
 
     if request.method == 'POST':
@@ -276,6 +281,7 @@ def editar_usuario(user_id):
         email = request.form.get('email', '').strip()
         nivel = request.form.get('nivel_acesso', type=int)
         cargo = request.form.get('cargo', '').strip()
+        cpf = request.form.get('cpf', '').strip()   # Linha adicionada
         error = None
 
         if not username or len(username) < 3:
@@ -286,6 +292,9 @@ def editar_usuario(user_id):
             error = 'Nível de acesso inválido.'
         elif not cargo:
             error = 'Cargo é obrigatório.'
+        # Validação simples do CPF
+        elif not cpf or len(cpf) != 14:
+            error = 'CPF é obrigatório e deve ter o formato 000.000.000-00.'
         if error is None:
             try:
                 # Verifica username duplicado (exceto para o próprio usuário)
@@ -297,6 +306,7 @@ def editar_usuario(user_id):
                     user.email = email
                     user.nivel = nivel
                     user.cargo = cargo
+                    user.cpf = cpf  # Linha adicionada (salva o CPF editado)
                     if password and len(password) >= 6:
                         from werkzeug.security import generate_password_hash
                         user.password = generate_password_hash(password)

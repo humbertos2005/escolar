@@ -554,7 +554,12 @@ def dados_escola_editar(id):
         return redirect(url_for('cadastros_bp.listar_dados_escola'))
 
     if request.method == 'POST':
-        cabecalho_id = request.form.get('cabecalho_id') or None
+        cabecalho_id = request.form.get('cabecalho_id')
+        if not cabecalho_id or cabecalho_id == 'None' or cabecalho_id == '':
+            cabecalho_id = None
+        else:
+            cabecalho_id = int(cabecalho_id)
+
         escola = request.form.get('escola', '').strip()
         rua = request.form.get('rua', '').strip()
         numero = request.form.get('numero', '').strip()
