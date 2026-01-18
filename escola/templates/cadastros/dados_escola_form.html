@@ -74,8 +74,8 @@
         <select name="diretor_nome" id="diretor_nome" class="form-control" required>
           <option value="">Selecione...</option>
           {% for usuario in usuarios_diretores %}
-            <option value="{{ usuario.nome }}" data-cpf="{{ usuario.cpf }}" {% if dados and dados.diretor_nome == usuario.nome %}selected{% endif %}>
-              {{ usuario.nome }}
+            <option value="{{ usuario.nome or usuario.username }}" data-cpf="{{ usuario.cpf or '' }}" {% if dados and dados.diretor_nome == (usuario.nome or usuario.username) %}selected{% endif %}>
+              {{ usuario.nome or usuario.username }}
             </option>
           {% endfor %}
         </select>
@@ -84,7 +84,19 @@
         <label class="form-label">CPF do Diretor</label>
         <input name="diretor_cpf" id="diretor_cpf" class="form-control" value="{{ dados.diretor_cpf if dados else '' }}">
       </div>
-      </div>
+
+      <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        var sel = document.getElementById('diretor_nome');
+        var cpf = document.getElementById('diretor_cpf');
+        if(sel && cpf){
+          sel.addEventListener('change', function() {
+            var opt = sel.options[sel.selectedIndex];
+            cpf.value = opt.getAttribute('data-cpf') || '';
+          });
+        }
+      });
+      </script>
 
     <div style="margin-top:12px;">
       <button type="submit" class="btn btn-primary">{% if dados %}Salvar{% else %}Criar{% endif %}</button>

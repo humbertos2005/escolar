@@ -13,6 +13,8 @@ class Usuario(Base):
     data_criacao = Column(String)
     cargo = Column(String)
     email = Column(String)
+    nome = Column(String)   
+    cpf = Column(String)    
 
 # Alunos
 class Aluno(Base):
