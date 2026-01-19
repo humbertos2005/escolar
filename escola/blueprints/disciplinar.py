@@ -717,6 +717,8 @@ def visualizar_rfo(ocorrencia_id):
             material_info = f"{tratamento} — {associado}"
     rfo_dict['material_recolhido_info'] = material_info
 
+    print("DEBUG rfo_dict:", rfo_dict)  # <-- Adicione esta linha para mostrar todas as chaves no console
+
     return render_template('disciplinar/visualizar_rfo.html', rfo=rfo_dict)
 
 @disciplinar_bp.route('/imprimir_rfo/<int:ocorrencia_id>')
@@ -1116,6 +1118,15 @@ def tratar_rfo(ocorrencia_id):
         material_info = f"{tipo} — {associado}"
     ocorrencia_dict['material_recolhido_info'] = material_info
 
+    # Acrescente isto antes do render_template:
+    if 'Ocorrencia' in ocorrencia_dict and ocorrencia_dict['Ocorrencia']:
+        oc = ocorrencia_dict['Ocorrencia']
+        # Extrai os campos desejados do objeto SQLAlchemy para o dict principal:
+        for field in ['rfo_id', 'status', 'data_ocorrencia', 'relato_observador']:
+            ocorrencia_dict[field] = getattr(oc, field, None)
+
+    from flask import g, session
+    g.nivel = session.get('nivel')
     return render_template('disciplinar/tratar_rfo.html',
                            ocorrencia=ocorrencia_dict,
                            tipos_falta=tipos_falta,

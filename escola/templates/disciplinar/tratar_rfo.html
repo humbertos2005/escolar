@@ -4,7 +4,7 @@
 
 <h2>Tratamento da Falta Disciplinar</h2>
 
-<p class="subtitle">RFO Nº {{ ocorrencia.rfo_id }}</p>
+<p class="subtitle">RFO Nº {{ ocorrencia.rfo_id if ocorrencia.rfo_id else '-' }}</p>
 
 <div class="rfo-container">
 
@@ -16,16 +16,22 @@
         <div class="detail-item">
             <strong>Status:</strong>
             <span class="badge-status {% if ocorrencia.status == 'TRATADO' %}tratado{% else %}pendente{% endif %}">
-                {{ ocorrencia.status }}
+                {{ ocorrencia.status if ocorrencia.status else '-' }}
             </span>
         </div>
 
         <div class="detail-item">
-            <strong>Data do RFO:</strong> {{ ocorrencia.data_ocorrencia | data_br }}
+            <strong>Data do RFO:</strong> 
+            {% if ocorrencia.data_ocorrencia %}
+                {{ ocorrencia.data_ocorrencia | data_br }}
+            {% else %}
+                -
+            {% endif %}
         </div>
 
         <div class="detail-item">
-            <strong>Tipo de Ocorrência:</strong> {{ ocorrencia.tipo_ocorrencia_nome }}
+            <strong>Tipo de Ocorrência:</strong>
+            {{ ocorrencia.tipo_ocorrencia_nome if ocorrencia.tipo_ocorrencia_nome else '-' }}
         </div>
 
         <hr>
@@ -68,7 +74,7 @@
 
         <h4><i class="fas fa-align-left"></i> Relato do Observador</h4>
         <div class="relato-box">
-            {{ ocorrencia.relato_observador }}
+            {{ ocorrencia.relato_observador if ocorrencia.relato_observador else '-' }}
         </div>
 
         {% if ocorrencia.material_recolhido_info %}
@@ -191,45 +197,45 @@
                 <legend><i class="fas fa-book-open"></i> Circunstâncias</legend>
                 <div class="form-group">
                     <label for="circunstancias_atenuantes">Circunstâncias Atenuantes</label>
-                    <textarea id="circunstancias_atenuantes" name="circunstancias_atenuantes" class="form-control" rows="3" {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}></textarea>
+                    <textarea id="circunstancias_atenuantes" name="circunstancias_atenuantes" class="form-control" rows="3" {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>{{ ocorrencia.circunstancias_atenuantes if ocorrencia.circunstancias_atenuantes else '' }}</textarea>
                     <small class="form-text text-muted">Se deixar vazio, será registrado como "Não há".</small>
                 </div>
 
                 <div class="form-group">
                     <label for="circunstancias_agravantes">Circunstâncias Agravantes</label>
-                    <textarea id="circunstancias_agravantes" name="circunstancias_agravantes" class="form-control" rows="3" {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}></textarea>
+                    <textarea id="circunstancias_agravantes" name="circunstancias_agravantes" class="form-control" rows="3" {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>{{ ocorrencia.circunstancias_agravantes if ocorrencia.circunstancias_agravantes else '' }}</textarea>
                     <small class="form-text text-muted">Se deixar vazio, será registrado como "Não há".</small>
                 </div>
             </fieldset>
 
-            {% if session.get('nivel') in [1, 2] %}
+            {% if g.nivel in ['1', '2', 1, 2] %}
             <fieldset class="form-fieldset tratamento-fieldset">
                 <legend><i class="fas fa-user-tie"></i> Tratamento Administrativo</legend>
-             
+
                 <div class="form-group">
                     <label for="relato_estudante">Relato do Estudante</label>
                     <textarea id="relato_estudante" name="relato_estudante" 
-                              class="form-control" rows="5" 
-                              placeholder="Digite o relato do estudante sobre o ocorrido..."
-                              {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>{{ ocorrencia.relato_estudante if ocorrencia.relato_estudante else '' }}</textarea>
+                            class="form-control" rows="5" 
+                            placeholder="Digite o relato do estudante sobre o ocorrido..."
+                            {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>{{ ocorrencia.relato_estudante if ocorrencia.relato_estudante else '' }}</textarea>
                     <small class="help-text">Registro do que o estudante relatou sobre a ocorrência</small>
                 </div>
 
                 <div class="form-group">
                     <label for="despacho_gestor">Despacho do Gestor <span class="required">*</span></label>
                     <textarea id="despacho_gestor" name="despacho_gestor" 
-                              class="form-control" rows="5" required
-                              placeholder="Digite o despacho do gestor sobre o caso..."
-                              {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>{{ ocorrencia.despacho_gestor if ocorrencia.despacho_gestor else '' }}</textarea>
+                            class="form-control" rows="5" required
+                            placeholder="Digite o despacho do gestor sobre o caso..."
+                            {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>{{ ocorrencia.despacho_gestor if ocorrencia.despacho_gestor else '' }}</textarea>
                     <small class="help-text">Decisão final e orientações do gestor</small>
                 </div>
 
                 <div class="form-group">
                     <label for="data_despacho">Data do Despacho <span class="required">*</span></label>
                     <input type="date" id="data_despacho" name="data_despacho" 
-                           class="form-control" required
-                           value="{{ ocorrencia.data_despacho if ocorrencia.data_despacho else '' }}"
-                           {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>
+                        class="form-control" required
+                        value="{{ ocorrencia.data_despacho if ocorrencia.data_despacho else '' }}"
+                        {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>
                     <small class="help-text">Data em que o despacho foi realizado</small>
                 </div>
             </fieldset>
