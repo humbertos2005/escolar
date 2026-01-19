@@ -434,7 +434,7 @@ def buscar_alunos_json():
 @login_required
 def registrar_rfo():
     db = get_db()
-    from .utils import get_proximo_rfo_id  # Garante import local caso não esteja global
+    from .utils import get_proximo_rfo_id
     rfo_id_gerado = get_proximo_rfo_id()
     tipos_ocorrencia = get_tipos_ocorrencia()
 
@@ -444,7 +444,13 @@ def registrar_rfo():
             raw = request.form.get('aluno_ids') or request.form.get('aluno_id') or ''
             aluno_ids = [s.strip() for s in raw.split(',') if s.strip()]
 
-        tipo_ocorrencia_id = request.form.get('tipo_ocorrencia_id')
+        tipo_ocorrencia_id_raw = request.form.get('tipo_ocorrencia_id')
+        try:
+            tipo_ocorrencia_id = int(tipo_ocorrencia_id_raw)
+        except Exception:
+            tipo_obj = db.query(TipoOcorrencia).filter_by(nome=tipo_ocorrencia_id_raw).first()
+            tipo_ocorrencia_id = tipo_obj.id if tipo_obj else None
+
         data_ocorrencia = request.form.get('data_ocorrencia')
         observador_id = request.form.get('observador_id')
         relato_observador = request.form.get('relato_observador', '').strip()
@@ -454,18 +460,28 @@ def registrar_rfo():
         advertencia_oral = request.form.get('advertencia_oral', '').strip()
 
         error = None
-        if not aluno_ids or not all([tipo_ocorrencia_id, data_ocorrencia, observador_id, relato_observador]):
+        if not aluno_ids or len([a for a in aluno_ids if a]) == 0 or not tipo_ocorrencia_id or not data_ocorrencia or not observador_id or not relato_observador:
             error = 'Por favor, preencha todos os campos obrigatórios.'
         elif tipo_rfo != 'Elogio' and advertencia_oral not in ['sim', 'nao']:
             error = 'Selecione se a ocorrência deve ser considerada como Advertência Oral.'
 
         if error:
+            aluno_ids_req = request.form.getlist('aluno_id')
+            alunos_nome_map = {}
+            if aluno_ids_req:
+                alunos_objs = db.query(Aluno).filter(Aluno.id.in_(aluno_ids_req)).all()
+                for aluno in alunos_objs:
+                    alunos_nome_map[str(aluno.id)] = f"{aluno.matricula} - {aluno.nome}"
+
             flash(error, 'danger')
-            return render_template('disciplinar/registrar_rfo.html',
-                                   rfo_id_gerado=rfo_id_gerado,
-                                   tipos_ocorrencia=tipos_ocorrencia,
-                                   request_form=request.form,
-                                   g=g)
+            return render_template(
+                'disciplinar/registrar_rfo.html',
+                rfo_id_gerado=rfo_id_gerado,
+                tipos_ocorrencia=tipos_ocorrencia,
+                request_form=request.form,
+                g=g,
+                alunos_nome_map=alunos_nome_map
+            )
 
         if tipo_rfo == 'Elogio':
             advertencia_oral = 'nao'
@@ -473,17 +489,23 @@ def registrar_rfo():
             advertencia_oral = advertencia_oral or 'nao'
 
         try:
-            # Garante incremento correto do id
             rfo_id_final = get_proximo_rfo_id(incrementar=True)
-            valid_aluno_ids = aluno_ids
+            valid_aluno_ids = [a for a in aluno_ids if a]
 
             if not valid_aluno_ids:
+                aluno_ids_req = request.form.getlist('aluno_id')
+                alunos_nome_map = {}
+                if aluno_ids_req:
+                    alunos_objs = db.query(Aluno).filter(Aluno.id.in_(aluno_ids_req)).all()
+                    for aluno in alunos_objs:
+                        alunos_nome_map[str(aluno.id)] = f"{aluno.matricula} - {aluno.nome}"
                 flash('Nenhum aluno válido selecionado.', 'danger')
                 return render_template('disciplinar/registrar_rfo.html',
-                                       rfo_id_gerado=rfo_id_gerado,
-                                       tipos_ocorrencia=tipos_ocorrencia,
-                                       request_form=request.form,
-                                       g=g)
+                                    rfo_id_gerado=rfo_id_gerado,
+                                    tipos_ocorrencia=tipos_ocorrencia,
+                                    request_form=request.form,
+                                    g=g,
+                                    alunos_nome_map=alunos_nome_map)
 
             primeiro_aluno = valid_aluno_ids[0] if valid_aluno_ids else None
 
@@ -524,19 +546,37 @@ def registrar_rfo():
         except Exception as e:
             db.rollback()
             current_app.logger.exception("Erro ao registrar RFO")
+            aluno_ids_req = request.form.getlist('aluno_id')
+            alunos_nome_map = {}
+            if aluno_ids_req:
+                alunos_objs = db.query(Aluno).filter(Aluno.id.in_(aluno_ids_req)).all()
+                for aluno in alunos_objs:
+                    alunos_nome_map[str(aluno.id)] = f"{aluno.matricula} - {aluno.nome}"
             flash(f'Erro ao registrar RFO: {e}', 'danger')
+            return render_template(
+                'disciplinar/registrar_rfo.html',
+                rfo_id_gerado=rfo_id_gerado,
+                tipos_ocorrencia=tipos_ocorrencia,
+                request_form=request.form,
+                g=g,
+                alunos_nome_map=alunos_nome_map
+            )
 
     return render_template('disciplinar/registrar_rfo.html',
-                           rfo_id_gerado=rfo_id_gerado,
-                           tipos_ocorrencia=tipos_ocorrencia,
-                           g=g)
+                       rfo_id_gerado=rfo_id_gerado,
+                       tipos_ocorrencia=tipos_ocorrencia,
+                       g=g,
+                       alunos_nome_map={})
 
 @disciplinar_bp.route('/listar_rfo')
 @admin_secundario_required
 def listar_rfo():
     db = get_db()
-    from sqlalchemy.orm import joinedload
-    from sqlalchemy import func, or_
+    from sqlalchemy.orm import joinedload, aliased
+    from sqlalchemy import func, cast, String
+
+    Aluno1 = aliased(Aluno)
+    Aluno2 = aliased(Aluno)
 
     # Consulta principal com JOINs para obter informações relevantes e agrupamentos
     ocorrencias = (
@@ -549,23 +589,43 @@ def listar_rfo():
             Ocorrencia.relato_observador,
             Ocorrencia.advertencia_oral,
             Ocorrencia.material_recolhido,
-            func.group_concat(Aluno2.nome, '; ').label('alunos'),
+            func.string_agg(Aluno2.nome, '; ').label('alunos'),
             func.coalesce(Aluno1.matricula, Aluno2.matricula).label('matricula'),
             func.coalesce(Aluno1.nome, Aluno2.nome).label('nome_aluno'),
             func.coalesce(
-                func.group_concat(func.concat(Aluno2.serie, " - ", Aluno2.turma), '; '),
-                func.concat(Aluno1.serie, " - ", Aluno1.turma)
+                func.string_agg(
+                    cast(Aluno2.serie, String) + " - " + cast(Aluno2.turma, String),
+                    '; '
+                ),
+                cast(Aluno1.serie, String) + " - " + cast(Aluno1.turma, String)
             ).label('series_turmas'),
             Usuario.username.label('responsavel_registro_username'),
             TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
         )
         .join(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id, isouter=True)
-        .join(Aluno2 := Aluno, Aluno2.id == OcorrenciaAluno.aluno_id, isouter=True)
-        .join(Aluno1 := Aluno, Aluno1.id == Ocorrencia.aluno_id, isouter=True)
+        .join(Aluno2, Aluno2.id == OcorrenciaAluno.aluno_id, isouter=True)
+        .join(Aluno1, Aluno1.id == Ocorrencia.aluno_id, isouter=True)
         .join(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id, isouter=True)
         .join(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id, isouter=True)
         .filter(Ocorrencia.status == 'AGUARDANDO TRATAMENTO')
-        .group_by(Ocorrencia.id)
+        .group_by(
+            Ocorrencia.id,
+            Ocorrencia.rfo_id,
+            Ocorrencia.data_ocorrencia,
+            Ocorrencia.tipo_ocorrencia_id,
+            Ocorrencia.status,
+            Ocorrencia.relato_observador,
+            Ocorrencia.advertencia_oral,
+            Ocorrencia.material_recolhido,
+            Aluno1.matricula,
+            Aluno2.matricula,
+            Aluno1.nome,
+            Aluno2.nome,
+            Aluno1.serie,
+            Aluno1.turma,
+            Usuario.username,
+            TipoOcorrencia.nome
+        )
         .order_by(Ocorrencia.data_registro.desc())
         .all()
     )

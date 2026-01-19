@@ -140,20 +140,42 @@
                   Se for um elogio coletivo, usar o nome do líder da turma
                 </small>
 
-<!-- Início do bloco modificado para permitir múltiplos alunos usando o campo já existente (aluno_busca) -->
+<!-- Início do bloco modificado para permitir múltiplos alunos usando o campo já existente (aluno_busca)
+MANUTENÇÃO DOS VALORES APÓS ERRO -->
 <div id="alunos-container" class="mb-2">
-  <div class="aluno-entry d-flex align-items-start mb-2">
-    <div style="flex:1">
-      <input type="text" id="aluno_busca" name="aluno_busca" class="form-control aluno-search"
-             placeholder="Digite matrícula ou nome para buscar..." autocomplete="off" required>
-      <input type="hidden" name="aluno_id" class="aluno-id" />
-      <p class="aluno-info info-display mb-0"></p>
+  {% set aluno_ids_form = (request_form.getlist('aluno_id') if request_form else []) %}
+  {% if aluno_ids_form and aluno_ids_form|length > 0 %}
+    {% for aid in aluno_ids_form %}
+      <div class="aluno-entry d-flex align-items-start mb-2">
+        <div style="flex:1">
+          <input type="text" id="aluno_busca_{{ loop.index0 }}" name="aluno_busca" class="form-control aluno-search"
+                placeholder="Digite matrícula ou nome para buscar..."
+                autocomplete="off" required
+                value="{{ alunos_nome_map[aid] if alunos_nome_map and aid in alunos_nome_map else aid }}">
+          <input type="hidden" name="aluno_id" class="aluno-id" value="{{ aid }}">
+          <p class="aluno-info info-display mb-0"></p>
+        </div>
+        <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">
+          <button type="button" class="btn add-aluno-principal-btn" title="Adicionar outro aluno" aria-label="Adicionar outro aluno">+</button>
+          {% if not loop.first %}
+          <button type="button" class="btn btn-danger remove-aluno-btn" title="Remover">-</button>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="aluno-entry d-flex align-items-start mb-2">
+      <div style="flex:1">
+        <input type="text" id="aluno_busca" name="aluno_busca" class="form-control aluno-search"
+               placeholder="Digite matrícula ou nome para buscar..." autocomplete="off" required>
+        <input type="hidden" name="aluno_id" class="aluno-id" />
+        <p class="aluno-info info-display mb-0"></p>
+      </div>
+      <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">
+        <button type="button" class="btn add-aluno-principal-btn" title="Adicionar outro aluno" aria-label="Adicionar outro aluno">+</button>
+      </div>
     </div>
-    <div class="ml-2 d-flex flex-column" style="gap:6px; margin-left:8px;">
-      <!-- Classe MODIFICADA -->
-      <button type="button" class="btn add-aluno-principal-btn" title="Adicionar outro aluno" aria-label="Adicionar outro aluno">+</button>
-    </div>
-  </div>
+  {% endif %}
 </div>
 
 <!-- dynamic-alunos-script-v2 -->
@@ -527,10 +549,16 @@ document.addEventListener('DOMContentLoaded', function(){
             <div class="form-group">
                 <label for="tipo_ocorrencia_id">Tipo de Ocorrência <span class="required">*</span></label>
                 <select id="tipo_ocorrencia_id" name="tipo_ocorrencia_id" class="form-control" required>
-                  <option value="">Selecione o Tipo</option>
-                  <option value="sala">Relato de Fato Observado em Sala de Aula</option>
-                  <option value="ambiente">Relato de Fato Observado em Ambiente Escolar</option>
-              </select>
+                    <option value="">Selecione o Tipo</option>
+                    <option value="sala"
+                        {% if request_form and request_form.get('tipo_ocorrencia_id', '') == 'sala' %}selected{% endif %}>
+                        Relato de Fato Observado em Sala de Aula
+                    </option>
+                    <option value="ambiente"
+                        {% if request_form and request_form.get('tipo_ocorrencia_id', '') == 'ambiente' %}selected{% endif %}>
+                        Relato de Fato Observado em Ambiente Escolar
+                    </option>
+                </select>
             </div>
             <div class="form-group">
                 <label for="data_ocorrencia">Data da Ocorrência <span class="required">*</span></label>
@@ -545,53 +573,69 @@ document.addEventListener('DOMContentLoaded', function(){
         </div>
         
         <!-- INSERIR este bloco IMEDIATAMENTE APÓS o form-group de "Nome do Observador" -->
-        <!-- Bloco condicional: mostra advertência OU subtipo de elogio -->
-        <div class="form-group" id="tipo-rfo-conditional" style="margin-top:6px;">
-            <label>Trata-se de um RFO de?</label>
-            <div class="radio-buttons" id="tipo-rfo-radios">
-                <label>
-                    <input type="radio" name="tipo_rfo" value="Falta Disciplinar" checked> Falta Disciplinar
-                </label>
-                <label>
-                    <input type="radio" name="tipo_rfo" value="Elogio"> Elogio
-                </label>
-            </div>
+<!-- Bloco condicional: mostra advertência OU subtipo de elogio -->
+<div class="form-group" id="tipo-rfo-conditional" style="margin-top:6px;">
+    <label>Trata-se de um RFO de?</label>
+    <div class="radio-buttons" id="tipo-rfo-radios">
+        <label>
+            <input type="radio" name="tipo_rfo" value="Falta Disciplinar"
+                {% if (request_form and request_form.get('tipo_rfo') == 'Falta Disciplinar') or not request_form or not request_form.get('tipo_rfo') %}checked{% endif %}>
+            Falta Disciplinar
+        </label>
+        <label>
+            <input type="radio" name="tipo_rfo" value="Elogio"
+                {% if request_form and request_form.get('tipo_rfo') == 'Elogio' %}checked{% endif %}>
+            Elogio
+        </label>
+    </div>
 
-            <!-- Sub-bloco: advertência (mostrado quando Falta Disciplinar) -->
-            <div id="advertencia-oral-block" style="margin-top:10px;">
-                <label>Considerar como Advertência Oral? <span class="required">*</span></label>
-                <div class="radio-buttons">
-                    <label>
-                        <input type="radio" name="advertencia_oral" value="sim" checked> Sim
-                    </label>
-                    <label>
-                        <input type="radio" name="advertencia_oral" value="nao"> Não
-                    </label>
-                </div>
-            </div>
-
-            <!-- Sub-bloco: subtipo de elogio (mostrado quando Elogio) -->
-            <div id="subtipo-elogio-block" style="display:none; margin-top:8px;">
-                <label>Tipo de Elogio</label>
-                <div class="radio-buttons">
-                    <label><input type="radio" name="subtipo_elogio" value="Individual" checked> Individual</label>
-                    <label><input type="radio" name="subtipo_elogio" value="Coletivo"> Coletivo</label>
-                </div>
-            </div>
+    <!-- Sub-bloco: advertência (mostrado quando Falta Disciplinar) -->
+    <div id="advertencia-oral-block" style="margin-top:10px;">
+        <label>Considerar como Advertência Oral? <span class="required">*</span></label>
+        <div class="radio-buttons">
+            <label>
+                <input type="radio" name="advertencia_oral" value="sim"
+                       {% if not request_form or request_form.get('advertencia_oral', 'sim') == 'sim' %}checked{% endif %}>
+                Sim
+            </label>
+            <label>
+                <input type="radio" name="advertencia_oral" value="nao"
+                       {% if request_form and request_form.get('advertencia_oral') == 'nao' %}checked{% endif %}>
+                Não
+            </label>
         </div>
+    </div>
+
+    <!-- Sub-bloco: subtipo de elogio (mostrado quando Elogio) -->
+    <div id="subtipo-elogio-block" style="display:none; margin-top:8px;">
+        <label>Tipo de Elogio</label>
+        <div class="radio-buttons">
+            <label>
+                <input type="radio" name="subtipo_elogio" value="Individual"
+                       {% if not request_form or request_form.get('subtipo_elogio', 'Individual') == 'Individual' %}checked{% endif %}>
+                Individual
+            </label>
+            <label>
+                <input type="radio" name="subtipo_elogio" value="Coletivo"
+                       {% if request_form and request_form.get('subtipo_elogio') == 'Coletivo' %}checked{% endif %}>
+                Coletivo
+            </label>
+        </div>
+    </div>
+</div>
         
         <div class="form-section">
             <h3 class="section-title"><i class="fas fa-file-alt"></i> Relato Detalhado</h3>
             <div class="form-group">
                 <label for="relato_observador">Relato do Observador <span class="required">*</span></label>
                 <textarea id="relato_observador" name="relato_observador" class="form-control" 
-                              placeholder="Descreva detalhadamente o fato observado..." maxlength="500" required>{{ request.form.get('relato_observador', '') }}</textarea>
+                    placeholder="Descreva detalhadamente o fato observado..." maxlength="500" required>{{ request_form.get('relato_observador', '') if request_form else '' }}</textarea>
                 <div class="char-counter">0/500 caracteres</div>
             </div>
             <div class="form-group">
                 <label for="material_recolhido">Material Recolhido (se houver)</label>
                 <textarea id="material_recolhido" name="material_recolhido" class="form-control" 
-                              placeholder="Descreva qualquer material confiscado ou recolhido..." rows="3"></textarea>
+                    placeholder="Descreva qualquer material confiscado ou recolhido..." rows="3">{{ request_form.get('material_recolhido', '') if request_form else '' }}</textarea>
             </div>
         </div>
         
