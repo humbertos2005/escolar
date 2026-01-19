@@ -164,28 +164,37 @@ def validar_email(email):
 def get_proximo_rfo_id(incrementar=False):
     """
     Gera um identificador para RFO no formato RFO-XXXX/YYYY (ex: RFO-0001/2025),
-    usando SQLAlchemy ORM.
+    usando a tabela rfo_sequencia (models_sqlalchemy.RFOSequencia) para garantir sequência anual.
     """
-    try:
-        from datetime import datetime
-        from database import get_db
+    from datetime import datetime
+    from database import get_db
+    from models_sqlalchemy import RFOSequencia
+
+    db = get_db()
+    year = datetime.utcnow().strftime('%Y')
+
+    row = db.query(RFOSequencia).filter_by(ano=year).first()
+    if not row:
+        # Se já existem RFOs lançados, inicie pelo maior encontrado + 1
         from models_sqlalchemy import Ocorrencia
-
-        year = datetime.utcnow().strftime('%Y')
-        try:
-            db = get_db()
-            # Considera 'created_at' no padrão 'YYYY-MM-DD ...'
-            base_count = db.query(Ocorrencia).filter(Ocorrencia.created_at.startswith(f"{year}")).count()
-        except Exception:
-            base_count = 0
-
-        seq = base_count + 1
-        return f"RFO-{seq:04d}/{year}"
-    except Exception:
-        from datetime import datetime
-        year = datetime.utcnow().strftime('%Y')
-        fallback_seq = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[-6:]
-        return f"RFO-{fallback_seq}/{year}"
+        ultimo_numero = 0
+        ultimo_rfo = db.query(Ocorrencia).filter(Ocorrencia.rfo_id.like(f"RFO-%/{year}")).order_by(Ocorrencia.id.desc()).first()
+        if ultimo_rfo and getattr(ultimo_rfo, "rfo_id", None):
+            try:
+                ultimo_numero = int(str(ultimo_rfo.rfo_id).split('-')[1].split('/')[0])
+            except Exception:
+                ultimo_numero = 0
+        seq = ultimo_numero + 1
+        row = RFOSequencia(ano=year, numero=seq)
+        if incrementar:
+            db.add(row)
+            db.commit()
+    else:
+        seq = row.numero + 1 if incrementar else row.numero
+        if incrementar:
+            row.numero = seq
+            db.commit()
+    return f"RFO-{seq:04d}/{year}"
 
 import smtplib
 import ssl

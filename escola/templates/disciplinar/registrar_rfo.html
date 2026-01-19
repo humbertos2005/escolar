@@ -550,14 +550,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 <label for="tipo_ocorrencia_id">Tipo de Ocorrência <span class="required">*</span></label>
                 <select id="tipo_ocorrencia_id" name="tipo_ocorrencia_id" class="form-control" required>
                     <option value="">Selecione o Tipo</option>
-                    <option value="sala"
-                        {% if request_form and request_form.get('tipo_ocorrencia_id', '') == 'sala' %}selected{% endif %}>
-                        Relato de Fato Observado em Sala de Aula
-                    </option>
-                    <option value="ambiente"
-                        {% if request_form and request_form.get('tipo_ocorrencia_id', '') == 'ambiente' %}selected{% endif %}>
-                        Relato de Fato Observado em Ambiente Escolar
-                    </option>
+                    {% for tipo in tipos_ocorrencia %}
+                        <option value="{{ tipo.id }}"
+                            {% if request_form and request_form.get('tipo_ocorrencia_id', '') == tipo.id|string %}selected{% endif %}>
+                            {{ tipo.nome }}
+                        </option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="form-group">
@@ -567,7 +565,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <div class="form-group">
                 <label>Nome do Observador</label>
                 <input type="text" id="observador_nome_display" class="form-control" value="{{ session.get('username') if session.get('username') else 'Usuário logado' }}" readonly style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 10px;">
-                <input type="hidden" id="observador_id" name="observador_id" value="{{ g.user.id if g.user else '' }}">
+                <input type="hidden" id="observador_id" name="observador_id" value="{{ session.get('user_id', '') }}">
                 <small class="text-muted">Preenchido automaticamente com o usuário logado.</small>
             </div>
         </div>

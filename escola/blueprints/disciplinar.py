@@ -439,6 +439,7 @@ def registrar_rfo():
     tipos_ocorrencia = get_tipos_ocorrencia()
 
     if request.method == 'POST':
+        
         aluno_ids = request.form.getlist('aluno_id')
         if not aluno_ids or all(not a for a in aluno_ids):
             raw = request.form.get('aluno_ids') or request.form.get('aluno_id') or ''
@@ -453,17 +454,20 @@ def registrar_rfo():
 
         data_ocorrencia = request.form.get('data_ocorrencia')
         observador_id = request.form.get('observador_id')
+        error = None
+        if not observador_id:
+            error = 'Sessão do usuário expirada. Faça login novamente.'
         relato_observador = request.form.get('relato_observador', '').strip()
         tipo_rfo = request.form.get('tipo_rfo', '').strip()
         subtipo_elogio = request.form.get('subtipo_elogio', '').strip()
         material_recolhido = request.form.get('material_recolhido', '').strip()
         advertencia_oral = request.form.get('advertencia_oral', '').strip()
 
-        error = None
-        if not aluno_ids or len([a for a in aluno_ids if a]) == 0 or not tipo_ocorrencia_id or not data_ocorrencia or not observador_id or not relato_observador:
-            error = 'Por favor, preencha todos os campos obrigatórios.'
-        elif tipo_rfo != 'Elogio' and advertencia_oral not in ['sim', 'nao']:
-            error = 'Selecione se a ocorrência deve ser considerada como Advertência Oral.'
+        if error is None:
+            if not aluno_ids or len([a for a in aluno_ids if a]) == 0 or not tipo_ocorrencia_id or not data_ocorrencia or not observador_id or not relato_observador:
+                error = 'Por favor, preencha todos os campos obrigatórios.'
+            elif tipo_rfo != 'Elogio' and advertencia_oral not in ['sim', 'nao']:
+                error = 'Selecione se a ocorrência deve ser considerada como Advertência Oral.'
 
         if error:
             aluno_ids_req = request.form.getlist('aluno_id')
