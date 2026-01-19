@@ -440,6 +440,7 @@ def registrar_rfo():
 
     if request.method == 'POST':
         
+
         aluno_ids = request.form.getlist('aluno_id')
         if not aluno_ids or all(not a for a in aluno_ids):
             raw = request.form.get('aluno_ids') or request.form.get('aluno_id') or ''
@@ -642,13 +643,16 @@ def listar_rfo():
 @admin_secundario_required
 def visualizar_rfo(ocorrencia_id):
     db = get_db()
-    from sqlalchemy import func
+    from sqlalchemy import func, cast, String
 
     rfo = (
         db.query(
             Ocorrencia,
-            func.group_concat(Aluno.nome, '; ').label('alunos'),
-            func.group_concat(func.concat(Aluno.serie, " - ", Aluno.turma), '; ').label('series_turmas'),
+            func.string_agg(Aluno.nome.cast(String), '; ').label('alunos'),
+            func.string_agg(
+                (Aluno.serie.cast(String) + " - " + Aluno.turma.cast(String)),
+                '; '
+            ).label('series_turmas'),
             Aluno.matricula.label('matricula'),
             Aluno.nome.label('nome_aluno'),
             Aluno.serie.label('serie'),
@@ -662,7 +666,7 @@ def visualizar_rfo(ocorrencia_id):
         .outerjoin(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id)
         .outerjoin(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id)
         .filter(Ocorrencia.id == ocorrencia_id)
-        .group_by(Ocorrencia.id)
+        .group_by(Ocorrencia.id, Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma, TipoOcorrencia.nome, Usuario.username)
         .first()
     )
 
@@ -747,13 +751,13 @@ def imprimir_rfo(ocorrencia_id):
 @admin_secundario_required
 def export_prontuario_pdf(ocorrencia_id):
     db = get_db()
-    from sqlalchemy import func
+    from sqlalchemy import func, cast, String
 
     rfo = (
         db.query(
             Ocorrencia,
-            func.group_concat(Aluno.nome, '; ').label('alunos'),
-            func.group_concat(func.concat(Aluno.serie, " - ", Aluno.turma), '; ').label('series_turmas'),
+            func.string_agg(cast(Aluno.nome, String), '; ').label('alunos'),
+            func.string_agg(cast(Aluno.serie, String) + " - " + cast(Aluno.turma, String), '; ').label('series_turmas'),
             Aluno.matricula.label('matricula'),
             Aluno.nome.label('nome_aluno'),
             Aluno.serie.label('serie'),
@@ -767,7 +771,7 @@ def export_prontuario_pdf(ocorrencia_id):
         .outerjoin(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id)
         .outerjoin(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id)
         .filter(Ocorrencia.id == ocorrencia_id)
-        .group_by(Ocorrencia.id)
+        .group_by(Ocorrencia.id, Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma, TipoOcorrencia.nome, Usuario.username)
         .first()
     )
 
