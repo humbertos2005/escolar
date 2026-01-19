@@ -7,7 +7,7 @@ from models_sqlalchemy import (
     Ocorrencia, FichaMedidaDisciplinar, Aluno, TipoOcorrencia, Usuario, 
     PontuacaoBimestral, PontuacaoHistorico, Comportamento, FaltaDisciplinar,
     OcorrenciaFalta, OcorrenciaAluno, TabelaDisciplinarConfig, Bimestre,
-    Cabecalho, DadosEscola, FmdSequencia
+    Cabecalho, DadosEscola, 
     # Inclua outras conforme necessário para as rotas!
 )
 
@@ -402,16 +402,16 @@ def buscar_alunos_json():
             num = matricula_part if matricula_part and matricula_part.isdigit() else termo_busca
             alunos = db.query(Aluno).filter(
                 (Aluno.id == int(num)) |
-                (Aluno.matricula.like(f"%{num}%")) |
-                (Aluno.nome.like(f"%{num}%"))
+                (Aluno.matricula.ilike(f"%{num}%")) |
+                (Aluno.nome.ilike(f"%{num}%"))
             ).order_by(Aluno.nome).limit(20).all()
         else:
             if len(termo_busca) < 3:
                 return jsonify([])
             q_like = f'%{termo_busca}%'
             alunos = db.query(Aluno).filter(
-                (Aluno.matricula.like(q_like)) |
-                (Aluno.nome.like(q_like))
+                (Aluno.matricula.ilike(q_like)) |
+                (Aluno.nome.ilike(q_like))
             ).order_by(Aluno.nome).limit(20).all()
 
         for aluno in alunos:
@@ -436,7 +436,9 @@ def registrar_rfo():
     db = get_db()
     from .utils import get_proximo_rfo_id  # Garante import local caso não esteja global
     rfo_id_gerado = get_proximo_rfo_id()
-    tipos_ocorrencia = get_tipos_ocorrencia()
+    
+    # OBTÉM TIPOS DE OCORRÊNCIA DIRETO DO BANCO, COM IDS NUMÉRICOS
+    tipos_ocorrencia = db.query(TipoOcorrencia).all()
 
     if request.method == 'POST':
         aluno_ids = request.form.getlist('aluno_id')
@@ -445,6 +447,12 @@ def registrar_rfo():
             aluno_ids = [s.strip() for s in raw.split(',') if s.strip()]
 
         tipo_ocorrencia_id = request.form.get('tipo_ocorrencia_id')
+        # GARANTE QUE O ID É INTEIRO
+        try:
+            tipo_ocorrencia_id = int(tipo_ocorrencia_id)
+        except (ValueError, TypeError):
+            tipo_ocorrencia_id = None
+
         data_ocorrencia = request.form.get('data_ocorrencia')
         observador_id = request.form.get('observador_id')
         relato_observador = request.form.get('relato_observador', '').strip()
@@ -535,10 +543,13 @@ def registrar_rfo():
 @admin_secundario_required
 def listar_rfo():
     db = get_db()
-    from sqlalchemy.orm import joinedload
+    from sqlalchemy.orm import aliased
     from sqlalchemy import func, or_
 
-    # Consulta principal com JOINs para obter informações relevantes e agrupamentos
+    # Aliases para Aluno
+    Aluno1 = aliased(Aluno)
+    Aluno2 = aliased(Aluno)
+
     ocorrencias = (
         db.query(
             Ocorrencia.id,
@@ -549,24 +560,43 @@ def listar_rfo():
             Ocorrencia.relato_observador,
             Ocorrencia.advertencia_oral,
             Ocorrencia.material_recolhido,
-            func.group_concat(Aluno2.nome, '; ').label('alunos'),
+            func.string_agg(Aluno2.nome, '; ').label('alunos'),
             func.coalesce(Aluno1.matricula, Aluno2.matricula).label('matricula'),
             func.coalesce(Aluno1.nome, Aluno2.nome).label('nome_aluno'),
             func.coalesce(
-                func.group_concat(func.concat(Aluno2.serie, " - ", Aluno2.turma), '; '),
+                func.string_agg(func.concat(Aluno2.serie, " - ", Aluno2.turma), '; '),
                 func.concat(Aluno1.serie, " - ", Aluno1.turma)
             ).label('series_turmas'),
             Usuario.username.label('responsavel_registro_username'),
             TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
         )
         .join(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id, isouter=True)
-        .join(Aluno2 := Aluno, Aluno2.id == OcorrenciaAluno.aluno_id, isouter=True)
-        .join(Aluno1 := Aluno, Aluno1.id == Ocorrencia.aluno_id, isouter=True)
+        .join(Aluno2, Aluno2.id == OcorrenciaAluno.aluno_id, isouter=True)
+        .join(Aluno1, Aluno1.id == Ocorrencia.aluno_id, isouter=True)
         .join(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id, isouter=True)
         .join(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id, isouter=True)
         .filter(Ocorrencia.status == 'AGUARDANDO TRATAMENTO')
-        .group_by(Ocorrencia.id)
-        .order_by(Ocorrencia.data_registro.desc())
+        .group_by(
+            Ocorrencia.id,
+            Ocorrencia.rfo_id,
+            Ocorrencia.data_ocorrencia,
+            Ocorrencia.tipo_ocorrencia_id,
+            Ocorrencia.status,
+            Ocorrencia.relato_observador,
+            Ocorrencia.advertencia_oral,
+            Ocorrencia.material_recolhido,
+            Aluno1.matricula,
+            Aluno1.nome,
+            Aluno1.serie,
+            Aluno1.turma,
+            Aluno2.matricula,
+            Aluno2.nome,
+            Aluno2.serie,
+            Aluno2.turma,
+            Usuario.username,
+            TipoOcorrencia.nome
+        )
+        .order_by(Ocorrencia.data_ocorrencia.desc())
         .all()
     )
 

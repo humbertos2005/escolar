@@ -528,9 +528,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 <label for="tipo_ocorrencia_id">Tipo de Ocorrência <span class="required">*</span></label>
                 <select id="tipo_ocorrencia_id" name="tipo_ocorrencia_id" class="form-control" required>
                   <option value="">Selecione o Tipo</option>
-                  <option value="sala">Relato de Fato Observado em Sala de Aula</option>
-                  <option value="ambiente">Relato de Fato Observado em Ambiente Escolar</option>
-              </select>
+                  {% for t in tipos_ocorrencia %}
+                    <option value="{{ t.id }}">{{ t.nome }}</option>
+                  {% endfor %}
+                </select>
             </div>
             <div class="form-group">
                 <label for="data_ocorrencia">Data da Ocorrência <span class="required">*</span></label>
