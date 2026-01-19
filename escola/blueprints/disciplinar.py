@@ -5,9 +5,15 @@ from flask import (
 from database import get_db  # USAR SEMPRE O NOVO
 from models_sqlalchemy import (
     Ocorrencia, FichaMedidaDisciplinar, Aluno, TipoOcorrencia, Usuario, 
-    PontuacaoBimestral, PontuacaoHistorico, Comportamento, FaltaDisciplinar
+    PontuacaoBimestral, PontuacaoHistorico, Comportamento, FaltaDisciplinar,
+    OcorrenciaFalta, OcorrenciaAluno, TabelaDisciplinarConfig, Bimestre,
+    Cabecalho, DadosEscola, 
     # Inclua outras conforme necessário para as rotas!
 )
+
+from services.escolar_helper import get_tipos_ocorrencia, get_proximo_fmd_id, get_faltas_disciplinares
+
+# ...
 from .utils import (
     login_required,
     admin_required,
@@ -15,14 +21,17 @@ from .utils import (
     INFRACAO_MAP,
     TIPO_OCORRENCIA_MAP,
     TIPO_FALTA_MAP,
-    MEDIDAS_MAP
+    MEDIDAS_MAP,
+    get_proximo_rfo_id  # Adicione esta linha
 )
+
 from datetime import datetime, date
 import re
 import os
 import pdfkit
 import shutil
 from werkzeug.utils import secure_filename
+from sqlalchemy import or_
 from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
 
 disciplinar_bp = Blueprint('disciplinar_bp', __name__, url_prefix='/disciplinar')
@@ -39,7 +48,7 @@ def _create_fmd_for_aluno(db, aluno_id, medida_aplicada, descricao, data_fmd=Non
         if not db.bind.has_table("ficha_medida_disciplinar"):
             return False
 
-        seq, ano = next_fmd_seq_and_year(db)  # Função a ser adaptada para SQLAlchemy
+        seq, ano = _next_fmd_sequence(db)
         fmd_id = f"FMD-{seq}/{ano}"
 
         fmd_kwargs = dict(
@@ -393,16 +402,16 @@ def buscar_alunos_json():
             num = matricula_part if matricula_part and matricula_part.isdigit() else termo_busca
             alunos = db.query(Aluno).filter(
                 (Aluno.id == int(num)) |
-                (Aluno.matricula.like(f"%{num}%")) |
-                (Aluno.nome.like(f"%{num}%"))
+                (Aluno.matricula.ilike(f"%{num}%")) |
+                (Aluno.nome.ilike(f"%{num}%"))
             ).order_by(Aluno.nome).limit(20).all()
         else:
             if len(termo_busca) < 3:
                 return jsonify([])
             q_like = f'%{termo_busca}%'
             alunos = db.query(Aluno).filter(
-                (Aluno.matricula.like(q_like)) |
-                (Aluno.nome.like(q_like))
+                (Aluno.matricula.ilike(q_like)) |
+                (Aluno.nome.ilike(q_like))
             ).order_by(Aluno.nome).limit(20).all()
 
         for aluno in alunos:
@@ -425,6 +434,7 @@ def buscar_alunos_json():
 @login_required
 def registrar_rfo():
     db = get_db()
+    from .utils import get_proximo_rfo_id  # Garante import local caso não esteja global
     rfo_id_gerado = get_proximo_rfo_id()
     tipos_ocorrencia = get_tipos_ocorrencia()
 
@@ -463,6 +473,7 @@ def registrar_rfo():
             advertencia_oral = advertencia_oral or 'nao'
 
         try:
+            # Garante incremento correto do id
             rfo_id_final = get_proximo_rfo_id(incrementar=True)
             valid_aluno_ids = aluno_ids
 
@@ -474,7 +485,7 @@ def registrar_rfo():
                                        request_form=request.form,
                                        g=g)
 
-            primeiro_aluno = valid_aluno_ids[0]
+            primeiro_aluno = valid_aluno_ids[0] if valid_aluno_ids else None
 
             ocorrencia = Ocorrencia(
                 rfo_id=rfo_id_final,
