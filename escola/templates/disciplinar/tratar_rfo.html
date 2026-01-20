@@ -110,7 +110,7 @@
         </h3>
 
         <form method="POST" id="form-tratar-rfo" data-tipo="{{ tipo_val }}">
-            <input type="hidden" name="aluno_id" value="{{ ocorrencia.aluno_id }}">
+            <input type="hidden" name="aluno_id" value="{{ ocorrencia.alunos_list[0].id if ocorrencia.alunos_list and ocorrencia.alunos_list[0].id else ocorrencia.aluno_id }}">
             <input type="hidden" id="reincidencia_hidden" name="reincidencia" value="{{ ocorrencia.reincidencia if ocorrencia.reincidencia is not none else 0 }}">
 
             <fieldset class="form-fieldset" id="fieldset-classificacao">
@@ -317,13 +317,13 @@
 .reclassify-types .button.tipo-adicionar.active { background:#f1c40f; border-color:#f39c12; color:#000; }
 
 </style>
+{% endblock %}
 
 {% block scripts %}
-{{ super() }}
 <script src="{{ url_for('static', filename='js/tratar_rfo.js') }}?v={{ range(1,100000) | random }}"></script>
 {% endblock %}
 
-{% endblock %}
+
 
 
 

@@ -132,6 +132,7 @@ def api_check_reincidencia():
     else:
         return jsonify(error='Parâmetro falta_id ou descricao é obrigatório'), 400
 
+    print("aluno_id:", aluno_id, "falta_id:", falta_id, "descricao:", descricao)
     count = query.count()
     last = query.order_by(getattr(Ocorrencia, 'data_tratamento', None) or 
                           getattr(Ocorrencia, 'data_registro', None) or 
@@ -677,24 +678,45 @@ def visualizar_rfo(ocorrencia_id):
     # rfo é uma namedtuple (ou Row); transformar em dict mutável para manipulação
     rfo_dict = dict(rfo._asdict() if hasattr(rfo, "_asdict") else rfo)
 
-    # Montar alunos_rows para nomes/séries/turmas (ordem garantida)
+    # Obter lista de alunos da ocorrência, incluindo o ID
     alunos_rows = (
         db.query(
-            Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma
+            Aluno.id,
+            Aluno.matricula,
+            Aluno.nome,
+            Aluno.serie,
+            Aluno.turma
         )
         .join(OcorrenciaAluno, OcorrenciaAluno.aluno_id == Aluno.id)
         .filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id)
         .order_by(OcorrenciaAluno.id)
         .all()
     )
+    alunos_list = []
     series_list = []
     names_list = []
     for ar in alunos_rows:
-        s = (ar.serie or '')
-        t = (ar.turma or '')
+        # ar = (id, matricula, nome, serie, turma)
+        aluno_id = ar[0]
+        matricula = ar[1]
+        nome = ar[2]
+        serie = ar[3]
+        turma = ar[4]
+        alunos_list.append({
+            'id': aluno_id,
+            'nome': nome or '',
+            'matricula': matricula or '',
+            'serie': serie or '',
+            'turma': turma or ''
+        })
+        # Para os nomes/séries/turmas
+        s = (serie or '')
+        t = (turma or '')
         if s or t:
             series_list.append(f"{s} - {t}".strip(' - '))
-        names_list.append(ar.nome or '')
+        names_list.append(nome or '')
+
+    rfo_dict['alunos_list'] = alunos_list
 
     if series_list:
         rfo_dict['series_turmas'] = '; '.join(series_list)
@@ -717,7 +739,7 @@ def visualizar_rfo(ocorrencia_id):
             material_info = f"{tratamento} — {associado}"
     rfo_dict['material_recolhido_info'] = material_info
 
-    print("DEBUG rfo_dict:", rfo_dict)  # <-- Adicione esta linha para mostrar todas as chaves no console
+    print('OCCURRENCIA alunos_list:', rfo_dict['alunos_list'])
 
     return render_template('disciplinar/visualizar_rfo.html', rfo=rfo_dict)
 
@@ -888,7 +910,7 @@ def tratar_rfo(ocorrencia_id):
 
     alunos_rows = (
         db.query(
-            Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma
+            Aluno.id, Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma
         )
         .join(OcorrenciaAluno, OcorrenciaAluno.aluno_id == Aluno.id)
         .filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id)
@@ -900,11 +922,18 @@ def tratar_rfo(ocorrencia_id):
     series_list = []
     nomes_list = []
     for ar in alunos_rows:
+        # Adicionando o ID!
+        aluno_id = getattr(ar, 'id', None)
+        if aluno_id is None:
+            aluno_id = getattr(ar, 'aluno_id', None)
+        if aluno_id is None:
+            aluno_id = ''
         nome = getattr(ar, 'nome', None)
         matricula = getattr(ar, 'matricula', None)
         serie = getattr(ar, 'serie', None)
         turma = getattr(ar, 'turma', None)
         alunos_list.append({
+            'id': aluno_id,               # <-- ESSENCIAL!
             'nome': nome or '',
             'matricula': matricula or '',
             'serie': serie or '',

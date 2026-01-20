@@ -3,6 +3,8 @@
 // Ajuste mínimo aplicado ao handler de sucesso para NÃO chamar clearReclassifyUI() e manter o cancel disponível.
 // Também adiciona suporte para modo "Elogio": oculta/dispensa campos de falta/medida no front-end.
 
+console.trace("Carregando tratar_rfo.js em", window.location.href, "timestamp", Date.now());
+
 (function () {
   'use strict';
 
@@ -249,9 +251,11 @@
         .then(res => res.ok ? res.json() : null)
         .catch(err => {
           console.error('checkReincidencia fetch error', err);
-          return null;
+          return null;          
         });
     }
+
+    window.checkReincidenciaUsing = checkReincidenciaUsing;
 
     function showResult(text, color) {
       if (!resultEl) return;
@@ -437,32 +441,48 @@
         clearReclassifyUI();
         return;
       }
-      showResult('Verificando...', '#666');
+          
       checkReincidenciaUsing(identifier).then(data => {
         console.log('checkReincidencia result ->', data);
+        //window.alert("DEBUG: Entrou no bloco do then(data) da verificação de reincidência!\nexists=" + (data && data.exists));
+
+        // Força atualização visual sempre
+        const resultDiv = document.querySelector('#reincidenciaResult');
+
         if (!data) {
-          showResult('');
+          if (resultDiv) {
+            resultDiv.textContent = '';
+            resultDiv.style.color = '#000';
+          }
           clearReclassifyUI();
           return;
         }
         if (data.exists) {
-          // update hidden reincidencia to 1
           if (reincHidden) reincHidden.value = '1';
-          showResult('SIM', 'green');
+          if (resultDiv) {
+            resultDiv.textContent = 'SIM';
+            resultDiv.style.color = 'green';
+          }
           if (data.last) {
             showReclassifyUI(data.last);
           } else {
             clearReclassifyUI();
           }
         } else {
-          // update hidden reincidencia to 0
           if (reincHidden) reincHidden.value = '0';
-          showResult('NÃO', 'red');
+          if (resultDiv) {
+            resultDiv.textContent = 'NÃO';
+            resultDiv.style.color = 'red';
+          }
           clearReclassifyUI();
         }
       }).catch(err => {
         console.error(err);
-        showResult('Erro ao checar reincidência', 'orange');
+        const resultDiv = document.querySelector('#reincidenciaResult');
+        if (resultDiv) {
+          resultDiv.textContent = 'Erro ao checar reincidência';
+          resultDiv.style.color = 'orange';
+        }
       });
     }, DEBOUNCE_MS);
 
@@ -738,9 +758,13 @@
   }
 
   // Initialize when DOM ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { 
+      //alert("CHAMANDO INIT PELO DOMContentLoaded!");
+      init();
+    });
   } else {
+    alert("CHAMANDO INIT DIRETO!");
     init();
   }
 })();
