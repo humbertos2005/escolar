@@ -1,3 +1,5 @@
+console.log('Arquivo tratar_rfo.js iniciado');
+
 // static/js/tratar_rfo.js
 // Versão ajustada: mantem botão "Cancelar reclassificação" visível após reclassificar (não remove a UI).
 // Ajuste mínimo aplicado ao handler de sucesso para NÃO chamar clearReclassifyUI() e manter o cancel disponível.
@@ -253,10 +255,13 @@
         });
     }
 
-    function showResult(text, color) {
-      if (!resultEl) return;
-      resultEl.textContent = text || '';
-      resultEl.style.color = color || '#000';
+    window.showResult = function(text, color) {
+      var el = document.querySelector('#reincidenciaResult');
+      if (el) {
+        el.textContent = text || '';
+        el.style.color = color || '#000';
+        el.style.fontWeight = '700';
+      }
     }
 
     function clearReclassifyUI() {
@@ -359,7 +364,7 @@
             // mark reincidencia as true
             if (reincHidden) reincHidden.value = '1';
             // update result text to reflect reclassification
-            showResult('SIM (reclassificado)', 'green');
+            window.showResult('SIM (reclassificado)', 'green');
 
             // DO NOT remove reclassify UI here — keep Cancel visible as requested.
             // Instead: disable type buttons and update the reclass button to reflect success,
@@ -400,10 +405,9 @@
 
         // keep reincidencia hidden as-is (typically '1' because we are inside reclassify)
         if (reincHidden) {
-          // ensure label remains SIM if reincHidden indicates exists
-          if (reincHidden.value === '1') showResult('SIM', 'green');
-          else if (reincHidden.value === '0') showResult('NÃO', 'red');
-          else showResult('', '#000');
+          if (reincHidden.value === '1') window.showResult('SIM', 'green');
+          else if (reincHidden.value === '0') window.showResult('NÃO', 'red');
+          else window.showResult('', '#000');
         }
 
         // clear the reclassify area (user closed)
@@ -428,43 +432,50 @@
       return null;
     }
 
-    // checkReincidencia wrapper with debounce
+    // ============================= FIX: SÓ MOSTRAR SIM/NÃO SE HOUVER FALTA SELECIONADA =============================
     const debouncedCheck = debounce(function () {
       const identifier = decideFaltaIdentifier();
       console.log('debouncedCheck invoked, identifier=', identifier);
+
+      // Fica vazio se não há falta selecionada OU aluno não informado
       if (!identifier || !alunoIdInput || !alunoIdInput.value) {
-        showResult('');
+        window.showResult('', '#000');
         clearReclassifyUI();
         return;
       }
-      showResult('Verificando...', '#666');
+
+      window.showResult('Verificando...', '#666');
       checkReincidenciaUsing(identifier).then(data => {
         console.log('checkReincidencia result ->', data);
-        if (!data) {
-          showResult('');
+
+        // Se não vier resposta válida do backend, mostra NÃO
+        if (!data || typeof data.exists === "undefined") {
+          if (reincHidden) reincHidden.value = '0';
+          window.showResult('NÃO', 'red');
           clearReclassifyUI();
           return;
         }
+
         if (data.exists) {
-          // update hidden reincidencia to 1
           if (reincHidden) reincHidden.value = '1';
-          showResult('SIM', 'green');
+          window.showResult('SIM', 'green');
           if (data.last) {
             showReclassifyUI(data.last);
           } else {
             clearReclassifyUI();
           }
         } else {
-          // update hidden reincidencia to 0
           if (reincHidden) reincHidden.value = '0';
-          showResult('NÃO', 'red');
+          window.showResult('NÃO', 'red');
           clearReclassifyUI();
         }
       }).catch(err => {
         console.error(err);
-        showResult('Erro ao checar reincidência', 'orange');
+        window.showResult('Erro ao checar reincidência', 'orange');
       });
     }, DEBOUNCE_MS);
+
+    window.debouncedCheck = debouncedCheck;
 
     // Initialize selectedFaltas from hidden input if present
     if (faltaHidden && faltaHidden.value && faltaHidden.value.trim()) {
@@ -575,28 +586,7 @@
     // Monitor changes on hidden (in case other scripts change it)
     if (faltaHidden) {
       faltaHidden.addEventListener('change', function () {
-        // sync selectedFaltas if hidden changed externally (basic)
-        const ids = String(faltaHidden.value || '').split(',').map(s => s.trim()).filter(Boolean);
-        if (ids.length === 0 && selectedFaltas.length === 0) return;
-        const same = ids.length === selectedFaltas.length && ids.every((v, i) => String(selectedFaltas[i].id) === String(v));
-        if (!same) {
-          selectedFaltas = ids.map(id => ({ id: id, descricao: '' }));
-          if (ids.length) {
-            fetchFaltas(ids.join(' ')).then(arr => {
-              const lookup = {};
-              (arr || []).forEach(a => { lookup[String(a.id)] = a.descricao; });
-              selectedFaltas = selectedFaltas.map(s => ({ id: s.id, descricao: lookup[String(s.id)] || s.descricao }));
-              renderFaltas();
-              debouncedCheck.run();
-            }).catch(() => {
-              renderFaltas();
-              debouncedCheck.run();
-            });
-          } else {
-            renderFaltas();
-            debouncedCheck.run();
-          }
-        }
+        debouncedCheck.run();
       });
     }
 
