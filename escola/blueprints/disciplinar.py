@@ -1053,7 +1053,7 @@ def tratar_rfo(ocorrencia_id):
                 data_trat = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
                 # Atualiza a ocorrência
-                oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
+                oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).with_for_update().first()
                 oc_obj.status = 'TRATADO'
                 oc_obj.data_tratamento = data_trat
                 oc_obj.tipo_falta = tipos_csv
@@ -1143,7 +1143,13 @@ def tratar_rfo(ocorrencia_id):
                 except Exception:
                     current_app.logger.exception('Erro ao integrar RFO ao prontuário (tarefa auxiliar)')
 
-                db.commit()
+                try:
+                    db.commit()
+                except Exception as e:
+                    db.rollback()
+                    flash(f'Erro ao tratar RFO: {e}', 'danger')
+                    return redirect(url_for('disciplinar_bp.listar_rfo'))
+
                 rfo_id_str = ocorrencia_dict.get("rfo_id") or getattr(oc_obj, "rfo_id", None) or getattr(oc_obj, "id", None)
                 flash(f'RFO {rfo_id_str} tratado com sucesso.', 'success')
                 return redirect(url_for('disciplinar_bp.listar_rfo'))
