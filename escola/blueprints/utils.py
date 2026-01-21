@@ -162,39 +162,39 @@ def validar_email(email):
     return '@' in email and '.' in email.split('@')[1]
 
 def get_proximo_rfo_id(incrementar=False):
-    """
-    Gera um identificador para RFO no formato RFO-XXXX/YYYY (ex: RFO-0001/2025),
-    usando a tabela rfo_sequencia (models_sqlalchemy.RFOSequencia) para garantir sequência anual.
-    """
     from datetime import datetime
     from database import get_db
-    from models_sqlalchemy import RFOSequencia
+    from models_sqlalchemy import RFOSequencia, Ocorrencia
+
+    import re
 
     db = get_db()
     year = datetime.utcnow().strftime('%Y')
 
+    # Busca todos os rfo_id já usados para o ano
+    todos_rfos = db.query(Ocorrencia.rfo_id).filter(Ocorrencia.rfo_id.like(f"RFO-%/{year}")).all()
+    usados = set()
+    for (rfoid,) in todos_rfos:
+        if rfoid:
+            match = re.match(r"RFO-(\d+)/" + str(year), rfoid)
+            if match:
+                usados.add(int(match.group(1)))
     row = db.query(RFOSequencia).filter_by(ano=year).first()
-    if not row:
-        # Busca o maior número já usado para o ano atual
-        from models_sqlalchemy import Ocorrencia
-        import re
-        todos_rfos = db.query(Ocorrencia.rfo_id).filter(Ocorrencia.rfo_id.like(f"RFO-%/{year}")).all()
-        maiores = []
-        for (rfoid,) in todos_rfos:
-            if rfoid:
-                match = re.match(r"RFO-(\d+)/"+str(year), rfoid)
-                if match:
-                    maiores.append(int(match.group(1)))
-        ultimo_numero = max(maiores) if maiores else 0
-        seq = ultimo_numero + 1
-        row = RFOSequencia(ano=year, numero=seq)
-        if incrementar:
-            db.add(row)
-            db.commit()
-    else:
-        seq = row.numero + 1 if incrementar else row.numero
+    ultimo = row.numero if row else 0
+
+    # O novo número será o maior já usado + 1, nunca repetido
+    seq = max(usados) + 1 if usados else 1
+    if seq <= ultimo:
+        seq = ultimo + 1
+
+    if row:
         if incrementar:
             row.numero = seq
+            db.commit()
+    else:
+        if incrementar:
+            row = RFOSequencia(ano=year, numero=seq)
+            db.add(row)
             db.commit()
     return f"RFO-{seq:04d}/{year}"
 
