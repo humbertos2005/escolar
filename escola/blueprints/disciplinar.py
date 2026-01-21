@@ -539,6 +539,7 @@ def registrar_rfo():
                 advertencia_oral=advertencia_oral,
                 material_recolhido=material_recolhido,
                 tratamento_tipo=tipo_rfo,
+                tipo_rfo=tipo_rfo,                  # <--- LINHA NOVA, ESSENCIAL!
                 subtipo_elogio=subtipo_elogio,
                 responsavel_registro_id=session.get('user_id'),
                 status='AGUARDANDO TRATAMENTO'
@@ -674,6 +675,8 @@ def visualizar_rfo(ocorrencia_id):
             Aluno.turma.label('turma'),
             TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
             Usuario.username.label('responsavel_registro_username'),
+            Ocorrencia.tipo_rfo.label('tipo_rfo'),
+            Ocorrencia.subtipo_elogio.label('subtipo_elogio'),
         )
         .select_from(Ocorrencia)
         .outerjoin(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id)

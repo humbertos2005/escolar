@@ -99,7 +99,8 @@ class Ocorrencia(Base):
     falta_ids_csv = Column(String)
     circunstancias_atenuantes = Column(String)
     circunstancias_agravantes = Column(String)
-
+    tipo_rfo = Column(String)
+    
 # Sequência FMD
 class FMDSequencia(Base):
     __tablename__ = "fmd_sequencia"
