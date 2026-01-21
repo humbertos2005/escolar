@@ -301,20 +301,30 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
 def _next_fmd_sequence(db):
     """
     Retorna (seq_int, ano_int) com o próximo número sequencial para o ano corrente.
-    Mantém/atualiza Tabela FmdSequencia (model) (ano INTEGER PRIMARY KEY, seq INTEGER).
+    Mantém/atualiza Tabela FMDSequencia (model) (ano PRIMARY KEY, seq INTEGER).
     Se a tabela não existir, tenta computar a partir dos fmd_id existentes.
     """
-    ano = datetime.now().year
-    from models_sqlalchemy import FmdSequencia, FichaMedidaDisciplinar
+
+    ano = str(datetime.now().year)  # Garante que o tipo bate (string)
+    from models_sqlalchemy import FMDSequencia, FichaMedidaDisciplinar
+
     try:
-        row = db.query(FmdSequencia).filter_by(ano=ano).first()
+        row = db.query(FMDSequencia).filter_by(ano=ano).first()
         if row and row.seq is not None:
             seq = int(row.seq) + 1
             row.seq = seq
             db.commit()
-            return seq, ano
-    except Exception:
-        pass
+            return seq, int(ano)
+        elif row is not None:
+            # Caso raro: row existe mas não tem seq
+            row.seq = 1
+            db.commit()
+            return 1, int(ano)
+    except Exception as e:
+        db.rollback()  # Garante rollback do erro!
+        print("Erro ao buscar/incrementar FMDSequencia:", e)
+
+    # Se não existe para o ano, pega maior seq dos FMDs existentes para o ano
     maxseq = 0
     try:
         fmds = db.query(FichaMedidaDisciplinar).filter(FichaMedidaDisciplinar.fmd_id.like(f"FMD-%/{ano}")).all()
@@ -322,22 +332,26 @@ def _next_fmd_sequence(db):
             fid = f.fmd_id or ''
             m = re.match(r'^FMD-(\d{1,})/' + str(ano) + r'$', fid)
             if m:
-                try:
-                    n = int(m.group(1))
-                    if n > maxseq:
-                        maxseq = n
-                except Exception:
-                    pass
-    except Exception:
+                n = int(m.group(1))
+                if n > maxseq:
+                    maxseq = n
+    except Exception as e:
+        print("Erro ao buscar maxseq de FMDs:", e)
         maxseq = 0
+
     seq = maxseq + 1
+
+    # Insere novo registro APENAS SE não existe para este ano!
     try:
-        fmd_seq = FmdSequencia(ano=ano, seq=seq)
-        db.add(fmd_seq)
-        db.commit()
-    except Exception:
-        pass
-    return seq, ano
+        existing = db.query(FMDSequencia).filter_by(ano=ano).first()
+        if not existing:
+            fmd_seq = FMDSequencia(ano=ano, seq=seq, numero=seq)
+            db.add(fmd_seq)
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        print("Erro ao inserir nova FMDSequencia:", e)
+    return seq, int(ano)
 
 def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_id=None, tipo_evento=None):
     """
@@ -968,6 +982,8 @@ def tratar_rfo(ocorrencia_id):
         falta_ids_list = [fid.strip() for fid in falta_ids_csv.split(',') if fid.strip()]
 
         medida_aplicada = request.form.get('medida_aplicada', '').strip()
+        if medida_aplicada == 'Nenhuma':
+            medida_aplicada = None
         reincidencia = request.form.get('reincidencia')
         try:
             reincidencia = int(reincidencia) if reincidencia is not None and reincidencia != '' else None
@@ -1012,7 +1028,7 @@ def tratar_rfo(ocorrencia_id):
                 error = 'Tipo de falta é obrigatório.'
             elif not falta_ids_list:
                 error = 'A descrição da falta é obrigat??ria.'
-            elif not medida_aplicada:
+            elif not medida_aplicada and not (tratamento_classificacao == 'Admoestação'):
                 error = 'A medida aplicada é obrigatória.'
 
         if error is None:
@@ -1120,14 +1136,16 @@ def tratar_rfo(ocorrencia_id):
                     current_app.logger.exception('Erro ao aplicar atualização de pontuacao')
 
                 try:
-                    ok, msg = create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
+                    from flask import session as flask_session
+                    ok, msg = create_or_append_prontuario_por_rfo(db, ocorrencia_id, flask_session.get('username'))
                     if not ok:
                         current_app.logger.debug('create_or_append_prontuario_por_rfo: ' + str(msg))
                 except Exception:
                     current_app.logger.exception('Erro ao integrar RFO ao prontuário (tarefa auxiliar)')
 
                 db.commit()
-                flash(f'RFO {ocorrencia_dict["rfo_id"]} tratado com sucesso.', 'success')
+                rfo_id_str = ocorrencia_dict.get("rfo_id") or getattr(oc_obj, "rfo_id", None) or getattr(oc_obj, "id", None)
+                flash(f'RFO {rfo_id_str} tratado com sucesso.', 'success')
                 return redirect(url_for('disciplinar_bp.listar_rfo'))
             except Exception as e:
                 db.rollback()
@@ -1572,7 +1590,6 @@ import sqlite3
 
 @disciplinar_bp.route('/fmd_novo_real/<path:fmd_id>')
 def fmd_novo_real(fmd_id):
-    from flask import session
     db = get_db()
 
     # ==== 1. PEGA O USUÁRIO LOGADO NA SESSÃO ====

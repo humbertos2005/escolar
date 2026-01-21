@@ -175,15 +175,17 @@ def get_proximo_rfo_id(incrementar=False):
 
     row = db.query(RFOSequencia).filter_by(ano=year).first()
     if not row:
-        # Se já existem RFOs lançados, inicie pelo maior encontrado + 1
+        # Busca o maior número já usado para o ano atual
         from models_sqlalchemy import Ocorrencia
-        ultimo_numero = 0
-        ultimo_rfo = db.query(Ocorrencia).filter(Ocorrencia.rfo_id.like(f"RFO-%/{year}")).order_by(Ocorrencia.id.desc()).first()
-        if ultimo_rfo and getattr(ultimo_rfo, "rfo_id", None):
-            try:
-                ultimo_numero = int(str(ultimo_rfo.rfo_id).split('-')[1].split('/')[0])
-            except Exception:
-                ultimo_numero = 0
+        import re
+        todos_rfos = db.query(Ocorrencia.rfo_id).filter(Ocorrencia.rfo_id.like(f"RFO-%/{year}")).all()
+        maiores = []
+        for (rfoid,) in todos_rfos:
+            if rfoid:
+                match = re.match(r"RFO-(\d+)/"+str(year), rfoid)
+                if match:
+                    maiores.append(int(match.group(1)))
+        ultimo_numero = max(maiores) if maiores else 0
         seq = ultimo_numero + 1
         row = RFOSequencia(ano=year, numero=seq)
         if incrementar:

@@ -184,6 +184,7 @@
                     <label for="medida_aplicada">Medida Aplicada <span class="required">*</span></label>
                     <select id="medida_aplicada" name="medida_aplicada" required class="form-control" {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
                         <option value="">Selecione a Medida...</option>
+                        <option value="Nenhuma" {% if ocorrencia.medida_aplicada == 'Nenhuma' %}selected{% endif %}>Nenhuma</option>
                         {% for key, value in medidas_map.items() %}
                         <option value="{{ value }}" {% if ocorrencia.medida_aplicada == value %}selected{% endif %}>{{ value }}</option>
                         {% endfor %}

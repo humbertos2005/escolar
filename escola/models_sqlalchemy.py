@@ -303,7 +303,7 @@ class FichaMedidaDisciplinar(Base):
     id = Column(Integer, primary_key=True)
     fmd_id = Column(Integer)
     aluno_id = Column(Integer, ForeignKey("alunos.id"))
-    rfo_id = Column(Integer)
+    rfo_id = Column(String)
     data_fmd = Column(String)
     tipo_falta = Column(String)
     medida_aplicada = Column(String)

@@ -10,7 +10,12 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
     - Registra o vínculo ProntuarioRFO.
     Retorna (True, message) ou (False, message).
     """
-    usuario = usuario or (session.get('username') if session else 'system')
+    if not usuario:
+        try:
+            from flask import session
+            usuario = session.get('username', 'system')
+        except Exception:
+            usuario = 'system'
 
     # ----- Importa os modelos necessários -----
     from models_sqlalchemy import (
