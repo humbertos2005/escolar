@@ -77,6 +77,48 @@
             {{ ocorrencia.relato_observador if ocorrencia.relato_observador else '-' }}
         </div>
 
+        <hr>
+
+        <h4><i class="fas fa-question-circle"></i> Informação de Tipo de RFO</h4>
+        <div>
+            <div class="form-group">
+                <label>Trata-se de um RFO de?</label>
+                <div class="radio-buttons">
+                    <label {% if ocorrencia.tipo_rfo == 'Elogio' %}class="active"{% endif %} style="margin-right: 12px;">
+                        <input type="radio" disabled {% if ocorrencia.tipo_rfo == 'Elogio' %}checked{% endif %}> Elogio
+                    </label>
+                    <label {% if ocorrencia.tipo_rfo != 'Elogio' %}class="active"{% endif %}>
+                        <input type="radio" disabled {% if ocorrencia.tipo_rfo != 'Elogio' %}checked{% endif %}> Falta Disciplinar
+                    </label>
+                </div>
+            </div>
+            {% if ocorrencia.tipo_rfo == 'Elogio' %}
+            <div class="form-group" style="margin-top: 0;">
+                <label>Tipo de Elogio</label>
+                <div class="radio-buttons">
+                    <label {% if ocorrencia.subtipo_elogio == 'Individual' %}class="active"{% endif %} style="margin-right: 12px;">
+                        <input type="radio" disabled {% if ocorrencia.subtipo_elogio == 'Individual' %}checked{% endif %}> Individual
+                    </label>
+                    <label {% if ocorrencia.subtipo_elogio == 'Coletivo' %}class="active"{% endif %}>
+                        <input type="radio" disabled {% if ocorrencia.subtipo_elogio == 'Coletivo' %}checked{% endif %}> Coletivo
+                    </label>
+                </div>
+            </div>
+            {% else %}
+            <div class="form-group" style="margin-top: 0;">
+                <label>Considerado como Advertência Oral?</label>
+                <div class="radio-buttons">
+                    <label {% if ocorrencia.advertencia_oral == 'sim' %}class="active"{% endif %} style="margin-right: 12px;">
+                        <input type="radio" disabled {% if ocorrencia.advertencia_oral == 'sim' %}checked{% endif %}> Sim
+                    </label>
+                    <label {% if ocorrencia.advertencia_oral == 'nao' %}class="active"{% endif %}>
+                        <input type="radio" disabled {% if ocorrencia.advertencia_oral == 'nao' %}checked{% endif %}> Não
+                    </label>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
         {% if ocorrencia.material_recolhido_info %}
         <hr>
         <h4><i class="fas fa-box"></i> Material Recolhido</h4>

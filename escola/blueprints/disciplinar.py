@@ -1183,6 +1183,15 @@ def tratar_rfo(ocorrencia_id):
 
     from flask import g, session
     g.nivel = session.get('nivel')
+    # Sincronize campos vitais do objeto Ocorrencia principal para o dict
+    if 'Ocorrencia' in ocorrencia_dict and ocorrencia_dict['Ocorrencia']:
+        oc = ocorrencia_dict['Ocorrencia']
+        fields_to_copy = [
+            'rfo_id', 'status', 'data_ocorrencia', 'relato_observador', 
+            'tipo_rfo', 'subtipo_elogio', 'advertencia_oral'
+        ]
+        for field in fields_to_copy:
+            ocorrencia_dict[field] = getattr(oc, field, None)
     return render_template('disciplinar/tratar_rfo.html',
                            ocorrencia=ocorrencia_dict,
                            tipos_falta=tipos_falta,
