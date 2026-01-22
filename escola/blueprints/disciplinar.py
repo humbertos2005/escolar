@@ -1613,7 +1613,7 @@ def fmd_novo_real(fmd_id):
     # ==== 1. PEGA O USUÁRIO LOGADO NA SESSÃO ====
     user_id = session.get('user_id')
     usuario_sessao = db.query(Usuario).filter(Usuario.id == user_id).first() if user_id else None
-    if not usuario_sessao or getattr(usuario_sessao, "nivel", None) not in [1, 2]:
+    if not usuario_sessao or str(getattr(usuario_sessao, "nivel", None)) not in ['1', '2']:
         return "Você não tem permissão para acessar este documento.", 403
 
     # ==== 2. Busca a FMD ====
@@ -1667,7 +1667,10 @@ def fmd_novo_real(fmd_id):
         item_descricao_falta = "-"
 
     if rfo:
-        rfo_dict = dict(rfo._asdict() if hasattr(rfo, "_asdict") else rfo)
+        # Corrigido para extrair o dicionário do objeto SQLAlchemy
+        rfo_dict = rfo.__dict__.copy() if rfo else {}
+        # Remove _sa_instance_state, que não é serializável nem útil para templates/views:
+        rfo_dict.pop('_sa_instance_state', None)
     else:
         rfo_dict = {}
 
@@ -1707,7 +1710,7 @@ def fmd_novo_real(fmd_id):
 
     contexto = {
         'escola': escola,
-        'aluno': dict(aluno._asdict() if hasattr(aluno, "_asdict") else aluno) if aluno else {},
+        'aluno': aluno.__dict__.copy() if aluno else {},
         'fmd': dict(fmd._asdict()) if hasattr(fmd, "_asdict") else fmd,
         'rfo': rfo_dict,
         'nome_usuario': nome_usuario,

@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from database import get_db
 from .utils import login_required, admin_secundario_required, NIVEL_MAP
 from flask_login import current_user
+from flask import g
 import os
 import base64
 from werkzeug.utils import secure_filename
@@ -603,10 +604,13 @@ def reativar_tac(id):
         flash('Erro ao reativar TAC.', 'danger')
     return redirect(request.referrer or url_for('visualizacoes_bp.tac_command'))
 
+def is_admin():
+    return str(session.get("nivel")) in ["1", "2"]
+
 @visualizacoes_bp.route('/fmds')
 def listar_fmds():
     """
-    Lista FMDs para visualização. Usuários veem por padrão apenas FMDs não baixadas (baixa=0).
+    Lista FMDs para visualização. Usuários veem por padrão apenas FMDs não baixadas (baixa='0').
     Se show_baixados=1 nos args, mostra todas.
     """
     db = get_db()
@@ -620,7 +624,8 @@ def listar_fmds():
             Aluno.turma
         ).outerjoin(Aluno, Aluno.id == FichaMedidaDisciplinar.aluno_id)
         if not show_baixados:
-            fmd_query = fmd_query.filter((FichaMedidaDisciplinar.baixa == 0) | (FichaMedidaDisciplinar.baixa == None))
+            # Corrigi comparação, agora verifica como string
+            fmd_query = fmd_query.filter((FichaMedidaDisciplinar.baixa == '0') | (FichaMedidaDisciplinar.baixa == None))
         rows = fmd_query.order_by(
             FichaMedidaDisciplinar.data_fmd.desc().nullslast(),
             FichaMedidaDisciplinar.created_at.desc()
@@ -692,6 +697,12 @@ def ata_pdf(ata_id):
     from flask import render_template, send_file, jsonify, request, url_for
     from datetime import datetime, date
     # Se possível, deixe essas funções auxiliares fora da view em versão final!
+    import pdfkit
+
+    def generate_pdf_bytes(html):
+        # O pdfkit precisa do wkhtmltopdf instalado
+        # Adapte conforme configuração local/desejada
+        return pdfkit.from_string(html, False)
 
     def num_to_words_pt(n):
         units = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
