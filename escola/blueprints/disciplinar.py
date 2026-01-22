@@ -1606,7 +1606,6 @@ from flask import render_template, g
 from flask import request
 import sqlite3
 
-@disciplinar_bp.route('/fmd_novo_real/<path:fmd_id>')
 def montar_contexto_fmd(db, fmd_id, usuario_sessao_override=None):
     fmd = db.query(FichaMedidaDisciplinar).filter_by(fmd_id=fmd_id).first()
     aluno = db.query(Aluno).filter_by(id=fmd.aluno_id).first() if fmd else None
@@ -1681,6 +1680,7 @@ def montar_contexto_fmd(db, fmd_id, usuario_sessao_override=None):
     }
     return contexto
 
+@disciplinar_bp.route('/fmd_novo_real/<path:fmd_id>')
 def fmd_novo_real(fmd_id):
     db = get_db()
 
