@@ -94,7 +94,7 @@ def api_check_reincidencia():
     aluno_id = request.args.get('aluno_id', type=int)
     falta_id = request.args.get('falta_id', type=int)
     descricao = request.args.get('descricao', type=str)
-
+    
     if not aluno_id:
         return jsonify(error='Parâmetro aluno_id é obrigatório'), 400
 
@@ -1677,6 +1677,7 @@ def montar_contexto_fmd(db, fmd_id, usuario_sessao_override=None):
         'comportamento': comportamento,
         'pontuacao': pontuacao,
         'itens_especificacao': itens_especificacao,
+        'responsavel': {'nome': aluno.nome if aluno else '-'},
     }
     return contexto
 
@@ -1812,6 +1813,8 @@ def enviar_email_fmd(fmd_id):
     from email.mime.application import MIMEApplication
 
     db = get_db()
+    nome_usuario = session.get('nome_usuario', 'Usuário do sistema')
+    cargo_usuario = session.get('cargo_usuario', '')
 
     # Busca os dados da FMD
     fmd = db.query(FichaMedidaDisciplinar).filter_by(fmd_id=fmd_id).first()
@@ -1844,6 +1847,9 @@ def enviar_email_fmd(fmd_id):
             return getattr(row, key, '')
         except Exception:
             return ''
+        
+    def safe_value(val):
+        return val if val not in (None, '', 'None') else '—'
 
     corpo_html = f"""
     <html>
@@ -1851,13 +1857,18 @@ def enviar_email_fmd(fmd_id):
         <p>Prezado responsável,<br>
         Segue a Ficha de Medida Disciplinar referente ao(a) aluno(a): <b>{getattr(aluno, 'nome', '')}</b>.
         <br><br>
-        Tipo de falta: <b>{get_fmd_field(fmd,'tipo_falta')}</b><br>
-        Medida aplicada: <b>{get_fmd_field(fmd,'medida_aplicada')}</b><br>
-        {"Descrição: <b>{}</b><br>".format(get_fmd_field(fmd,'descricao_detalhada')) if get_fmd_field(fmd,'descricao_detalhada') else ""}
-        Status: <b>{get_fmd_field(fmd,'status')}</b><br>
+        Tipo de falta: <b>{safe_value(get_fmd_field(fmd,'tipo_falta'))}</b><br>
+        Medida aplicada: <b>{safe_value(get_fmd_field(fmd,'medida_aplicada'))}</b><br>
+        {"Descrição: <b>{}</b><br>".format(safe_value(get_fmd_field(fmd,'descricao_detalhada'))) if get_fmd_field(fmd,'descricao_detalhada') else ""}
+        Status: <b>{safe_value(get_fmd_field(fmd,'status'))}</b><br>
         <br>
         <i>Favor entrar em contato com a escola caso necessário. Telefone: <b>{telefone_escola}</b></i>
         </p>
+        <br><br>
+        Atenciosamente,<br>
+        <b>{nome_usuario}</b><br>
+        {cargo_usuario}<br>
+        {getattr(dados_escola, 'nome', '')}
     </body>
     </html>
     """
@@ -1865,16 +1876,10 @@ def enviar_email_fmd(fmd_id):
     try:
         temp_dir = "tmp"
         safe_fmd_id = str(fmd_id).replace('/', '_')
-        pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
+        pdf_path = os.path.join(temp_dir, f"{safe_fmd_id}.pdf")
         if not os.path.exists(pdf_path):
-            # Use contexto centralizado e seguro
-            contexto = montar_contexto_fmd(db, fmd_id)
-            html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
-            config = pdfkit.configuration(wkhtmltopdf=r'C:\\Arquivos de Programas\\wkhtmltopdf\\bin\\wkhtmltopdf.exe')
-            options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
-            pdfkit.from_string(html, pdf_path, configuration=config, options=options)
+            flash('O PDF da FMD não foi gerado corretamente. Por favor, gere novamente a FMD antes de enviar por e-mail.', 'danger')
+            return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
 
         msg = MIMEMultipart()
         msg['From'] = email_remetente

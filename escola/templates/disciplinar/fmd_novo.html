@@ -215,7 +215,8 @@ FMD {{ fmd.fmd_id.split('/')[0].replace('FMD-', '') }}_{{ fmd.fmd_id.split('/')[
         const form = document.getElementById('formEnviarEmailFmd');
         const btn = document.getElementById('btnEnviarPorEmail');
         // Pega o id da FMD diretamente do próprio contexto python (jinja)
-        const fmdId = "{{ fmd['fmd_id'] }}";
+        const fmdId = "{{ fmd.fmd_id }}";
+        fetch(`/disciplinar/fmd_novo_real/${encodeURIComponent(fmdId)}?salvar_pdf=1`)
 
         if (btn && form) {
             btn.addEventListener('click', function(ev) {
