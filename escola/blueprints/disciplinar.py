@@ -12,7 +12,7 @@ from models_sqlalchemy import (
 )
 
 from services.escolar_helper import get_tipos_ocorrencia, get_proximo_fmd_id, get_faltas_disciplinares
-
+from services.escolar_helper import compute_pontuacao_corrente, _infer_comportamento_por_faixa
 # ...
 from .utils import (
     login_required,
@@ -1607,6 +1607,80 @@ from flask import request
 import sqlite3
 
 @disciplinar_bp.route('/fmd_novo_real/<path:fmd_id>')
+def montar_contexto_fmd(db, fmd_id, usuario_sessao_override=None):
+    fmd = db.query(FichaMedidaDisciplinar).filter_by(fmd_id=fmd_id).first()
+    aluno = db.query(Aluno).filter_by(id=fmd.aluno_id).first() if fmd else None
+    cabecalho = db.query(Cabecalho).first() or {}
+    escola = {
+        'estado': getattr(cabecalho, 'estado', ''),
+        'secretaria': getattr(cabecalho, 'secretaria', ''),
+        'coordenacao': getattr(cabecalho, 'coordenacao', ''),
+        'nome': getattr(cabecalho, 'escola', ''),
+        'logotipo_url': '/static/uploads/cabecalhos/' + cabecalho.logo_escola if hasattr(cabecalho, 'logo_escola') and cabecalho.logo_escola else ''
+    }
+    rfo = db.query(Ocorrencia).filter_by(rfo_id=fmd.rfo_id).first() if fmd else None
+    rfo_dict = rfo.__dict__.copy() if rfo else {}
+    rfo_dict.pop('_sa_instance_state', None)
+    item_descricoes_faltas = []
+    ids_faltas = []
+    if hasattr(rfo, 'falta_disciplinar_id') and rfo.falta_disciplinar_id:
+        ids_faltas.append(str(rfo.falta_disciplinar_id))
+    elif hasattr(rfo, 'falta_ids_csv') and rfo.falta_ids_csv:
+        ids_faltas = [id.strip() for id in str(rfo.falta_ids_csv).split(',') if id.strip()]
+    for falta_id in ids_faltas:
+        res = db.query(FaltaDisciplinar).filter_by(id=falta_id).first()
+        if res:
+            item_descricoes_faltas.append(f"{res.id} - {res.descricao}")
+    if item_descricoes_faltas:
+        item_descricao_falta = "<br>".join(item_descricoes_faltas)
+    else:
+        item_descricao_falta = "-"
+
+    itens_especificacao = (
+        rfo_dict.get('item_descricao') or
+        rfo_dict.get('descricao_item') or
+        rfo_dict.get('descricao') or
+        rfo_dict.get('falta_descricao') or
+        item_descricao_falta or
+        '-'
+    )
+    atenuantes = getattr(fmd, 'atenuantes', '') or rfo_dict.get('circunstancias_atenuantes', '')
+    agravantes = getattr(fmd, 'agravantes', '') or rfo_dict.get('circunstancias_agravantes', '')
+    envio = {
+        'data_hora': getattr(fmd, 'email_enviado_data', None),
+        'email_destinatario': getattr(fmd, 'email_enviado_para', None),
+    }
+    comportamento = "-"
+    pontuacao = "-"
+    if aluno and hasattr(aluno, 'id'):
+        p_corrente = compute_pontuacao_corrente(aluno.id)
+        if p_corrente is not None:
+            valor_pontuacao = p_corrente if isinstance(p_corrente, (int, float)) else p_corrente.get('pontuacao') or p_corrente.get('pontuacao_atual') or 8.0
+            pontuacao = round(float(valor_pontuacao), 2)
+            comportamento = _infer_comportamento_por_faixa(valor_pontuacao) or "-"
+    if usuario_sessao_override is not None:
+        usuario_sessao = usuario_sessao_override
+    else:
+        user_id = session.get('user_id')
+        usuario_sessao = db.query(Usuario).filter(Usuario.id == user_id).first() if user_id else None
+    nome_usuario = getattr(usuario_sessao, 'username', '-') if usuario_sessao else '-'
+    cargo_usuario = getattr(usuario_sessao, 'cargo', '-') if usuario_sessao else '-'
+    contexto = {
+        'escola': escola,
+        'aluno': aluno.__dict__.copy() if aluno else {},
+        'fmd': dict(fmd._asdict()) if hasattr(fmd, "_asdict") else fmd,
+        'rfo': rfo_dict,
+        'nome_usuario': nome_usuario,
+        'cargo_usuario': cargo_usuario,
+        'envio': envio,
+        'atenuantes': atenuantes,
+        'agravantes': agravantes,
+        'comportamento': comportamento,
+        'pontuacao': pontuacao,
+        'itens_especificacao': itens_especificacao,
+    }
+    return contexto
+
 def fmd_novo_real(fmd_id):
     db = get_db()
 
@@ -1626,25 +1700,16 @@ def fmd_novo_real(fmd_id):
 
     # REMOVIDO: from models import get_aluno_estado_atual
 
-    comportamento = None
-    pontuacao = None
-    estado = {}
+    comportamento = "-"
+    pontuacao = "-"
 
-    # Recupera comportamento e pontuação do aluno diretamente via SQLAlchemy
     if aluno and hasattr(aluno, 'id'):
-        # Exemplo: busca última pontuação e comportamento vinculados ao aluno
-        pontuacao_row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno.id).order_by(PontuacaoBimestral.ano.desc(), PontuacaoBimestral.bimestre.desc()).first()
-        comportamento_row = db.query(Comportamento).filter_by(id=getattr(aluno, "comportamento_id", None)).first() if hasattr(aluno, "comportamento_id") else None
-
-        if pontuacao_row:
-            pontuacao = pontuacao_row.pontuacao_atual
-        if comportamento_row:
-            comportamento = comportamento_row.descricao
-
-        estado = {
-            "pontuacao": pontuacao,
-            "comportamento": comportamento
-        }
+        p_corrente = compute_pontuacao_corrente(aluno.id)
+        if p_corrente is not None:
+            # p_corrente pode ser um dict, então busque o campo correto:
+            valor_pontuacao = p_corrente if isinstance(p_corrente, (int, float)) else p_corrente.get('pontuacao') or p_corrente.get('pontuacao_atual') or 8.0
+            pontuacao = round(float(valor_pontuacao), 2)
+            comportamento = _infer_comportamento_por_faixa(valor_pontuacao) or "-"
 
     # ==== 4. Busca ocorrência relacionada (RFO) ====
     rfo = db.query(Ocorrencia).filter_by(rfo_id=fmd.rfo_id).first() or {}
@@ -1708,20 +1773,7 @@ def fmd_novo_real(fmd_id):
     nome_usuario = getattr(usuario_sessao, 'username', '-') if usuario_sessao else '-'
     cargo_usuario = getattr(usuario_sessao, 'cargo', '-') if usuario_sessao else '-'
 
-    contexto = {
-        'escola': escola,
-        'aluno': aluno.__dict__.copy() if aluno else {},
-        'fmd': dict(fmd._asdict()) if hasattr(fmd, "_asdict") else fmd,
-        'rfo': rfo_dict,
-        'nome_usuario': nome_usuario,
-        'cargo_usuario': cargo_usuario,
-        'envio': envio,
-        'atenuantes': atenuantes,
-        'agravantes': agravantes,
-        'comportamento': comportamento,
-        'pontuacao': pontuacao,
-        'itens_especificacao': item_descricao_falta,
-    }
+    contexto = montar_contexto_fmd(db, fmd_id, usuario_sessao)
 
     if request.args.get('salvar_pdf') == '1':
         import pdfkit, os
@@ -1815,8 +1867,14 @@ def enviar_email_fmd(fmd_id):
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"fmd_{safe_fmd_id}.pdf")
         if not os.path.exists(pdf_path):
-            flash("O PDF da FMD ainda não foi gerado! Gere a FMD antes de enviar o e-mail.", "danger")
-            return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
+            # Use contexto centralizado e seguro
+            contexto = montar_contexto_fmd(db, fmd_id)
+            html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
+            config = pdfkit.configuration(wkhtmltopdf=r'C:\\Arquivos de Programas\\wkhtmltopdf\\bin\\wkhtmltopdf.exe')
+            options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
+            if not os.path.exists(temp_dir):
+                os.makedirs(temp_dir)
+            pdfkit.from_string(html, pdf_path, configuration=config, options=options)
 
         msg = MIMEMultipart()
         msg['From'] = email_remetente
