@@ -96,7 +96,16 @@ def list_atas():
 @admin_secundario_required
 def nova_ata():
     db = get_db()
-    alunos = db.query(Aluno).order_by(Aluno.nome).all()
+    alunos_query = db.query(Aluno).order_by(Aluno.nome).all()
+    alunos = [
+        {
+            'id': a.id,
+            'nome': getattr(a, 'nome', ''),
+            'serie': getattr(a, 'serie', ''),
+            'turma': getattr(a, 'turma', ''),
+            'responsavel': getattr(a, 'responsavel', ''),
+        } for a in alunos_query
+    ]
     if request.method == 'POST':
         aluno_id = request.form.get('aluno_id') or None
         aluno_nome = request.form.get('aluno_nome', '').strip()

@@ -1114,6 +1114,12 @@ def tratar_rfo(ocorrencia_id):
                                 seq, seq_ano = _next_fmd_sequence(db)
                                 fmd_id = f"FMD-{seq:04d}/{seq_ano}"
                                 data_fmd = datetime.now().strftime('%Y-%m-%d')
+
+                                # ADICIONE OS PRINTS AQUI:
+                                print("DEBUG - CAMPOS POSTADOS:", dict(request.form))  # Vai mostrar tudo do formulário enviado
+                                print("DEBUG - medida_aplicada recebida no POST:", request.form.get("medida_aplicada"))
+                                print("DEBUG - medida_aplicada utilizada na FMD:", medida_aplicada)
+
                                 fmd_obj = FichaMedidaDisciplinar(
                                     fmd_id=fmd_id,
                                     aluno_id=aluno_id_local,
@@ -1622,10 +1628,15 @@ def montar_contexto_fmd(db, fmd_id, usuario_sessao_override=None):
     rfo_dict.pop('_sa_instance_state', None)
     item_descricoes_faltas = []
     ids_faltas = []
-    if hasattr(rfo, 'falta_disciplinar_id') and rfo.falta_disciplinar_id:
+    # Busca faltas diretamente da FMD se houver (mais confiável após tratamento)
+    if hasattr(fmd, 'falta_disciplinar_ids') and fmd.falta_disciplinar_ids:
+        ids_faltas = [id.strip() for id in str(fmd.falta_disciplinar_ids).split(',') if id.strip()]
+    # Se não houver na FMD, tenta pegar da RFO vinculada
+    elif hasattr(rfo, 'falta_disciplinar_id') and rfo.falta_disciplinar_id:
         ids_faltas.append(str(rfo.falta_disciplinar_id))
     elif hasattr(rfo, 'falta_ids_csv') and rfo.falta_ids_csv:
         ids_faltas = [id.strip() for id in str(rfo.falta_ids_csv).split(',') if id.strip()]
+
     for falta_id in ids_faltas:
         res = db.query(FaltaDisciplinar).filter_by(id=falta_id).first()
         if res:
