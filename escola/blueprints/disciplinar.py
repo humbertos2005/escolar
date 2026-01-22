@@ -1813,8 +1813,10 @@ def enviar_email_fmd(fmd_id):
     from email.mime.application import MIMEApplication
 
     db = get_db()
-    nome_usuario = session.get('nome_usuario', 'Usuário do sistema')
-    cargo_usuario = session.get('cargo_usuario', '')
+    user_id = session.get('user_id')
+    usuario_obj = db.query(Usuario).filter(Usuario.id == user_id).first() if user_id else None
+    nome_usuario = getattr(usuario_obj, 'username', 'Usuário do sistema')
+    cargo_usuario = getattr(usuario_obj, 'cargo', '')
 
     # Busca os dados da FMD
     fmd = db.query(FichaMedidaDisciplinar).filter_by(fmd_id=fmd_id).first()
@@ -1860,7 +1862,6 @@ def enviar_email_fmd(fmd_id):
         Tipo de falta: <b>{safe_value(get_fmd_field(fmd,'tipo_falta'))}</b><br>
         Medida aplicada: <b>{safe_value(get_fmd_field(fmd,'medida_aplicada'))}</b><br>
         {"Descrição: <b>{}</b><br>".format(safe_value(get_fmd_field(fmd,'descricao_detalhada'))) if get_fmd_field(fmd,'descricao_detalhada') else ""}
-        Status: <b>{safe_value(get_fmd_field(fmd,'status'))}</b><br>
         <br>
         <i>Favor entrar em contato com a escola caso necessário. Telefone: <b>{telefone_escola}</b></i>
         </p>

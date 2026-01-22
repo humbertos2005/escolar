@@ -67,7 +67,7 @@ FMD {{ fmd.fmd_id.split('/')[0].replace('FMD-', '') }}_{{ fmd.fmd_id.split('/')[
                 {{ rfo.data_ocorrencia | datetimeformat("%d/%m/%Y") }}
             {%- endif -%}
             </b>,
-            o estudante recebeu uma Notificação de Medida Disciplinar de Natureza <b>{{ fmd.medida_aplicada }}</b>,
+            o estudante recebeu uma Notificação de Medida Disciplinar de Natureza <b>{{ (fmd.tipo_falta | replace(',', ', ') | title ) if fmd.tipo_falta else fmd.medida_aplicada }}</b>,
             que poderá ocasionar perda de créditos. O período recursal está previsto no Regulamento Disciplinar das EECM.
             A defesa poderá ser feita por escrito, no prazo de <b>3 (três) dias úteis</b> a contar do recebimento da Notificação.
             A Medida Disciplinar será efetivada ou arquivada conforme despacho do gestor competente.
