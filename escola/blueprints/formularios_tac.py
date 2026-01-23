@@ -256,7 +256,7 @@ def tac_visualizar(id):
             ch = db.query(Cabecalho).filter_by(id=cab_id).first()
             if ch:
                 cabecalho = ch.__dict__.copy()
-                for field in ['logo_escola', 'logo_prefeitura', 'logo_estado']:
+                for field in ['logo_escola', 'logo_secretaria', 'logo_estado']:
                     fn = getattr(ch, field, None)
                     if fn:
                         cabecalho[f"{field}_url"] = url_for('static', filename=f'uploads/cabecalhos/{os.path.basename(fn)}') if os.path.exists(os.path.join(current_app.root_path, 'static', 'uploads', 'cabecalhos', os.path.basename(fn))) else None

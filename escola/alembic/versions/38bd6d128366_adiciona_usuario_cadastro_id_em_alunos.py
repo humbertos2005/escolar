@@ -40,7 +40,7 @@ def upgrade() -> None:
     sa.Column('logo_estado', sa.String(), nullable=True),
     sa.Column('logo_escola', sa.String(), nullable=True),
     sa.Column('created_at', sa.String(), nullable=True),
-    sa.Column('logo_prefeitura', sa.String(), nullable=True),
+    sa.Column('logo_secretaria', sa.String(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('circunstancias',

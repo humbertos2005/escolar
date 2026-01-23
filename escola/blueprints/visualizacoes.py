@@ -700,9 +700,18 @@ def ata_pdf(ata_id):
     import pdfkit
 
     def generate_pdf_bytes(html):
-        # O pdfkit precisa do wkhtmltopdf instalado
-        # Adapte conforme configuração local/desejada
-        return pdfkit.from_string(html, False)
+        import pdfkit
+        # Use o mesmo CAMINHO do FMD, geralmente:
+        config = pdfkit.configuration(wkhtmltopdf=r'C:\Arquivos de Programas\wkhtmltopdf\bin\wkhtmltopdf.exe')
+        options = {
+            'encoding': 'UTF-8',
+            'enable-local-file-access': None,
+            'margin-top': '20mm',
+            'margin-bottom': '18mm',
+            'margin-left': '25mm',
+            'margin-right': '25mm'
+        }
+        return pdfkit.from_string(html, False, configuration=config, options=options)
 
     def num_to_words_pt(n):
         units = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",

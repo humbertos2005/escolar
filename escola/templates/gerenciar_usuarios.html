@@ -49,7 +49,7 @@
                             <a href="{{ url_for('auth_bp.editar_usuario', user_id=user.id) }}" class="button btn-sm btn-info" title="Editar Usuário">
                                 <i class="fas fa-edit"></i> Editar
                             </a>
-                            {% if user.id != session.get('user_id') and user.nivel != 1 %}
+                            {% if user.nivel|string != '1' %}
                                 <form method="POST" action="{{ url_for('auth_bp.excluir_usuario', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir o usuário {{ user.username }}? Esta ação é irreversível.')">
                                     <button type="submit" class="button btn-sm btn-danger" title="Excluir Usuário">
                                         <i class="fas fa-trash"></i> Excluir

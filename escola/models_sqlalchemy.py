@@ -196,7 +196,7 @@ class Cabecalho(Base):
     logo_estado = Column(String)
     logo_escola = Column(String)
     created_at = Column(String)
-    logo_prefeitura = Column(String)
+    logo_secretaria = Column(String)
 
 # Ocorrências Faltas
 class OcorrenciaFalta(Base):

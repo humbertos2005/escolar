@@ -5,6 +5,13 @@
   <meta charset="utf-8">
   <title>ATA {{ ata.numero }}/{{ ata.ano }}</title>
   <style>
+    @page {
+      size: A4;
+      margin: 20mm 25mm 18mm 25mm; /* topo, direita, baixo, esquerda */
+    }
+    body {
+      margin: 0 !important;
+    }
     body { font-family: Arial, sans-serif; color: #111; margin: 0 6px 6px 6px; }
     .cabecalho { text-align: center; margin-bottom: 2px; padding-top: 2px; }
     .logo { max-height: 96px; display:block; margin: 0 auto 6px; }
@@ -13,7 +20,7 @@
     .header-space { height: 8px; }
     h3.title { text-align:center; margin-top: 6px; margin-bottom: 6px; font-size: 16px; font-weight:700; }
     .espacador-apos-titulo { height: 48px; }
-    .conteudo { text-align: justify; text-justify: inter-word; margin-top: 4px; line-height: 1.45; font-size: 12.5pt; }
+    .conteudo { text-align: justify; text-justify: inter-word; margin-top: 4px; line-height: 1.45; font-size: 12.5pt; max-width: 100%; box-sizing: border-box; word-break: break-word; }
     .conteudo p { margin: 0 0 12px 0; }
     .assinaturas { display:flex; justify-content:space-around; margin-top:14mm; flex-wrap:wrap; gap:12px; align-items:flex-start; }
     .assinatura-campo { width:30%; min-width:150px; text-align:center; box-sizing:border-box; }
@@ -54,11 +61,10 @@
     <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
     <div class="header-space" aria-hidden="true"></div>
   </div>
-  <h3 class="title">ATA DE MEDIA��O ESCOLAR N� {{ ata.numero }}/{{ ata.ano }}</h3>
+  <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
   <div class="espacador-apos-titulo"></div>
   <p class="conteudo">
-    {% set data_text = ata.data_extenso if ata.get('data_extenso') else (ata.created_at if ata.get('created_at') else '') %}
-    Aos {{ data_text }}, compareceu na {{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}
+    Aos {{ ata.data_extenso_extenso }}, compareceu na {{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}
     {% set nome_responsavel = resp
       or ata.get('responsavel')
       or ata.get('responsavel_nome')
@@ -71,7 +77,7 @@
       {% set nome_responsavel = (ata.aluno.nome if ata.get('aluno') and getattr(ata.aluno, 'nome', None) else (ata.aluno_nome or '')) %}
     {% endif %}
     o(a) Sr.(a) <strong>{{ nome_responsavel }}</strong>,
-    respons�vel pelo(a) aluno(a) <strong>{{ ata.aluno_nome }}</strong>,
+    responsável pelo(a) aluno(a) <strong>{{ ata.aluno_nome }}</strong>,
     matriculado(a) na(s) {{ ata.serie_turma if ata.get('serie_turma') else '' }},
     para tratar do(s) seguinte(s) assunto(s): {{ ata.conteudo or '' }}.
   </p>
@@ -145,7 +151,7 @@
         <div class="assinatura-campo">
           <div class="linha-assinatura"></div>
           <p>{{ nome_responsavel | upper }}</p>
-          <div class="assinatura-cargo">Respons�vel</div>
+          <div class="assinatura-cargo">Responsável</div>
         </div>
       {% endif %}
     {% endif %}

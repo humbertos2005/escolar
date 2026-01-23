@@ -96,6 +96,7 @@ def list_atas():
 @admin_secundario_required
 def nova_ata():
     db = get_db()
+    db.rollback()
     alunos_query = db.query(Aluno).order_by(Aluno.nome).all()
     alunos = [
         {

@@ -234,7 +234,7 @@ def listar_cabecalhos():
     for c in cabecalhos:
         c.logo_estado_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_estado}') if c.logo_estado else None
         c.logo_escola_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_escola}') if c.logo_escola else None
-        c.logo_prefeitura_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_prefeitura}') if getattr(c, "logo_prefeitura", None) else None
+        c.logo_secretaria_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_secretaria}') if getattr(c, "logo_secretaria", None) else None
     return render_template('cadastros/listar_cabecalho.html', cabecalhos=cabecalhos)
 
 @cadastros_bp.route('/cabecalho/novo', methods=['GET', 'POST'])
@@ -248,7 +248,7 @@ def cabecalho_novo():
 
         logo_estado_filename = None
         logo_escola_filename = None
-        logo_prefeitura_filename = None
+        logo_secretaria_filename = None
 
         upload_dir = _ensure_upload_dir()
 
@@ -261,14 +261,14 @@ def cabecalho_novo():
                 logo_estado_filename = f"estado_{int(datetime.utcnow().timestamp())}.{ext}"
                 f.save(os.path.join(upload_dir, logo_estado_filename))
 
-        # processar logo_prefeitura
-        if 'logo_prefeitura' in request.files:
-            f = request.files['logo_prefeitura']
+        # processar logo_secretaria
+        if 'logo_secretaria' in request.files:
+            f = request.files['logo_secretaria']
             if f and f.filename and _allowed_file(f.filename):
                 raw = secure_filename(f.filename)
                 ext = raw.rsplit('.', 1)[1].lower()
-                logo_prefeitura_filename = f"prefeitura_{int(datetime.utcnow().timestamp())}.{ext}"
-                f.save(os.path.join(upload_dir, logo_prefeitura_filename))
+                logo_secretaria_filename = f"secretaria_{int(datetime.utcnow().timestamp())}.{ext}"
+                f.save(os.path.join(upload_dir, logo_secretaria_filename))
 
         # processar logo_escola
         if 'logo_escola' in request.files:
@@ -287,7 +287,7 @@ def cabecalho_novo():
                 escola=escola,
                 logo_estado=logo_estado_filename,
                 logo_escola=logo_escola_filename,
-                logo_prefeitura=logo_prefeitura_filename,
+                logo_secretaria=logo_secretaria_filename,
                 created_at=datetime.utcnow().isoformat()
             )
             db.add(cabecalho)
@@ -335,21 +335,21 @@ def cabecalho_editar(id):
                         pass
                 cabecalho.logo_estado = logo_estado_filename
 
-        # processar logo_prefeitura
-        if 'logo_prefeitura' in request.files:
-            f = request.files['logo_prefeitura']
+        # processar logo_secretaria
+        if 'logo_secretaria' in request.files:
+            f = request.files['logo_secretaria']
             if f and f.filename and _allowed_file(f.filename):
                 raw = secure_filename(f.filename)
                 ext = raw.rsplit('.', 1)[1].lower()
-                logo_prefeitura_filename = f"prefeitura_{int(datetime.utcnow().timestamp())}.{ext}"
-                f.save(os.path.join(upload_dir, logo_prefeitura_filename))
+                logo_secretaria_filename = f"secretaria_{int(datetime.utcnow().timestamp())}.{ext}"
+                f.save(os.path.join(upload_dir, logo_secretaria_filename))
                 # remover anterior se existir
-                if cabecalho.logo_prefeitura:
+                if cabecalho.logo_secretaria:
                     try:
-                        os.remove(os.path.join(upload_dir, cabecalho.logo_prefeitura))
+                        os.remove(os.path.join(upload_dir, cabecalho.logo_secretaria))
                     except Exception:
                         pass
-                cabecalho.logo_prefeitura = logo_prefeitura_filename
+                cabecalho.logo_secretaria = logo_secretaria_filename
 
         # processar logo_escola
         if 'logo_escola' in request.files:
@@ -392,10 +392,10 @@ def cabecalho_editar(id):
         "escola": cabecalho.escola,
         "logo_estado": cabecalho.logo_estado,
         "logo_escola": cabecalho.logo_escola,
-        "logo_prefeitura": getattr(cabecalho, "logo_prefeitura", None),
+        "logo_secretaria": getattr(cabecalho, "logo_secretaria", None),
         "logo_estado_url": url_for('static', filename=f'uploads/cabecalhos/{cabecalho.logo_estado}') if cabecalho.logo_estado else None,
         "logo_escola_url": url_for('static', filename=f'uploads/cabecalhos/{cabecalho.logo_escola}') if cabecalho.logo_escola else None,
-        "logo_prefeitura_url": url_for('static', filename=f'uploads/cabecalhos/{cabecalho.logo_prefeitura}') if getattr(cabecalho, "logo_prefeitura", None) else None
+        "logo_secretaria_url": url_for('static', filename=f'uploads/cabecalhos/{cabecalho.logo_secretaria}') if getattr(cabecalho, "logo_secretaria", None) else None
     }
 
     return render_template('cadastros/cabecalho_form.html', cabecalho=cabecalho_dict)
@@ -418,9 +418,9 @@ def cabecalho_excluir(id):
                     os.remove(os.path.join(upload_dir, cabecalho.logo_escola))
                 except Exception:
                     pass
-            if getattr(cabecalho, 'logo_prefeitura', None):
+            if getattr(cabecalho, 'logo_secretaria', None):
                 try:
-                    os.remove(os.path.join(upload_dir, cabecalho.logo_prefeitura))
+                    os.remove(os.path.join(upload_dir, cabecalho.logo_secretaria))
                 except Exception:
                     pass
             db.delete(cabecalho)
@@ -450,7 +450,7 @@ def dados_documentos():
     for c in cabecalhos:
         c.logo_estado_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_estado}') if c.logo_estado else None
         c.logo_escola_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_escola}') if c.logo_escola else None
-        c.logo_prefeitura_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_prefeitura}') if getattr(c, 'logo_prefeitura', None) else None
+        c.logo_secretaria_url = url_for('static', filename=f'uploads/cabecalhos/{c.logo_secretaria}') if getattr(c, 'logo_secretaria', None) else None
 
     # carregar dados da escola
     dados = db.query(DadosEscola).order_by(DadosEscola.id.desc()).all()

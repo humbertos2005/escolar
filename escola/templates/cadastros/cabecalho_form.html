@@ -28,20 +28,20 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">Logotipo da Secretaria</label>
-                <input type="file" name="logo_estado" accept="image/*" class="form-control">
-                <div id="preview-logo-estado" style="margin-top:8px;">
-                    {% if cabecalho and cabecalho.logo_estado_url %}
-                        <img src="{{ cabecalho.logo_estado_url }}" alt="Logo Secretaria" style="max-width:220px;">
+                <input type="file" name="logo_secretaria" accept="image/*" class="form-control">
+                <div id="preview-logo-secretaria" style="margin-top:8px;">
+                    {% if cabecalho and cabecalho.logo_secretaria_url %}
+                        <img src="{{ cabecalho.logo_secretaria_url }}" alt="Logo Secretaria" style="max-width:220px;">
                     {% endif %}
                 </div>
 
                 <!-- Novo campo: Logotipo do Estado/Prefeitura -->
                 <div style="margin-top:12px;">
-                    <label class="form-label">Logotipo do Estado/Prefeitura</label>
-                    <input type="file" name="logo_prefeitura" accept="image/*" class="form-control">
-                    <div id="preview-logo-prefeitura" style="margin-top:8px;">
-                        {% if cabecalho and cabecalho.logo_prefeitura_url %}
-                            <img src="{{ cabecalho.logo_prefeitura_url }}" alt="Logo Estado/Prefeitura" style="max-width:220px;">
+                    <label class="form-label">Logotipo da Autarquia</label>
+                    <input type="file" name="logo_estado" accept="image/*" class="form-control">
+                    <div id="preview-logo-estado" style="margin-top:8px;">
+                        {% if cabecalho and cabecalho.logo_estado_url %}
+                            <img src="{{ cabecalho.logo_estado_url }}" alt="Logo Estado/Prefeitura" style="max-width:220px;">
                         {% endif %}
                     </div>
                 </div>
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }
     preview('logo_estado', 'preview-logo-estado');
-    preview('logo_prefeitura', 'preview-logo-prefeitura');
+    preview('logo_secretaria', 'preview-logo-secretaria');
     preview('logo_escola', 'preview-logo-escola');
 });
 </script>
