@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from database import get_db
 from models_sqlalchemy import FaltaDisciplinar, Elogio, Cabecalho, DadosEscola  # use os modelos necessários em cada rota!
+from models_sqlalchemy import Usuario
 from .utils import login_required, admin_secundario_required
 import re
 
@@ -538,10 +539,8 @@ def dados_escola_novo():
             flash('Erro ao salvar dados da escola.', 'danger')
             return redirect(url_for('cadastros_bp.dados_escola_novo'))
 
-    # GET: apenas renderizar formulário vazio
-    return render_template('cadastros/dados_escola_form.html', dados=None)
-
-from models_sqlalchemy import Usuario
+    usuarios_diretores = db.query(Usuario).filter(Usuario.cargo.ilike('%diretor%')).all()
+    return render_template('cadastros/dados_escola_form.html', dados=None, usuarios_diretores=usuarios_diretores)
 
 @cadastros_bp.route('/dados_escola/editar/<int:id>', methods=['GET', 'POST'])
 @admin_secundario_required
