@@ -1,4 +1,6 @@
 {% set resp = (ata.responsavel or '') | trim %}
+{% extends "base.html" %}
+{% block content %} 
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -58,13 +60,13 @@
     <div class="linha">{{ cabecalho.get('estado') if cabecalho else 'ESTADO DO MATO GROSSO' }}</div>
     <div class="linha">{{ cabecalho.get('secretaria') if cabecalho else 'SECRETARIA DE ESTADO DO MATO GROSSO' }}</div>
     <div class="linha">{{ cabecalho.get('coordenacao') if cabecalho else 'COORDENADORIA DE ESCOLAS MILITARES' }}</div>
-    <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
+    <div class="escola">{{ escola_nome if escola_nome is not none else 'None' }}</div>
     <div class="header-space" aria-hidden="true"></div>
   </div>
   <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
   <div class="espacador-apos-titulo"></div>
   <p class="conteudo">
-    Aos {{ ata.data_extenso_extenso }}, compareceu na {{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}
+    Aos {{ ata.data_extenso }}, compareceu na {{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}
     {% set nome_responsavel = resp
       or ata.get('responsavel')
       or ata.get('responsavel_nome')
@@ -86,7 +88,7 @@
     {% if ata.participants_json is iterable and ata.participants_json is not string %}
       {% set parts = ata.participants_json %}
     {% else %}
-      {% set parts = (ata.participants_json | from_json) %}
+      {% set parts = ata.participants_json %}
     {% endif %}
   {% endif %}
   {% if diretor_nome is defined and diretor_nome %}
@@ -134,7 +136,7 @@
         <div class="assinatura-cargo">Diretor</div>
       </div>
     {% endif %}
-    {% for p in parts %}
+    {% for p in parts if p is mapping %}
       {% set pname = (p.get('name') or p.get('nome') or '') | trim %}
       {% if pname %}
         {% if not (diretor_nome and pname | lower == diretor_nome | lower) and not (nome_responsavel and pname | lower == nome_responsavel | lower) %}
@@ -156,6 +158,16 @@
       {% endif %}
     {% endif %}
   </div>
+    <!-- Botões de ação rodapé -->
+  <div style="margin-top:40px; text-align:center;">
+    <button onclick="window.print()" style="background:#2ecc40; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; margin-right:12px;">
+      <i class="fas fa-print"></i> Imprimir / Salvar
+    </button>
+    <a href="{{ url_for('formularios_ata_bp.list_atas') }}" style="background:#3498db; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; text-decoration:none;">
+      <i class="fas fa-arrow-left"></i> Voltar
+    </a>
+  </div>
 </body>
+{% endblock %}
 </html>
 

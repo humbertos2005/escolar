@@ -206,7 +206,14 @@ def view_ata(ata_id):
                         ata["responsavel"] = getattr(aluno, k)
                         break
 
-    return render_template('formularios/ata_view.html', ata=ata, participants=participants)
+    escola_nome = ata.get('escola_nome') or ata.get('escola')
+
+    return render_template(
+        'visualizacoes/ata_print.html',
+        ata=ata,
+        participants=participants,
+        escola_nome=escola_nome,    # <--- precisa garantir preenchimento acima!
+    )
 
 @formularios_ata_bp.route('/<int:ata_id>/editar', methods=['GET','POST'])
 @admin_secundario_required
