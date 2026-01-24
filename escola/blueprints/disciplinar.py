@@ -973,6 +973,7 @@ def tratar_rfo(ocorrencia_id):
     medidas_map = MEDIDAS_MAP
 
     if request.method == 'POST':
+        oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
         tipos_raw = request.form.get('tipo_falta_list', '').strip()
         if tipos_raw:
             tipos_list = [t.strip() for t in tipos_raw.split(',') if t.strip()]
@@ -1057,7 +1058,7 @@ def tratar_rfo(ocorrencia_id):
                 data_trat = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
                 # Atualiza a ocorrência
-                oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).with_for_update().first()
+                oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).one_or_none()
                 oc_obj.status = 'TRATADO'
                 oc_obj.data_tratamento = data_trat
                 oc_obj.tipo_falta = tipos_csv
