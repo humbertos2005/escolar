@@ -1,6 +1,6 @@
 {% set resp = (ata.responsavel or '') | trim %}
 {% extends "base.html" %}
-{% block content %} 
+{% block content %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -9,31 +9,124 @@
   <style>
     @page {
       size: A4;
-      margin: 20mm 25mm 18mm 25mm; /* topo, direita, baixo, esquerda */
+      margin: 8mm 14mm 10mm 14mm; /* topo, direita, baixo, esquerda - mais compacto */
     }
     body {
-      margin: 0 !important;
+      font-family: Arial, sans-serif;
+      color: #111;
+      margin: 0 6px 6px 6px;
     }
-    body { font-family: Arial, sans-serif; color: #111; margin: 0 6px 6px 6px; }
-    .cabecalho { text-align: center; margin-bottom: 2px; padding-top: 2px; }
-    .logo { max-height: 96px; display:block; margin: 0 auto 6px; }
-    .cabecalho .linha { font-size: 16px; margin: 0px; font-weight: 600; letter-spacing: 0.2px; }
-    .cabecalho .escola { font-weight: 600; font-size: 16px; margin: 0px; }
+    .cabecalho {
+      text-align: center;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+    }
+    .logo {
+      max-height: 96px;
+      display: block;
+      margin: 0 auto 6px;
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+    }
+    .cabecalho .linha { font-size: 16px; margin: 0px; font-weight: 600; letter-spacing: 0.2px; line-height: 1.05; }
+    .cabecalho .escola { font-weight: 600; font-size: 16px; margin: 0px; line-height: 1.05; }
     .header-space { height: 8px; }
     h3.title { text-align:center; margin-top: 6px; margin-bottom: 6px; font-size: 16px; font-weight:700; }
     .espacador-apos-titulo { height: 48px; }
     .conteudo { text-align: justify; text-justify: inter-word; margin-top: 4px; line-height: 1.45; font-size: 12.5pt; max-width: 100%; box-sizing: border-box; word-break: break-word; }
     .conteudo p { margin: 0 0 12px 0; }
-    .assinaturas { display:flex; justify-content:space-around; margin-top:14mm; flex-wrap:wrap; gap:12px; align-items:flex-start; }
-    .assinatura-campo { width:30%; min-width:150px; text-align:center; box-sizing:border-box; }
-    .linha-assinatura { border-top:1px solid #111; height: 1px; margin-bottom:8px; margin-left:10px; margin-right:10px; }
-    .assinatura-campo p { font-weight:bold; margin:0; font-size: 12pt; }
-    .assinatura-cargo { font-weight:normal; font-size:0.9em; color:#666; margin-top:4px; }
+    
+    /* ----------- Assinaturas ----------- */
+        .assinaturas {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 50px;            /* espaço entre linhas e colunas */
+      max-width: 630px;
+      margin: 25px auto 0 auto;  /* centraliza */
+    }
+    .assinatura-campo {
+      min-width: 0;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .linha-assinatura {
+      border-top:1px solid #111;
+      height: 1px;
+      margin-bottom:8px;
+      margin-left:10px;
+      margin-right:10px;
+    }
+    .assinatura-campo p {
+      font-weight: bold;
+      margin: 0;
+      font-size: 10pt;         /* menor fonte para nome */
+      line-height: 1.10;
+      word-break: break-word;
+      text-align: center;
+    }
+    .assinatura-cargo {
+      font-weight:normal;
+      font-size: 8.5pt;        /* menor fonte para cargo */
+      color: #666;
+      margin-top: 4px;
+      text-align: center;
+    }
+    
     @media print {
-      body { margin: 4mm; }
-      .espacador-apos-titulo { height: 44px; }
+      @page {
+        size: A4;
+        margin: 4mm 10mm 6mm 10mm !important;
+      }
+      body { margin: 0 !important; padding: 0 !important; }
+      .cabecalho, .logo { margin-top: 0 !important; padding-top: 0 !important; }
+      .assinaturas {
+        margin-top: 15px;
+        max-width: 600px;
+      }
+      .assinatura-campo p {
+        font-size: 9pt !important;
+        line-height: 1.05 !important;
+      }
+      .assinatura-cargo {
+        font-size: 7.5pt !important;
+      }
+      .espacador-apos-titulo { height: 30px; }
     }
   </style>
+
+  <style>
+    @media print {
+    /* Mantém escondendo menus, botões etc. */
+    .sidebar, .navbar, .btn, .sidebar-wrapper, .topbar, nav, .sidebar-menu, .main-sidebar, .sidebar, .navbar-static-top, .no-print, [onclick*="window.print"], [href*="list_atas"], a[href*="list_atas"] {
+      display: none !important;
+    }
+    /* Remove fundo colorido */
+    body {
+      background: #fff !important;
+    }
+    /* Diminui as margens da visualização */
+    @page {
+      size: A4;
+      margin: 12mm 15mm 10mm 15mm !important; /* topo, direta, baixo, esquerda */
+    }
+    /* Ajusta containers do conteúdo para ocupar melhor a página */
+    .container, .content, .wrapper {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      box-shadow: none !important;
+      background: #fff !important;
+    }
+    /* Sobe o conteúdo para o topo */
+    .cabecalho, .logo {
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+    }
+  }
+  </style>
+
 </head>
 <body>
   <div class="cabecalho">
@@ -60,7 +153,7 @@
     <div class="linha">{{ cabecalho.get('estado') if cabecalho else 'ESTADO DO MATO GROSSO' }}</div>
     <div class="linha">{{ cabecalho.get('secretaria') if cabecalho else 'SECRETARIA DE ESTADO DO MATO GROSSO' }}</div>
     <div class="linha">{{ cabecalho.get('coordenacao') if cabecalho else 'COORDENADORIA DE ESCOLAS MILITARES' }}</div>
-    <div class="escola">{{ escola_nome if escola_nome is not none else 'None' }}</div>
+    <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
     <div class="header-space" aria-hidden="true"></div>
   </div>
   <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
@@ -88,7 +181,7 @@
     {% if ata.participants_json is iterable and ata.participants_json is not string %}
       {% set parts = ata.participants_json %}
     {% else %}
-      {% set parts = ata.participants_json %}
+      {% set parts = (ata.participants_json | from_json) %}
     {% endif %}
   {% endif %}
   {% if diretor_nome is defined and diretor_nome %}
@@ -128,6 +221,8 @@
     {%- endif -%}
   {%- endmacro %}
 
+  <div style="height: 64px;"></div>
+
   <div class="assinaturas" aria-label="Assinaturas">
     {% if diretor_nome %}
       <div class="assinatura-campo">
@@ -136,7 +231,7 @@
         <div class="assinatura-cargo">Diretor</div>
       </div>
     {% endif %}
-    {% for p in parts if p is mapping %}
+    {% for p in parts %}
       {% set pname = (p.get('name') or p.get('nome') or '') | trim %}
       {% if pname %}
         {% if not (diretor_nome and pname | lower == diretor_nome | lower) and not (nome_responsavel and pname | lower == nome_responsavel | lower) %}
@@ -157,16 +252,18 @@
         </div>
       {% endif %}
     {% endif %}
-  </div>
-    <!-- Botões de ação rodapé -->
+  </div>   <!-- Fecha .assinaturas -->
+
+  <!-- Botões de ação rodapé -->
   <div style="margin-top:40px; text-align:center;">
     <button onclick="window.print()" style="background:#2ecc40; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; margin-right:12px;">
       <i class="fas fa-print"></i> Imprimir / Salvar
     </button>
-    <a href="{{ url_for('formularios_ata_bp.list_atas') }}" style="background:#3498db; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; text-decoration:none;">
+    <a href="{{ url_for('formularios_ata_bp.list_atas') }}" class="no-print" style="background:#3498db; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; text-decoration:none;">
       <i class="fas fa-arrow-left"></i> Voltar
     </a>
   </div>
+
 </body>
 {% endblock %}
 </html>

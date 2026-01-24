@@ -100,7 +100,7 @@
   {# Em vez de injetar {{ ... }} dentro do JS, colocamos os dados no atributo data-... #}
   <div id="ata-data"
      data-alunos='{{ (alunos | default([])) | tojson | safe }}'
-     data-participants='{% if participants_json_val is defined and participants_json_val is string %}{{ participants_json_val | safe }}{% else %}{{ (participants_json_val | default([])) | tojson | safe }}{% endif %}'
+     data-participants='{{ participants_json_val | safe }}'
      style="display:none;"></div>
 
   <script>

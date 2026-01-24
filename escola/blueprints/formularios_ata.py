@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from database import get_db
 from datetime import datetime
 from .utils import login_required, admin_required, admin_secundario_required
+from models_sqlalchemy import Cabecalho
 import json
 import unicodedata
 from models_sqlalchemy import Ata, Aluno
@@ -205,15 +206,91 @@ def view_ata(ata_id):
                     if hasattr(aluno, k) and getattr(aluno, k):
                         ata["responsavel"] = getattr(aluno, k)
                         break
+    
+        # Buscar nome da escola do cabecalho
+        escola_nome = None
+        cabecalho = db.query(Cabecalho).order_by(Cabecalho.id.desc()).first()
+        if cabecalho and getattr(cabecalho, "escola", None):
+            escola_nome = cabecalho.escola
 
-    escola_nome = ata.get('escola_nome') or ata.get('escola')
+        # Calcular data por extenso e adicionar ao objeto ata
+        try:
+            if ata.get("created_at"):
+                dt = datetime.strptime(ata["created_at"], "%Y-%m-%d %H:%M:%S")
+                months = ["janeiro","fevereiro","março","abril","maio","junho","julho",
+                        "agosto","setembro","outubro","novembro","dezembro"]
+                def int_to_words_pt(n):
+                    unidades = {0:"zero",1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",
+                                10:"dez",11:"onze",12:"doze",13:"treze",14:"quatorze",15:"quinze",16:"dezesseis",17:"dezessete",
+                                18:"dezoito",19:"dezenove"}
+                    dezenas = {20:"vinte",30:"trinta",40:"quarenta",50:"cinquenta",60:"sessenta",70:"setenta",80:"oitenta",90:"noventa"}
+                    centenas = {100:"cem",200:"duzentos",300:"trezentos",400:"quatrocentos",500:"quinhentos",600:"seiscentos",700:"setecentos",800:"oitocentos",900:"novecentos"}
+                    if n < 0:
+                        return "menos " + int_to_words_pt(-n)
+                    if n < 20:
+                        return unidades[n]
+                    if n < 100:
+                        d = (n // 10) * 10
+                        r = n - d
+                        if r == 0:
+                            return dezenas[d]
+                        return dezenas[d] + " e " + int_to_words_pt(r)
+                    if n < 1000:
+                        c = (n // 100) * 100
+                        r = n - c
+                        if n == 100:
+                            return "cem"
+                        nomec = centenas.get(c, "")
+                        if r == 0:
+                            return nomec
+                        return nomec + " e " + int_to_words_pt(r)
+                    if n < 1000000:
+                        mil = n // 1000
+                        r = n % 1000
+                        mil_part = ""
+                        if mil == 1:
+                            mil_part = "mil"
+                        else:
+                            mil_part = int_to_words_pt(mil) + " mil"
+                        if r == 0:
+                            return mil_part
+                        return mil_part + " e " + int_to_words_pt(r)
+                    return str(n)
+                day_words = int_to_words_pt(dt.day)
+                year_words = int_to_words_pt(dt.year)
+                ata["data_extenso"] = f"{day_words} dias do mês de {months[dt.month-1]} do ano de {year_words}"
+        except Exception:
+            ata["data_extenso"] = ata.get("created_at")
 
-    return render_template(
-        'visualizacoes/ata_print.html',
-        ata=ata,
-        participants=participants,
-        escola_nome=escola_nome,    # <--- precisa garantir preenchimento acima!
-    )
+        # Buscar nome do diretor do cabeçalho/dados_escola
+        diretor_nome = None
+        cabecalho = db.query(Cabecalho).order_by(Cabecalho.id.desc()).first()
+        if cabecalho and getattr(cabecalho, "diretor_nome", None):
+            diretor_nome = cabecalho.diretor_nome
+        # Se não encontrar no cabecalho, tente DadosEscola
+        if not diretor_nome:
+            try:
+                from models_sqlalchemy import DadosEscola
+                dados_escola = db.query(DadosEscola).order_by(DadosEscola.id.desc()).first()
+                if dados_escola and getattr(dados_escola, "diretor_nome", None):
+                    diretor_nome = dados_escola.diretor_nome
+            except Exception:
+                pass
+
+        # Garantir participants como lista de dict
+        participants = []
+        try:
+            pj = ata.get("participants_json")
+            if isinstance(pj, str) and pj.strip():
+                participants = json.loads(pj)
+                if not isinstance(participants, list):
+                    participants = []
+        except Exception:
+            participants = []
+
+        ata["participants_json"] = participants  # <-- ESSA LINHA É ESSENCIAL
+
+    return render_template('visualizacoes/ata_print.html', ata=ata, participants=participants, escola_nome=escola_nome, diretor_nome=diretor_nome)
 
 @formularios_ata_bp.route('/<int:ata_id>/editar', methods=['GET','POST'])
 @admin_secundario_required
@@ -224,7 +301,17 @@ def edit_ata(ata_id):
         flash('ATA não encontrada.', 'danger')
         return redirect(url_for('formularios_ata_bp.list_atas'))
 
-    alunos = db.query(Aluno).order_by(Aluno.nome).all()
+    # TRANSFORMA a lista de Alunos em lista de dicionários:
+    alunos_query = db.query(Aluno).order_by(Aluno.nome).all()
+    alunos = [
+        {
+            'id': a.id,
+            'nome': getattr(a, 'nome', ''),
+            'serie': getattr(a, 'serie', ''),
+            'turma': getattr(a, 'turma', ''),
+            'responsavel': getattr(a, 'responsavel', ''),
+        } for a in alunos_query
+    ]
 
     if request.method == 'POST':
         aluno_id = request.form.get('aluno_id') or None
@@ -232,6 +319,8 @@ def edit_ata(ata_id):
         serie_turma = request.form.get('serie_turma', '').strip()
         conteudo = request.form.get('conteudo', '').strip()
         participants_json = request.form.get('participants_json', '[]').strip()
+        responsavel = request.form.get('responsavel', '').strip()
+        ata_obj.responsavel = responsavel
 
         if aluno_id and not aluno_nome:
             a = db.query(Aluno).filter_by(id=aluno_id).first()
@@ -253,7 +342,35 @@ def edit_ata(ata_id):
             flash(f'Erro ao atualizar ATA: {e}', 'danger')
 
     ata = ata_obj.__dict__.copy()
-    return render_template('formularios/ata_form.html', ata=ata, alunos=alunos, aluno_info=None)
+
+    # GARANTA que participants_json_val seja SEMPRE uma string JSON válida!
+    participants_json_val = ata.get('participants_json') or '[]'
+    # Corrige caso venha um dict/lista (não string)
+    if not isinstance(participants_json_val, str):
+        try:
+            participants_json_val = json.dumps(participants_json_val)
+        except Exception:
+            participants_json_val = '[]'
+
+    # Busca o responsável do aluno, se houver um aluno_id definido
+    responsavel = ''
+    if ata.get('aluno_id'):
+        aluno = db.query(Aluno).filter_by(id=ata['aluno_id']).first()
+        if aluno and hasattr(aluno, 'responsavel'):
+            responsavel = aluno.responsavel or ''
+    # Se já existe na ata (caso de salvamento antigo), use ele
+    if not responsavel and ata.get('responsavel'):
+        responsavel = ata['responsavel']
+
+    ata['responsavel'] = responsavel  # agora sempre preenche
+
+    return render_template(
+        'formularios/ata_form.html',
+        ata=ata,
+        alunos=alunos,
+        aluno_info=None,
+        participants_json_val=participants_json_val
+    )
 
 @formularios_ata_bp.route('/<int:ata_id>/excluir', methods=['POST'])
 @admin_secundario_required
