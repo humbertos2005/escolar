@@ -997,6 +997,7 @@ def tratar_rfo(ocorrencia_id):
         relato_estudante = request.form.get('relato_estudante', '').strip()
         despacho_gestor = request.form.get('despacho_gestor', '').strip()
         data_despacho = request.form.get('data_despacho', '').strip()
+        comparecimento_responsavel = request.form.get('comparecimento_responsavel', '0')
 
         circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'
         circ_ag = request.form.get('circunstancias_agravantes', '').strip() or 'Não há'
@@ -1068,6 +1069,7 @@ def tratar_rfo(ocorrencia_id):
                 oc_obj.relato_estudante = relato_estudante
                 oc_obj.despacho_gestor = despacho_gestor
                 oc_obj.data_despacho = data_despacho
+                oc_obj.comparecimento_responsavel = comparecimento_responsavel
                 if hasattr(oc_obj, 'circunstancias_atenuantes'):
                     oc_obj.circunstancias_atenuantes = circ_at
                 if hasattr(oc_obj, 'circunstancias_agravantes'):

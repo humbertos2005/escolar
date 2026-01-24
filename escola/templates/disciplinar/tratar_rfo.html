@@ -281,6 +281,23 @@
                         {% if ocorrencia.status == 'TRATADO' %}readonly{% endif %}>
                     <small class="help-text">Data em que o despacho foi realizado</small>
                 </div>
+                <div class="form-group">
+                    <label>Há necessidade de comparecimento do responsável?</label>
+                    <div class="radio-group">
+                        <label class="radio-label" style="margin-right:16px;">
+                            <input type="radio" name="comparecimento_responsavel" value="1"
+                                {% if ocorrencia.comparecimento_responsavel == 1 or ocorrencia.comparecimento_responsavel == '1' %}checked{% endif %}
+                                {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+                            Sim
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="comparecimento_responsavel" value="0"
+                                {% if ocorrencia.comparecimento_responsavel == 0 or ocorrencia.comparecimento_responsavel == '0' or ocorrencia.comparecimento_responsavel is none %}checked{% endif %}
+                                {% if ocorrencia.status == 'TRATADO' %}disabled{% endif %}>
+                            Não
+                        </label>
+                    </div>
+                </div>
             </fieldset>
             {% endif %}
 
