@@ -331,7 +331,7 @@ def listar_prontuarios():
         show_deleted = request.args.get('show_deleted') == '1' and session.get('nivel') == 1
         prontuario_query = db.query(Prontuario)
         if not show_deleted:
-            prontuario_query = prontuario_query.filter((Prontuario.deleted == None) | (Prontuario.deleted == 0))
+            prontuario_query = prontuario_query.filter((Prontuario.deleted == None) | (Prontuario.deleted == '0'))
         rows = prontuario_query.order_by(Prontuario.created_at.desc(), Prontuario.id.desc()).all()
         pronts = []
         for p in rows:

@@ -1035,9 +1035,10 @@ def tratar_rfo(ocorrencia_id):
                 error = 'A medida aplicada é obrigatória.'
 
         if error is None:
-            if reincidencia not in [0, 1]:
-                error = 'Reincidência deve ser "Sim" ou "Não".'
-            elif not despacho_gestor:
+            if not is_elogio:   # <- só exige reincidência se NÃO for elogio
+                if reincidencia not in [0, 1]:
+                    error = 'Reincidência deve ser "Sim" ou "Não".'
+            if not despacho_gestor:
                 error = 'O despacho do gestor é obrigatório.'
             elif not data_despacho:
                 error = 'A data do despacho é obrigatória.'
