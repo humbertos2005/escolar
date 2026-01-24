@@ -52,7 +52,7 @@ class Telefone(Base):
 # Sequência do RFO
 class RFOSequencia(Base):
     __tablename__ = "rfo_sequencia"
-    ano = Column(String, primary_key=True)
+    ano = Column(Integer, primary_key=True)
     numero = Column(Integer)
 
 # Tipos de ocorrência
@@ -104,7 +104,7 @@ class Ocorrencia(Base):
 # Sequência FMD
 class FMDSequencia(Base):
     __tablename__ = "fmd_sequencia"
-    ano = Column(String, primary_key=True)
+    ano = Column(Integer, primary_key=True)
     numero = Column(Integer)
     seq = Column(Integer)
 
@@ -144,7 +144,7 @@ class Circunstancia(Base):
 class Bimestre(Base):
     __tablename__ = "bimestres"
     id = Column(Integer, primary_key=True)
-    ano = Column(String)
+    ano = Column(Integer)
     numero = Column(Integer)
     inicio = Column(String)
     fim = Column(String)
@@ -165,7 +165,7 @@ class PontuacaoBimestral(Base):
     __tablename__ = "pontuacao_bimestral"
     id = Column(Integer, primary_key=True)
     aluno_id = Column(Integer, ForeignKey("alunos.id"))
-    ano = Column(String)
+    ano = Column(Integer)
     bimestre = Column(Integer)
     pontuacao_inicial = Column(Integer)
     pontuacao_atual = Column(Integer)
@@ -176,7 +176,7 @@ class PontuacaoHistorico(Base):
     __tablename__ = "pontuacao_historico"
     id = Column(Integer, primary_key=True)
     aluno_id = Column(Integer, ForeignKey("alunos.id"))
-    ano = Column(String)
+    ano = Column(Integer)
     bimestre = Column(Integer)
     ocorrencia_id = Column(Integer, ForeignKey("ocorrencias.id"))
     fmd_id = Column(Integer)
@@ -353,7 +353,7 @@ class Ata(Base):
     aluno_nome = Column(String)
     serie_turma = Column(String)
     numero = Column(String)
-    ano = Column(String)
+    ano = Column(Integer)
     conteudo = Column(Text)
     created_at = Column(String)
     updated_at = Column(String)
