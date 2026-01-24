@@ -1726,7 +1726,13 @@ def fmd_novo_real(fmd_id):
             comportamento = _infer_comportamento_por_faixa(valor_pontuacao) or "-"
 
     # ==== 4. Busca ocorrência relacionada (RFO) ====
-    rfo = db.query(Ocorrencia).filter_by(rfo_id=fmd.rfo_id).first() or {}
+    try:
+        rfo = db.query(Ocorrencia).filter_by(rfo_id=fmd.rfo_id).first()
+    except Exception:
+        db.rollback()
+        rfo = None
+    if not rfo:
+        rfo = {}
     item_descricoes_faltas = []
 
     ids_faltas = []
