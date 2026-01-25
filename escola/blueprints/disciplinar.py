@@ -938,7 +938,7 @@ def listar_ocorrencias():
     )
 
     ocorrencias_list = [dict(o._asdict() if hasattr(o, "_asdict") else o) for o in ocorrencias]
-    return render_template('disciplinar/listar_ocorrencias.html', ocorrencias=ocorrencias_list)
+    return render_template('listar_ocorrencias.html', ocorrencias=ocorrencias_list)
 
 @disciplinar_bp.route('/tratar_rfo/<int:ocorrencia_id>', methods=['GET', 'POST'])
 @admin_secundario_required
