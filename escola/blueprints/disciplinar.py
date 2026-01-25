@@ -267,35 +267,62 @@ def _get_bimestre_for_date(db, data_str):
     b = ((d.month - 1) // 3) + 1
     return ano, b
 
+from unidecode import unidecode
+import re
+
 def _calcular_delta_por_medida(medida_aplicada, qtd, config):
     """
     Calcula o delta (positivo/negativo) aplicável à pontuação a partir do texto da medida e quantidade.
-    qtd: número (ex.: dias ou ocorrências)
-    config: dict com valores
+    Aceita variações como advertencia oral, advertência oral, adv oral, advert oral, etc.
+    Também faz print dos valores de depuração.
     """
     if not medida_aplicada:
+        print("DEBUG - medida_aplicada vazia.")
         return 0.0
-    m = medida_aplicada.strip().upper()
+
+    # Remove acentos, coloca maiúsculo e remove espaços duplicados
+    m = unidecode(str(medida_aplicada)).upper().replace("  ", " ").strip()
     try:
         qtd = float(qtd or 1)
     except Exception:
         qtd = 1.0
-    if 'ORAL' in m and 'ADVERT' in m:
-        return qtd * float(config.get('advertencia_oral', -0.1))
-    if 'ESCRIT' in m and 'ADVERT' in m:
-        return qtd * float(config.get('advertencia_escrita', -0.3))
-    if 'SUSPENS' in m:
+
+    # Print de depuração
+    print("DEBUG - medida_aplicada recebida:", medida_aplicada)
+    print("DEBUG - medida_aplicada formatada:", m)
+    print("DEBUG - qtd usada:", qtd)
+
+    # Formas mais comuns de cada medida
+    if 'ADVERTENCIA ORAL' in m or 'ADV ORAL' in m or ('ORAL' in m and 'ADVERT' in m):
+        delta = qtd * float(config.get('advertencia_oral', -0.1))
+        print("DEBUG - delta calculado para ADVERTÊNCIA ORAL:", delta)
+        return delta
+    if 'ADVERTENCIA ESCRITA' in m or 'ADV ESCRITA' in m or ('ESCRITA' in m and 'ADVERT' in m):
+        delta = qtd * float(config.get('advertencia_escrita', -0.3))
+        print("DEBUG - delta calculado para ADVERTÊNCIA ESCRITA:", delta)
+        return delta
+    if 'SUSPENS' in m or 'SUSPENSAO' in m:
         nums = re.findall(r'(\d+)', m)
         dias = int(nums[0]) if nums else int(qtd)
-        return dias * float(config.get('suspensao_dia', -0.5))
-    if 'ACAO' in m or 'AÇÃO' in m or 'EDUCATIVA' in m:
+        delta = dias * float(config.get('suspensao_dia', -0.5))
+        print("DEBUG - delta calculado para SUSPENSÃO:", delta)
+        return delta
+    if 'ACAO EDUCATIVA' in m or 'ACAO EDUCATIVA' in m or 'EDUCATIVA' in m:
         nums = re.findall(r'(\d+)', m)
         dias = int(nums[0]) if nums else int(qtd)
-        return dias * float(config.get('acao_educativa_dia', -1.0))
+        delta = dias * float(config.get('acao_educativa_dia', -1.0))
+        print("DEBUG - delta calculado para AÇÃO EDUCATIVA:", delta)
+        return delta
     if 'ELOGIO' in m and 'INDIVIDU' in m:
-        return qtd * float(config.get('elogio_individual', 0.5))
+        delta = qtd * float(config.get('elogio_individual', 0.5))
+        print("DEBUG - delta calculado para ELOGIO INDIVIDUAL:", delta)
+        return delta
     if 'ELOGIO' in m and 'COLET' in m:
-        return qtd * float(config.get('elogio_coletivo', 0.3))
+        delta = qtd * float(config.get('elogio_coletivo', 0.3))
+        print("DEBUG - delta calculado para ELOGIO COLETIVO:", delta)
+        return delta
+
+    print("DEBUG - Nenhum caso identificado. Retornando delta 0.0")
     return 0.0
 
 def _next_fmd_sequence(db):
@@ -353,16 +380,32 @@ def _next_fmd_sequence(db):
         print("Erro ao inserir nova FMDSequencia:", e)
     return seq, int(ano)
 
-def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_id=None, tipo_evento=None):
+def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_id=None, tipo_evento=None, data_despacho=None):
     """
     Aplica delta na pontuacao_bimestral do aluno (cria linha se inexistente).
     Garante limites mínimos/máximos (0.0 .. 10.0).
-    Registra no pontuacao_historico.
+    Registra no pontuacao_historico usando DD/MM/AAAA (sem horas).
     """
     if not aluno_id:
         return
+
+    from datetime import datetime
     ano, bimestre = _get_bimestre_for_date(db, data_tratamento_str)
     from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
+
+    # Formata a data para DD/MM/AAAA
+    criado_em = None
+    if data_despacho:
+        # Se vier YYYY-MM-DD, converte para DD/MM/AAAA
+        if '-' in data_despacho and len(data_despacho) >= 10:
+            criado_em = datetime.strptime(data_despacho[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+        elif '/' in data_despacho and len(data_despacho) >= 10:
+            criado_em = data_despacho[:10]
+        else:
+            criado_em = datetime.now().strftime('%d/%m/%Y')
+    else:
+        criado_em = datetime.now().strftime('%d/%m/%Y')
+
     try:
         row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre).first()
         if row:
@@ -382,6 +425,7 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
                 atualizado_em=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             )
             db.add(row)
+
         hist = PontuacaoHistorico(
             aluno_id=aluno_id,
             ano=ano,
@@ -389,7 +433,7 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
             ocorrencia_id=ocorrencia_id,
             tipo_evento=tipo_evento,
             valor_delta=float(delta),
-            criado_em=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            criado_em=criado_em
         )
         db.add(hist)
         db.commit()
@@ -1091,7 +1135,7 @@ def tratar_rfo(ocorrencia_id):
                             config = _get_config_values(db)
                             qtd_form = request.form.get('sim_qtd') or request.form.get('dias') or request.form.get('quantidade') or 1
                             delta = _calcular_delta_por_medida(medida_aplicada, qtd_form, config)
-                            _apply_delta_pontuacao(db, oc_obj.aluno_id, data_trat, delta, ocorrencia_id, medida_aplicada)
+                            _apply_delta_pontuacao(db, oc_obj.aluno_id, data_trat, delta, ocorrencia_id, medida_aplicada, data_despacho)
                         except Exception:
                             current_app.logger.exception("Erro ao aplicar delta de pontuação")
                     else:
@@ -1667,11 +1711,16 @@ def montar_contexto_fmd(db, fmd_id, usuario_sessao_override=None):
     comportamento = "-"
     pontuacao = "-"
     if aluno and hasattr(aluno, 'id'):
-        p_corrente = compute_pontuacao_corrente(aluno.id)
-        if p_corrente is not None:
-            valor_pontuacao = p_corrente if isinstance(p_corrente, (int, float)) else p_corrente.get('pontuacao') or p_corrente.get('pontuacao_atual') or 8.0
-            pontuacao = round(float(valor_pontuacao), 2)
-            comportamento = _infer_comportamento_por_faixa(valor_pontuacao) or "-"
+        # Pega a data da FMD para usar na busca histórica:
+        data_fmd = getattr(fmd, 'data_fmd', None)
+        if data_fmd:
+            try:
+                from services.escolar_helper import compute_pontuacao_em_data
+                res = compute_pontuacao_em_data(aluno.id, data_fmd)
+                pontuacao = res.get('pontuacao')
+                comportamento = res.get('comportamento')
+            except Exception:
+                pass
     if usuario_sessao_override is not None:
         usuario_sessao = usuario_sessao_override
     else:

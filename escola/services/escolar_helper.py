@@ -313,3 +313,53 @@ def next_fmd_seq_and_year():
         db.add(seq_obj)
     db.commit()
     return seq, ano
+
+def compute_pontuacao_em_data(aluno_id, data_referencia):
+    """
+    Retorna a pontuação e o comportamento do aluno NA DATA informada.
+    - aluno_id: ID do aluno
+    - data_referencia: data (string: 'YYYY-MM-DD') ou datetime
+    """
+    db = get_db()
+    try:
+        # Garante formato correto de data
+        if isinstance(data_referencia, str):
+            try:
+                data_ref = datetime.fromisoformat(data_referencia)
+            except Exception:
+                try:
+                    data_ref = datetime.strptime(data_referencia, '%Y-%m-%d')
+                except Exception:
+                    data_ref = datetime.now()
+        elif isinstance(data_referencia, datetime):
+            data_ref = data_referencia
+        else:
+            data_ref = datetime.now()
+
+        # Começa com 8.0 pontos (regra do sistema)
+        pontuacao = 8.0
+
+        # Busca todos os lançamentos históricos até a data
+        from models_sqlalchemy import PontuacaoHistorico
+        historico = db.query(PontuacaoHistorico).filter(
+            PontuacaoHistorico.aluno_id == aluno_id,
+            PontuacaoHistorico.criado_em <= data_ref.strftime('%Y-%m-%d')
+        ).all()
+
+        # Aplica todos os deltas (somas e subtrações)
+        for h in historico:
+            try:
+                pontuacao += float(h.valor_delta)
+            except Exception:
+                continue
+
+        # Limites conforme regras do sistema
+        pontuacao = max(0.0, min(10.0, pontuacao))
+
+        # Descobre comportamento correspondente
+        comportamento = _infer_comportamento_por_faixa(pontuacao)
+
+        return {'pontuacao': round(pontuacao, 2), 'comportamento': comportamento}
+    except Exception as ex:
+        print(f"[ERRO compute_pontuacao_em_data] {ex}")
+        return {'pontuacao': None, 'comportamento': None}
