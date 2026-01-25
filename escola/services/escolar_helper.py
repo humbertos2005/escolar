@@ -318,7 +318,7 @@ def compute_pontuacao_em_data(aluno_id, data_referencia):
     """
     Retorna a pontuação e o comportamento do aluno NA DATA informada.
     - aluno_id: ID do aluno
-    - data_referencia: data (string: 'YYYY-MM-DD') ou datetime
+    - data_referencia: data (string: 'YYYY-MM-DD' ou 'YYYY-MM-DD HH:MM:SS') ou datetime
     """
     db = get_db()
     try:
@@ -339,11 +339,14 @@ def compute_pontuacao_em_data(aluno_id, data_referencia):
         # Começa com 8.0 pontos (regra do sistema)
         pontuacao = 8.0
 
-        # Busca todos os lançamentos históricos até a data
+        # Busca todos os lançamentos históricos ATÉ o exato momento da data_referencia
         from models_sqlalchemy import PontuacaoHistorico
+        from sqlalchemy import and_
         historico = db.query(PontuacaoHistorico).filter(
-            PontuacaoHistorico.aluno_id == aluno_id,
-            PontuacaoHistorico.criado_em <= data_ref.strftime('%Y-%m-%d')
+            and_(
+                PontuacaoHistorico.aluno_id == aluno_id,
+                PontuacaoHistorico.criado_em <= data_ref.strftime('%Y-%m-%d %H:%M:%S')
+            )
         ).all()
 
         # Aplica todos os deltas (somas e subtrações)

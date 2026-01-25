@@ -51,6 +51,8 @@ def formulario_rfo(ocorrencia_id):
                 "responsavel_registro_username": getattr(usuario, "username", "") if usuario else ""}
     return render_template('formularios/rfo.html', rfo=rfo_dict)
 
+from services.escolar_helper import compute_pontuacao_em_data  # Adicione esse import NO TOPO do arquivo
+
 @formularios_bp.route('/fmd/<int:fmd_id>')
 @admin_secundario_required
 def formulario_fmd(fmd_id):
@@ -67,11 +69,18 @@ def formulario_fmd(fmd_id):
         return "FMD não encontrada", 404
 
     fmd_obj, aluno, usuario = fmd
-    fmd_dict = {**fmd_obj.__dict__, 
+    fmd_dict = {**fmd_obj.__dict__,
                 "matricula": aluno.matricula, "nome_aluno": aluno.nome,
                 "serie": aluno.serie, "turma": aluno.turma,
                 "responsavel_username": getattr(usuario, "username", "") if usuario else ""}
-    return render_template('formularios/fmd.html', fmd=fmd_dict)
+
+    # --- NOVO: cálculo histórico pela data de despacho ---
+    data_despacho = fmd_obj.data_despacho  # certifique-se de que o campo existe e contém a data correta!
+    aluno_id = fmd_obj.aluno_id
+    pontuacao_info = compute_pontuacao_em_data(aluno_id, data_despacho)
+    # -----------------------------------------------------
+
+    return render_template('formularios/fmd.html', fmd=fmd_dict, pontuacao_info=pontuacao_info)
 
 @formularios_bp.route('/prontuario/<int:aluno_id>')
 @admin_secundario_required
