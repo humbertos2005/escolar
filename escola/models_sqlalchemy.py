@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, Numeric
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -336,6 +336,8 @@ class FichaMedidaDisciplinar(Base):
     pontos_aplicados = Column(Integer)
     email_enviado_data = Column(String)
     email_enviado_para = Column(String)
+    pontuacao_no_documento = Column(Numeric(4, 2))
+    comportamento_no_documento = Column(String(30))
 
 # Ocorrências/Alunos (relação N para N)
 class OcorrenciaAluno(Base):

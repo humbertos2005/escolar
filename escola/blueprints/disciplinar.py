@@ -1168,6 +1168,29 @@ def tratar_rfo(ocorrencia_id):
                                 print("DEBUG - medida_aplicada recebida no POST:", request.form.get("medida_aplicada"))
                                 print("DEBUG - medida_aplicada utilizada na FMD:", medida_aplicada)
 
+                                from services.escolar_helper import compute_pontuacao_em_data
+
+                                # Pega a pontuação ATUAL do aluno
+                                resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd)
+                                pontuacao_antes = float(resultado.get('pontuacao'))
+
+                                # Garante que penalidade sempre será subtraída (descontada)
+                                delta = float(delta) if 'delta' in locals() else 0.0
+
+                                # Se delta for positivo, transforma em negativo
+                                if delta > 0:
+                                    delta = -delta
+
+                                # Faz o desconto corretamente!
+                                pontuacao_congelada = pontuacao_antes + delta
+                                if pontuacao_congelada < 0:
+                                    pontuacao_congelada = 0.0
+                                if pontuacao_congelada > 10:
+                                    pontuacao_congelada = 10.0
+
+                                # Recalcula o comportamento de acordo com a nova pontuação
+                                comportamento_congelado = _infer_comportamento_por_faixa(pontuacao_congelada)
+                                
                                 fmd_obj = FichaMedidaDisciplinar(
                                     fmd_id=fmd_id,
                                     aluno_id=aluno_id_local,
@@ -1181,7 +1204,9 @@ def tratar_rfo(ocorrencia_id):
                                     data_registro=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                                     falta_disciplinar_ids=falta_ids_val,
                                     tipo_falta_list=tipo_falta_list_val,
-                                    pontos_aplicados=float(delta) if 'delta' in locals() else 0.0
+                                    pontos_aplicados=float(delta) if 'delta' in locals() else 0.0,
+                                    pontuacao_no_documento=pontuacao_congelada,
+                                   comportamento_no_documento=comportamento_congelado,
                                 )
                                 db.add(fmd_obj)
                         if ocorrencia_id:
@@ -1708,19 +1733,10 @@ def montar_contexto_fmd(db, fmd_id, usuario_sessao_override=None):
         'data_hora': getattr(fmd, 'email_enviado_data', None),
         'email_destinatario': getattr(fmd, 'email_enviado_para', None),
     }
-    comportamento = "-"
-    pontuacao = "-"
-    if aluno and hasattr(aluno, 'id'):
-        # Pega a data da FMD para usar na busca histórica:
-        data_fmd = getattr(fmd, 'data_fmd', None)
-        if data_fmd:
-            try:
-                from services.escolar_helper import compute_pontuacao_em_data
-                res = compute_pontuacao_em_data(aluno.id, data_fmd)
-                pontuacao = res.get('pontuacao')
-                comportamento = res.get('comportamento')
-            except Exception:
-                pass
+    # AQUI, TROQUE O QUE ESTAVA POR ISSO:
+    pontuacao = getattr(fmd, 'pontuacao_no_documento', None)
+    comportamento = getattr(fmd, 'comportamento_no_documento', None)
+
     if usuario_sessao_override is not None:
         usuario_sessao = usuario_sessao_override
     else:
