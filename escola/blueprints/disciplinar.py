@@ -800,31 +800,9 @@ def visualizar_rfo(ocorrencia_id):
             material_info = f"{tratamento} — {associado}"
     rfo_dict['material_recolhido_info'] = material_info
 
-    from datetime import datetime
-    from models_sqlalchemy import PontuacaoHistorico
-    from sqlalchemy import func
+    print('OCCURRENCIA alunos_list:', rfo_dict['alunos_list'])
 
-    data_do_documento = rfo.Ocorrencia.data_registro
-    if isinstance(data_do_documento, str):
-        data_do_documento = datetime.strptime(data_do_documento[:10], '%Y-%m-%d')
-
-    aluno_id = rfo.Ocorrencia.aluno_id
-
-    pontuacao_historica = (
-        db.query(func.sum(PontuacaoHistorico.valor_delta))
-        .filter(PontuacaoHistorico.aluno_id == aluno_id)
-        .filter(PontuacaoHistorico.criado_em <= data_do_documento.strftime('%d/%m/%Y'))
-        .scalar()
-    )
-
-    if pontuacao_historica is None:
-        pontuacao_historica = 8.0
-
-    return render_template(
-        'disciplinar/visualizar_rfo.html', 
-        rfo=rfo, 
-        pontuacao_historica=pontuacao_historica
-    )
+    return render_template('disciplinar/visualizar_rfo.html', rfo=rfo_dict)
 
 @disciplinar_bp.route('/imprimir_rfo/<int:ocorrencia_id>')
 @admin_secundario_required
