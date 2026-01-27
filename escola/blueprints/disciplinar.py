@@ -1170,19 +1170,10 @@ def tratar_rfo(ocorrencia_id):
 
                                 from services.escolar_helper import compute_pontuacao_em_data
 
-                                # Pega a pontuação ATUAL do aluno
+                                # Corrigido: pega a pontuação atual do aluno (já descontada), NÃO aplica o delta de novo!
                                 resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd)
-                                pontuacao_antes = float(resultado.get('pontuacao'))
+                                pontuacao_congelada = float(resultado.get('pontuacao'))
 
-                                # Garante que penalidade sempre será subtraída (descontada)
-                                delta = float(delta) if 'delta' in locals() else 0.0
-
-                                # Se delta for positivo, transforma em negativo
-                                if delta > 0:
-                                    delta = -delta
-
-                                # Faz o desconto corretamente!
-                                pontuacao_congelada = pontuacao_antes + delta
                                 if pontuacao_congelada < 0:
                                     pontuacao_congelada = 0.0
                                 if pontuacao_congelada > 10:
@@ -1191,6 +1182,8 @@ def tratar_rfo(ocorrencia_id):
                                 # Recalcula o comportamento de acordo com a nova pontuação
                                 comportamento_congelado = _infer_comportamento_por_faixa(pontuacao_congelada)
                                 
+                                oc_obj.prazo_comparecimento = request.form.get('prazo_comparecimento', '').strip()
+
                                 fmd_obj = FichaMedidaDisciplinar(
                                     fmd_id=fmd_id,
                                     aluno_id=aluno_id_local,
@@ -1207,6 +1200,8 @@ def tratar_rfo(ocorrencia_id):
                                     pontos_aplicados=float(delta) if 'delta' in locals() else 0.0,
                                     pontuacao_no_documento=pontuacao_congelada,
                                    comportamento_no_documento=comportamento_congelado,
+                                   comparecimento_responsavel=oc_obj.comparecimento_responsavel,
+                                   prazo_comparecimento=oc_obj.prazo_comparecimento,
                                 )
                                 db.add(fmd_obj)
                         if ocorrencia_id:

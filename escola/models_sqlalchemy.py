@@ -100,6 +100,7 @@ class Ocorrencia(Base):
     circunstancias_atenuantes = Column(String)
     circunstancias_agravantes = Column(String)
     tipo_rfo = Column(String)
+    prazo_comparecimento = Column(String, nullable=True)
     
 # Sequência FMD
 class FMDSequencia(Base):

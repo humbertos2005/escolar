@@ -84,10 +84,16 @@
         <span class="label">Há necessidade de comparecimento do responsável?</span>
         {% if fmd.comparecimento_responsavel %}
             ( X ) sim   (   ) não
-            <br><span class="label">Prazo para comparecimento: </span> {{ fmd.prazo_comparecimento or '-' }}
-        {% else %}
-            (   ) sim   ( X ) não
-        {% endif %}
+            <br>
+            <span class="label">Prazo para comparecimento: </span>
+            {% if fmd.prazo_comparecimento and fmd.prazo_comparecimento|length == 10 and '-' in fmd.prazo_comparecimento %}
+                {% set ano, mes, dia = fmd.prazo_comparecimento.split('-') %}
+                {{ dia }}/{{ mes }}/{{ ano }}
+            {% elif fmd.prazo_comparecimento %}
+                {{ fmd.prazo_comparecimento }}
+            {% else %}
+                -
+            {% endif %}
     </div>
 
     <div class="section box">
