@@ -494,11 +494,11 @@ def buscar_alunos_json():
 def registrar_rfo():
     db = get_db()
     from .utils import get_proximo_rfo_id
+    import string
     rfo_id_gerado = get_proximo_rfo_id()
     tipos_ocorrencia = get_tipos_ocorrencia()
 
     if request.method == 'POST':
-        
 
         aluno_ids = request.form.getlist('aluno_id')
         if not aluno_ids or all(not a for a in aluno_ids):
@@ -553,7 +553,6 @@ def registrar_rfo():
             advertencia_oral = advertencia_oral or 'nao'
 
         try:
-            rfo_id_final = get_proximo_rfo_id(incrementar=True)
             valid_aluno_ids = [a for a in aluno_ids if a]
 
             if not valid_aluno_ids:
@@ -571,29 +570,34 @@ def registrar_rfo():
                                     g=g,
                                     alunos_nome_map=alunos_nome_map)
 
-            primeiro_aluno = valid_aluno_ids[0] if valid_aluno_ids else None
+            # Gera base numérica do RFO e os sufixos para cada aluno (A, B, C, ...)
+            rfo_num_iso = get_proximo_rfo_id(incrementar=True)[:-5]  # Remove "/2026" do exemplo "RFO-0004/2026"
+            ano = get_proximo_rfo_id().split('/')[-1]  # "2026"
+            sufixos = list(string.ascii_uppercase)
 
-            ocorrencia = Ocorrencia(
-                rfo_id=rfo_id_final,
-                aluno_id=primeiro_aluno,
-                tipo_ocorrencia_id=tipo_ocorrencia_id,
-                data_ocorrencia=data_ocorrencia,
-                observador_id=observador_id,
-                relato_observador=relato_observador,
-                advertencia_oral=advertencia_oral,
-                material_recolhido=material_recolhido,
-                tratamento_tipo=tipo_rfo,
-                tipo_rfo=tipo_rfo,                  # <--- LINHA NOVA, ESSENCIAL!
-                subtipo_elogio=subtipo_elogio,
-                responsavel_registro_id=session.get('user_id'),
-                status='AGUARDANDO TRATAMENTO'
-            )
-            db.add(ocorrencia)
-            db.commit()
+            for idx, aid in enumerate(valid_aluno_ids):
+                sufixo = sufixos[idx] if idx < len(sufixos) else str(idx+1)
+                rfo_id_final = f"{rfo_num_iso}-{sufixo}/{ano}"
 
-            ocorrencia_id = ocorrencia.id
+                ocorrencia = Ocorrencia(
+                    rfo_id=rfo_id_final,
+                    aluno_id=aid,
+                    tipo_ocorrencia_id=tipo_ocorrencia_id,
+                    data_ocorrencia=data_ocorrencia,
+                    observador_id=observador_id,
+                    relato_observador=relato_observador,
+                    advertencia_oral=advertencia_oral,
+                    material_recolhido=material_recolhido,
+                    tratamento_tipo=tipo_rfo,
+                    tipo_rfo=tipo_rfo,
+                    subtipo_elogio=subtipo_elogio,
+                    responsavel_registro_id=session.get('user_id'),
+                    status='AGUARDANDO TRATAMENTO'
+                )
+                db.add(ocorrencia)
+                db.commit()
 
-            for aid in valid_aluno_ids:
+                ocorrencia_id = ocorrencia.id
                 try:
                     oa = OcorrenciaAluno(ocorrencia_id=ocorrencia_id, aluno_id=aid)
                     db.add(oa)
@@ -603,9 +607,9 @@ def registrar_rfo():
                         db.add(oa)
                     except Exception:
                         pass
-            db.commit()
+                db.commit()
 
-            flash(f'RFO {rfo_id_final} registrado com sucesso!', 'success')
+            flash(f'RFOs criados com sucesso!', 'success')
             return redirect(url_for('disciplinar_bp.listar_rfo'))
 
         except Exception as e:
@@ -810,27 +814,35 @@ def imprimir_rfo(ocorrencia_id):
     db = get_db()
 
     rfo = (
-        db.query(
-            Ocorrencia,
-            Aluno.matricula,
-            Aluno.nome.label('nome_aluno'),
-            Aluno.serie,
-            Aluno.turma,
-            TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
-            Usuario.username.label('responsavel_registro_username')
-        )
-        .join(Aluno, Ocorrencia.aluno_id == Aluno.id)
-        .join(TipoOcorrencia, Ocorrencia.tipo_ocorrencia_id == TipoOcorrencia.id)
-        .outerjoin(Usuario, Ocorrencia.responsavel_registro_id == Usuario.id)
-        .filter(Ocorrencia.id == ocorrencia_id)
-        .first()
+        db.query(Ocorrencia, Aluno, TipoOcorrencia, Usuario)
+          .join(Aluno, Ocorrencia.aluno_id == Aluno.id)
+          .join(TipoOcorrencia, Ocorrencia.tipo_ocorrencia_id == TipoOcorrencia.id)
+          .outerjoin(Usuario, Ocorrencia.responsavel_registro_id == Usuario.id)
+          .filter(Ocorrencia.id == ocorrencia_id)
+          .first()
     )
 
     if not rfo:
         flash('RFO não encontrado.', 'danger')
         return redirect(url_for('disciplinar_bp.listar_rfo'))
 
-    return render_template('formularios/rfo_impressao.html', rfo=dict(rfo._asdict() if hasattr(rfo, "_asdict") else rfo))
+    oc, aluno, tipoc, usuario = rfo
+    rfo_dict = {**oc.__dict__,
+        "matricula": aluno.matricula,
+        "nome_aluno": aluno.nome,
+        "serie": aluno.serie,
+        "turma": aluno.turma,
+        "tipo_ocorrencia_nome": tipoc.nome,
+        "responsavel_registro_username": getattr(usuario, "username", "") if usuario else "",
+        "relato_observador": oc.relato_observador,
+        "material_recolhido": oc.material_recolhido,
+        "tipo_falta": oc.tipo_falta,
+        "falta_descricao": oc.descricao_detalhada,
+        "relato_estudante": oc.relato_estudante,
+        "despacho_gestor": oc.despacho_gestor,
+        "data_despacho": oc.data_despacho
+    }
+    return render_template('formularios/rfo_impressao.html', rfo=rfo_dict)
 
 @disciplinar_bp.route('/export_prontuario/<int:ocorrencia_id>')
 @admin_secundario_required
