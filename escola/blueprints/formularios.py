@@ -45,11 +45,21 @@ def formulario_rfo(ocorrencia_id):
     oc, aluno, tipoc, usuario = rfo
     # Monta dict para facilitar no template  
     rfo_dict = {**oc.__dict__, 
-                "matricula": aluno.matricula, "nome_aluno": aluno.nome,
-                "serie": aluno.serie, "turma": aluno.turma,
-                "tipo_ocorrencia_nome": tipoc.nome,
-                "responsavel_registro_username": getattr(usuario, "username", "") if usuario else ""}
-    return render_template('formularios/rfo.html', rfo=rfo_dict)
+        "matricula": aluno.matricula, 
+        "nome_aluno": aluno.nome,
+        "serie": aluno.serie, 
+        "turma": aluno.turma,
+        "tipo_ocorrencia_nome": tipoc.nome,
+        "responsavel_registro_username": getattr(usuario, "username", "") if usuario else "",
+        "relato_observador": oc.relato_observador,
+        "material_recolhido": oc.material_recolhido,
+        "tipo_falta": oc.tipo_falta,
+        "falta_descricao": oc.descricao_detalhada,
+        "relato_estudante": oc.relato_estudante,
+        "despacho_gestor": oc.despacho_gestor,
+        "data_despacho": oc.data_despacho
+    }
+    return render_template('formularios/rfo_impressao.html', rfo=rfo_dict)
 
 @formularios_bp.route('/fmd/<int:fmd_id>')
 @admin_secundario_required
