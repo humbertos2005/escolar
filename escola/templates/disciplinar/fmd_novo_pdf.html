@@ -6,7 +6,7 @@
     <style>
         body {
             font-family: Arial, serif;
-            margin: 24px 60px 24px 60px; /* margens laterais maiores */
+            margin: 24px 60px 24px 60px;
             background: white;
         }
         .cabecalho-logo {
@@ -39,10 +39,21 @@
             margin: 5px 0 0 0;
         }
         .label { font-weight: bold; }
+        /* Espaço extra para DEFESA e DESPACHO */
+        .campo-defesa, .campo-despacho {
+            border: 1px solid #000;
+            height: 208px; /* Era 88px, +120px ≈ 5 linhas extra */
+            margin: 8px 0 22px 0;
+        }
+        .assinatura-responsavel, .assinatura-gestor {
+            border-bottom:1px solid #000; 
+            width:330px; 
+            margin:0 auto;
+            margin-bottom:10px; /* linha extra */
+        }
     </style>
 </head>
 <body>
-
     <div class="cabecalho-centro" style="margin-top:5px;">
         {% if logo_pdfkit_path %}
             <img src="{{ logo_pdfkit_path }}" alt="Logotipo da Escola" class="cabecalho-logo">
@@ -94,6 +105,7 @@
             {% else %}
                 -
             {% endif %}
+        {% endif %}
     </div>
 
     <div class="section box">
@@ -118,7 +130,7 @@
             CONTINUAÇÃO DA FMD {{ fmd.fmd_id }} DO ALUNO {{ aluno.nome|upper }}
         </div>
         <div style="margin-top:22px; font-weight:bold;">DEFESA DO RESPONSÁVEL OU DO ESTUDANTE (SE MAIOR DE IDADE)</div>
-        <div style="border:1px solid #000; height:88px; margin:8px 0 22px 0;"></div>
+        <div class="campo-defesa"></div>
         <div style="border-bottom:1px solid #000; width:90%; margin:0 auto 0 0;"></div>
         <div style="margin:16px 0 0 0; text-align:right;">
             ________________, _____ de ________________ de __________.
@@ -127,21 +139,21 @@
             Nome do Responsável: {{ responsavel.nome|upper }}
         </div>
         <div style="text-align:center;">
-            <div style="border-bottom:1px solid #000; width:330px; margin:0 auto;"></div>
+            <div class="assinatura-responsavel"></div>
             <span style="font-size:0.95em;">{{ responsavel.nome|upper }}</span><br>
             <span style="font-size:0.95em;">Responsável pelo Aluno</span>
         </div>
         <div style="margin:38px 0 11px 0; font-weight:bold;">DESPACHO DO GESTOR:</div>
-        <div style="border:1px solid #000; height:110px; margin-bottom:14px;"></div>
+        <div class="campo-despacho"></div>
         <div style="margin:12px 0 0 0; text-align:right;">
             ________________, _____ de ________________ de __________.
         </div>
         <div style="text-align:center; margin-top:20px;">
-            <div style="border-bottom:1px solid #000; width:330px; margin:0 auto;"></div>
+            <div class="assinatura-gestor"></div>
             <span style="font-size:0.95em;">{{ nome_usuario|upper }}</span><br>
             <span style="font-size:0.95em;">{{ cargo_usuario|upper }}</span>
         </div>
     </div>
-{% endif %}
+    {% endif %}
 </body>
 </html>
