@@ -1211,9 +1211,11 @@ def tratar_rfo(ocorrencia_id):
                                     tipo_falta_list=tipo_falta_list_val,
                                     pontos_aplicados=float(delta) if 'delta' in locals() else 0.0,
                                     pontuacao_no_documento=pontuacao_congelada,
-                                   comportamento_no_documento=comportamento_congelado,
-                                   comparecimento_responsavel=oc_obj.comparecimento_responsavel,
-                                   prazo_comparecimento=oc_obj.prazo_comparecimento,
+                                    comportamento_no_documento=comportamento_congelado,
+                                    comparecimento_responsavel=oc_obj.comparecimento_responsavel,
+                                    prazo_comparecimento=oc_obj.prazo_comparecimento,
+                                    atenuantes=circ_at,
+                                    agravantes=circ_ag,
                                 )
                                 db.add(fmd_obj)
                         if ocorrencia_id:
@@ -1764,7 +1766,7 @@ def montar_contexto_fmd(db, fmd_id, usuario_sessao_override=None):
         'comportamento': comportamento,
         'pontuacao': pontuacao,
         'itens_especificacao': itens_especificacao,
-        'responsavel': {'nome': aluno.nome if aluno else '-'},
+        'responsavel': {'nome': aluno.responsavel if aluno and hasattr(aluno, 'responsavel') else '-'},
     }
     return contexto
 

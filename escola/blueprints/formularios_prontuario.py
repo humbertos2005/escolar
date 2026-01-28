@@ -563,6 +563,48 @@ def visualizar_prontuario(prontuario_id):
             if a:
                 aluno = a.__dict__.copy()
 
+        circ_atenuantes_lista = []
+        circ_agravantes_lista = []
+        comportamento_fmd = ""
+        pontuacao_fmd = ""
+
+        if p.aluno_id:
+            from models_sqlalchemy import FichaMedidaDisciplinar
+            fmds = db.query(FichaMedidaDisciplinar).filter_by(aluno_id=p.aluno_id).all()
+            for fmd in fmds:
+                if getattr(fmd, 'atenuantes', None):
+                    circ_atenuantes_lista.append(fmd.atenuantes)
+                if getattr(fmd, 'agravantes', None):
+                    circ_agravantes_lista.append(fmd.agravantes)
+                if getattr(fmd, 'comportamento_no_documento', None):
+                    comportamento_fmd = fmd.comportamento_no_documento
+                if getattr(fmd, 'pontuacao_no_documento', None):
+                    pontuacao_fmd = fmd.pontuacao_no_documento
+
+            # Adicione estes prints aqui:
+            print("LISTA ATENUANTES:", circ_atenuantes_lista)
+            print("LISTA AGRAVANTES:", circ_agravantes_lista)
+
+        circ_atenuantes_lista = [x for x in circ_atenuantes_lista if x and x.strip()]
+        circ_agravantes_lista = [x for x in circ_agravantes_lista if x and x.strip()]
+
+        circ_atenuantes_texto = ""
+        circ_agravantes_texto = ""
+
+        if circ_atenuantes_lista:
+            circ_atenuantes_texto = "\n".join(circ_atenuantes_lista)
+        elif rd.get('circunstancias_atenuantes'):
+            circ_atenuantes_texto = rd.get('circunstancias_atenuantes')
+        elif rd.get('circ_atenuantes'):
+            circ_atenuantes_texto = rd.get('circ_atenuantes')
+
+        if circ_agravantes_lista:
+            circ_agravantes_texto = "\n".join(circ_agravantes_lista)
+        elif rd.get('circunstancias_agravantes'):
+            circ_agravantes_texto = rd.get('circunstancias_agravantes')
+        elif rd.get('circ_agravantes'):
+            circ_agravantes_texto = rd.get('circ_agravantes')
+
         # comportamento e pontuação (compatível, removendo dependência do models.py)
         comportamento = rd.get('comportamento') or (aluno and aluno.get('comportamento'))
         pontuacao = rd.get('pontuacao') or (aluno and aluno.get('pontuacao'))
@@ -591,11 +633,40 @@ def visualizar_prontuario(prontuario_id):
             created_date=created_date,
             created_time=created_time,
             viewer_name=viewer_name,
-            comportamento=comportamento,
-            pontuacao=pontuacao,
+            circ_atenuantes_texto=circ_atenuantes_texto,
+            circ_agravantes_texto=circ_agravantes_texto,
+            comportamento=comportamento_fmd,
+            pontuacao=pontuacao_fmd,
         )
     except Exception:
         current_app.logger.exception("Erro ao carregar prontuário")
+        
+        # Recupera textos das FMDs para este aluno
+        circ_atenuantes_lista = []
+        circ_agravantes_lista = []
+        if p.aluno_id:
+            from models_sqlalchemy import FichaMedidaDisciplinar
+            fmds = db.query(FichaMedidaDisciplinar).filter_by(aluno_id=p.aluno_id).all()
+            for fmd in fmds:
+                if getattr(fmd, 'atenuantes', None):
+                    circ_atenuantes_lista.append(fmd.atenuantes)
+                if getattr(fmd, 'agravantes', None):
+                    circ_agravantes_lista.append(fmd.agravantes)
+
+        circ_atenuantes_texto = (rd.get('circunstancias_atenuantes') or rd.get('circ_atenuantes') or '')
+        if circ_atenuantes_lista:
+            if circ_atenuantes_texto:
+                circ_atenuantes_texto += "\n" + "\n".join(circ_atenuantes_lista)
+            else:
+                circ_atenuantes_texto = "\n".join(circ_atenuantes_lista)
+
+        circ_agravantes_texto = (rd.get('circunstancias_agravantes') or rd.get('circ_agravantes') or '')
+        if circ_agravantes_lista:
+            if circ_agravantes_texto:
+                circ_agravantes_texto += "\n" + "\n".join(circ_agravantes_lista)
+            else:
+                circ_agravantes_texto = "\n".join(circ_agravantes_lista)
+        
         return render_template(
             'formularios/prontuario_view.html',
             prontuario=None,
@@ -604,6 +675,8 @@ def visualizar_prontuario(prontuario_id):
             created_date=None,
             created_time=None,
             viewer_name=None,
+            circ_atenuantes_texto=circ_atenuantes_texto,
+            circ_agravantes_texto=circ_agravantes_texto,
         ), 500
 
 @formularios_prontuario_bp.route('/prontuario/<int:prontuario_id>/edit', methods=['GET', 'POST'])
@@ -824,6 +897,33 @@ def visualizar_prontuario_visualizacao(prontuario_id):
         )
     except Exception:
         current_app.logger.exception("Erro ao renderizar visualização do prontuário")
+        
+        # Recupera textos das FMDs para este aluno
+        circ_atenuantes_lista = []
+        circ_agravantes_lista = []
+        if p.aluno_id:
+            from models_sqlalchemy import FichaMedidaDisciplinar
+            fmds = db.query(FichaMedidaDisciplinar).filter_by(aluno_id=p.aluno_id).all()
+            for fmd in fmds:
+                if getattr(fmd, 'atenuantes', None):
+                    circ_atenuantes_lista.append(fmd.atenuantes)
+                if getattr(fmd, 'agravantes', None):
+                    circ_agravantes_lista.append(fmd.agravantes)
+
+        circ_atenuantes_texto = (rd.get('circunstancias_atenuantes') or rd.get('circ_atenuantes') or '')
+        if circ_atenuantes_lista:
+            if circ_atenuantes_texto:
+                circ_atenuantes_texto += "\n" + "\n".join(circ_atenuantes_lista)
+            else:
+                circ_atenuantes_texto = "\n".join(circ_atenuantes_lista)
+
+        circ_agravantes_texto = (rd.get('circunstancias_agravantes') or rd.get('circ_agravantes') or '')
+        if circ_agravantes_lista:
+            if circ_agravantes_texto:
+                circ_agravantes_texto += "\n" + "\n".join(circ_agravantes_lista)
+            else:
+                circ_agravantes_texto = "\n".join(circ_agravantes_lista)
+        
         return render_template(
             'formularios/prontuario_view.html',
             prontuario=None,
@@ -832,6 +932,8 @@ def visualizar_prontuario_visualizacao(prontuario_id):
             created_date=None,
             created_time=None,
             viewer_name=None,
+            circ_atenuantes_texto=circ_atenuantes_texto,
+            circ_agravantes_texto=circ_agravantes_texto,
         ), 500
     
 from models_sqlalchemy import Prontuario

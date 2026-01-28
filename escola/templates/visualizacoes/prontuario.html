@@ -18,7 +18,14 @@
       <div style="flex:1; text-align:center;">
         <div style="font-weight:bold; text-transform:uppercase;">&lt;Estado / Secretaria / Coordenação / Escola - Cabeçalho&gt;</div>
         <div style="margin-top:6px; font-size:20px; font-weight:700;">PRONTUÁRIO</div>
-        <div style="margin-top:2px; color:#666;">Emitido em: {{ prontuario.created_at or '-' }}</div>
+        <div style="margin-top:2px; color:#666;">
+          Emitido em: 
+          {% if prontuario.created_at %}
+            {{ prontuario.created_at[:10].split('-')[2] }}/{{ prontuario.created_at[:10].split('-')[1] }}/{{ prontuario.created_at[:10].split('-')[0] }}.
+          {% else %}
+            -
+          {% endif %}
+        </div>
       </div>
       <div style="width:140px; text-align:center;">
         {% if aluno %}
@@ -69,12 +76,17 @@
 
     <h5 style="margin-top:12px;">Circunstâncias atenuantes</h5>
     <div style="border:1px solid #ccc; padding:10px; min-height:60px; white-space:pre-wrap;">
-      {{ prontuario.circunstancias_atenuantes or prontuario.circ_atenuantes or 'Não há' }}
+      {{ circ_atenuantes_texto or 'Não há' }}
     </div>
 
     <h5 style="margin-top:12px;">Circunstâncias agravantes</h5>
     <div style="border:1px solid #ccc; padding:10px; min-height:60px; white-space:pre-wrap;">
-      {{ prontuario.circunstancias_agravantes or prontuario.circ_agravantes or 'Não há' }}
+      {{ circ_agravantes_texto or 'Não há' }}
+    </div>
+
+    <div style="margin-top:12px;">
+      <strong>Comportamento:</strong> {{ comportamento or '-' }}<br>
+      <strong>Pontuação:</strong> {{ pontuacao or '-' }}
     </div>
 
     <div style="margin-top:18px; display:flex; gap:8px;">

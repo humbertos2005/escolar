@@ -131,7 +131,14 @@ function openPrint(evt, anchor) {
 
         <div class="pront-title">PRONTUÁRIO</div>
 
-        <div class="pront-meta">Emitido em: {{ prontuario.created_at or '-' }}</div>
+        <div class="pront-meta">
+          Emitido em:
+          {% if prontuario.created_at %}
+            {{ prontuario.created_at[:10].split('-')[2] }}/{{ prontuario.created_at[:10].split('-')[1] }}/{{ prontuario.created_at[:10].split('-')[0] }}.
+          {% else %}
+            -
+          {% endif %}
+        </div>
 
       </div>
 
@@ -236,27 +243,17 @@ function openPrint(evt, anchor) {
 
     <h5 class="pront-section-title">Circunstâncias atenuantes</h5>
     <div class="pront-section">
-      {{ prontuario.get('circunstancias_atenuantes') or prontuario.get('circ_atenuantes') or 'Não há' }}
+      {{ circ_atenuantes_texto or 'Não há' }}
     </div>
 
     <h5 class="pront-section-title">Circunstâncias agravantes</h5>
     <div class="pront-section">
-      {{ prontuario.get('circunstancias_agravantes') or prontuario.get('circ_agravantes') or 'Não há' }}
+      {{ circ_agravantes_texto or 'Não há' }}
     </div>
 
     <div class="pront-section">
-      <p><strong>Comportamento:</strong>
-        {{ comportamento
-          or prontuario.get('comportamento')
-          or prontuario.get('comportamento_atual')
-          or '-' }}
-      </p>
-      <p><strong>Pontuação:</strong>
-        {{ pontuacao
-          or prontuario.get('pontuacao')
-          or prontuario.get('pontuacao_total')
-          or '-' }}
-      </p>
+      <p><strong>Comportamento:</strong> {{ comportamento or '-' }}</p>
+      <p><strong>Pontuação:</strong> {{ pontuacao or '-' }}</p>
     </div>
 
     <div class="pront-actions">
