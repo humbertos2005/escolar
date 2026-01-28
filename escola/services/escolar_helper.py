@@ -320,6 +320,7 @@ def compute_pontuacao_em_data(aluno_id, data_referencia):
     - aluno_id: ID do aluno
     - data_referencia: data (string: 'YYYY-MM-DD') ou datetime
     """
+    from datetime import datetime  # <-- Importação correta no início!
     db = get_db()
     try:
         # Garante formato correto de data
@@ -341,10 +342,22 @@ def compute_pontuacao_em_data(aluno_id, data_referencia):
 
         # Busca todos os lançamentos históricos até a data
         from models_sqlalchemy import PontuacaoHistorico
-        historico = db.query(PontuacaoHistorico).filter(
-            PontuacaoHistorico.aluno_id == aluno_id,
-            PontuacaoHistorico.criado_em <= data_ref.strftime('%Y-%m-%d')
-        ).all()
+
+        def string_to_date(s):
+            try:
+                return datetime.strptime(s, '%d/%m/%Y').date()
+            except Exception:
+                try:
+                    return datetime.strptime(s, '%Y-%m-%d').date()
+                except Exception:
+                    return None
+
+        historico = [
+            h for h in db.query(PontuacaoHistorico).filter(
+                PontuacaoHistorico.aluno_id == aluno_id
+            ).all()
+            if string_to_date(h.criado_em) and string_to_date(h.criado_em) <= data_ref.date()
+        ]
 
         # Aplica todos os deltas (somas e subtrações)
         for h in historico:

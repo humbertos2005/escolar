@@ -407,6 +407,7 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
         criado_em = datetime.now().strftime('%d/%m/%Y')
 
     try:
+        print(f"DEBUG _apply_delta_pontuacao: aluno_id={aluno_id}, delta={delta}, criado_em={criado_em}")
         row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre).first()
         if row:
             atual = float(row.pontuacao_atual)
@@ -438,6 +439,7 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
         db.add(hist)
         db.commit()
     except Exception:
+        print("EXCEPTION _apply_delta_pontuacao:", aluno_id, delta, criado_em)
         current_app.logger.exception('Erro ao aplicar delta pontuacao (possível tabela ausente).')
         db.rollback()
 
@@ -494,11 +496,11 @@ def buscar_alunos_json():
 def registrar_rfo():
     db = get_db()
     from .utils import get_proximo_rfo_id
-    import string
     rfo_id_gerado = get_proximo_rfo_id()
     tipos_ocorrencia = get_tipos_ocorrencia()
 
     if request.method == 'POST':
+        
 
         aluno_ids = request.form.getlist('aluno_id')
         if not aluno_ids or all(not a for a in aluno_ids):
@@ -553,6 +555,7 @@ def registrar_rfo():
             advertencia_oral = advertencia_oral or 'nao'
 
         try:
+            rfo_id_final = get_proximo_rfo_id(incrementar=True)
             valid_aluno_ids = [a for a in aluno_ids if a]
 
             if not valid_aluno_ids:
@@ -570,34 +573,29 @@ def registrar_rfo():
                                     g=g,
                                     alunos_nome_map=alunos_nome_map)
 
-            # Gera base numérica do RFO e os sufixos para cada aluno (A, B, C, ...)
-            rfo_num_iso = get_proximo_rfo_id(incrementar=True)[:-5]  # Remove "/2026" do exemplo "RFO-0004/2026"
-            ano = get_proximo_rfo_id().split('/')[-1]  # "2026"
-            sufixos = list(string.ascii_uppercase)
+            primeiro_aluno = valid_aluno_ids[0] if valid_aluno_ids else None
 
-            for idx, aid in enumerate(valid_aluno_ids):
-                sufixo = sufixos[idx] if idx < len(sufixos) else str(idx+1)
-                rfo_id_final = f"{rfo_num_iso}-{sufixo}/{ano}"
+            ocorrencia = Ocorrencia(
+                rfo_id=rfo_id_final,
+                aluno_id=primeiro_aluno,
+                tipo_ocorrencia_id=tipo_ocorrencia_id,
+                data_ocorrencia=data_ocorrencia,
+                observador_id=observador_id,
+                relato_observador=relato_observador,
+                advertencia_oral=advertencia_oral,
+                material_recolhido=material_recolhido,
+                tratamento_tipo=tipo_rfo,
+                tipo_rfo=tipo_rfo,                  # <--- LINHA NOVA, ESSENCIAL!
+                subtipo_elogio=subtipo_elogio,
+                responsavel_registro_id=session.get('user_id'),
+                status='AGUARDANDO TRATAMENTO'
+            )
+            db.add(ocorrencia)
+            db.commit()
 
-                ocorrencia = Ocorrencia(
-                    rfo_id=rfo_id_final,
-                    aluno_id=aid,
-                    tipo_ocorrencia_id=tipo_ocorrencia_id,
-                    data_ocorrencia=data_ocorrencia,
-                    observador_id=observador_id,
-                    relato_observador=relato_observador,
-                    advertencia_oral=advertencia_oral,
-                    material_recolhido=material_recolhido,
-                    tratamento_tipo=tipo_rfo,
-                    tipo_rfo=tipo_rfo,
-                    subtipo_elogio=subtipo_elogio,
-                    responsavel_registro_id=session.get('user_id'),
-                    status='AGUARDANDO TRATAMENTO'
-                )
-                db.add(ocorrencia)
-                db.commit()
+            ocorrencia_id = ocorrencia.id
 
-                ocorrencia_id = ocorrencia.id
+            for aid in valid_aluno_ids:
                 try:
                     oa = OcorrenciaAluno(ocorrencia_id=ocorrencia_id, aluno_id=aid)
                     db.add(oa)
@@ -607,9 +605,9 @@ def registrar_rfo():
                         db.add(oa)
                     except Exception:
                         pass
-                db.commit()
+            db.commit()
 
-            flash(f'RFOs criados com sucesso!', 'success')
+            flash(f'RFO {rfo_id_final} registrado com sucesso!', 'success')
             return redirect(url_for('disciplinar_bp.listar_rfo'))
 
         except Exception as e:
@@ -1148,6 +1146,8 @@ def tratar_rfo(ocorrencia_id):
                             qtd_form = request.form.get('sim_qtd') or request.form.get('dias') or request.form.get('quantidade') or 1
                             delta = _calcular_delta_por_medida(medida_aplicada, qtd_form, config)
                             _apply_delta_pontuacao(db, oc_obj.aluno_id, data_trat, delta, ocorrencia_id, medida_aplicada, data_despacho)
+                            db.commit()
+                            resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd)
                         except Exception:
                             current_app.logger.exception("Erro ao aplicar delta de pontuação")
                     else:
@@ -1216,27 +1216,6 @@ def tratar_rfo(ocorrencia_id):
                                    prazo_comparecimento=oc_obj.prazo_comparecimento,
                                 )
                                 db.add(fmd_obj)
-
-                                try:
-                                    contexto = montar_contexto_fmd(db, fmd_obj.fmd_id)
-                                    html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
-                                    temp_dir = 'tmp'
-                                    if not os.path.exists(temp_dir):
-                                        os.makedirs(temp_dir)
-                                    safe_fmd_id = str(fmd_obj.fmd_id).replace('/', '_')
-                                    pdf_path = os.path.join(temp_dir, f"{safe_fmd_id}.pdf")
-                                    wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
-                                    if not os.path.isfile(wk_path):
-                                        import shutil
-                                        wk_path = shutil.which('wkhtmltopdf')
-                                    if not wk_path or not os.path.isfile(wk_path):
-                                        raise Exception("wkhtmltopdf não encontrado no servidor.")
-                                    config = pdfkit.configuration(wkhtmltopdf=wk_path)
-                                    options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
-                                    pdfkit.from_string(html, pdf_path, configuration=config, options=options)
-                                except Exception as e:
-                                    current_app.logger.warning(f"Falha ao gerar PDF automático da FMD: {e}")
-
                         if ocorrencia_id:
                             oc_obj.pontos_aplicados = float(delta) if 'delta' in locals() else 0.0
                     except Exception:
@@ -1924,9 +1903,7 @@ def enviar_email_fmd(fmd_id):
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     import os
-    import shutil
     from email.mime.application import MIMEApplication
-    import pdfkit
 
     db = get_db()
     user_id = session.get('user_id')
@@ -1965,7 +1942,7 @@ def enviar_email_fmd(fmd_id):
             return getattr(row, key, '')
         except Exception:
             return ''
-
+        
     def safe_value(val):
         return val if val not in (None, '', 'None') else '—'
 
@@ -1994,23 +1971,6 @@ def enviar_email_fmd(fmd_id):
         temp_dir = "tmp"
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"{safe_fmd_id}.pdf")
-
-        # Geração automática do PDF, se necessário
-        if not os.path.exists(pdf_path):
-            # Gera contexto e HTML da FMD (precisa da função montar_contexto_fmd!)
-            contexto = montar_contexto_fmd(db, fmd_id)
-            html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
-            # Descobre o caminho do wkhtmltopdf (ajuste conforme sua instalação)
-            wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
-            if not os.path.isfile(wk_path):
-                wk_path = shutil.which('wkhtmltopdf')
-            if not wk_path or not os.path.isfile(wk_path):
-                flash("wkhtmltopdf não encontrado no servidor.", "danger")
-                return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
-            config = pdfkit.configuration(wkhtmltopdf=wk_path)
-            options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
-            pdfkit.from_string(html, pdf_path, configuration=config, options=options)
-
         if not os.path.exists(pdf_path):
             flash('O PDF da FMD não foi gerado corretamente. Por favor, gere novamente a FMD antes de enviar por e-mail.', 'danger')
             return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
