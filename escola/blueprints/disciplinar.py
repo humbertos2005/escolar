@@ -1216,6 +1216,27 @@ def tratar_rfo(ocorrencia_id):
                                    prazo_comparecimento=oc_obj.prazo_comparecimento,
                                 )
                                 db.add(fmd_obj)
+
+                                try:
+                                    contexto = montar_contexto_fmd(db, fmd_obj.fmd_id)
+                                    html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
+                                    temp_dir = 'tmp'
+                                    if not os.path.exists(temp_dir):
+                                        os.makedirs(temp_dir)
+                                    safe_fmd_id = str(fmd_obj.fmd_id).replace('/', '_')
+                                    pdf_path = os.path.join(temp_dir, f"{safe_fmd_id}.pdf")
+                                    wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+                                    if not os.path.isfile(wk_path):
+                                        import shutil
+                                        wk_path = shutil.which('wkhtmltopdf')
+                                    if not wk_path or not os.path.isfile(wk_path):
+                                        raise Exception("wkhtmltopdf não encontrado no servidor.")
+                                    config = pdfkit.configuration(wkhtmltopdf=wk_path)
+                                    options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
+                                    pdfkit.from_string(html, pdf_path, configuration=config, options=options)
+                                except Exception as e:
+                                    current_app.logger.warning(f"Falha ao gerar PDF automático da FMD: {e}")
+
                         if ocorrencia_id:
                             oc_obj.pontos_aplicados = float(delta) if 'delta' in locals() else 0.0
                     except Exception:
@@ -1903,7 +1924,9 @@ def enviar_email_fmd(fmd_id):
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     import os
+    import shutil
     from email.mime.application import MIMEApplication
+    import pdfkit
 
     db = get_db()
     user_id = session.get('user_id')
@@ -1942,7 +1965,7 @@ def enviar_email_fmd(fmd_id):
             return getattr(row, key, '')
         except Exception:
             return ''
-        
+
     def safe_value(val):
         return val if val not in (None, '', 'None') else '—'
 
@@ -1971,6 +1994,23 @@ def enviar_email_fmd(fmd_id):
         temp_dir = "tmp"
         safe_fmd_id = str(fmd_id).replace('/', '_')
         pdf_path = os.path.join(temp_dir, f"{safe_fmd_id}.pdf")
+
+        # Geração automática do PDF, se necessário
+        if not os.path.exists(pdf_path):
+            # Gera contexto e HTML da FMD (precisa da função montar_contexto_fmd!)
+            contexto = montar_contexto_fmd(db, fmd_id)
+            html = render_template('disciplinar/fmd_novo_pdf.html', **contexto)
+            # Descobre o caminho do wkhtmltopdf (ajuste conforme sua instalação)
+            wk_path = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+            if not os.path.isfile(wk_path):
+                wk_path = shutil.which('wkhtmltopdf')
+            if not wk_path or not os.path.isfile(wk_path):
+                flash("wkhtmltopdf não encontrado no servidor.", "danger")
+                return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
+            config = pdfkit.configuration(wkhtmltopdf=wk_path)
+            options = {'encoding': 'UTF-8', 'enable-local-file-access': None}
+            pdfkit.from_string(html, pdf_path, configuration=config, options=options)
+
         if not os.path.exists(pdf_path):
             flash('O PDF da FMD não foi gerado corretamente. Por favor, gere novamente a FMD antes de enviar por e-mail.', 'danger')
             return redirect(url_for('disciplinar_bp.fmd_novo_real', fmd_id=fmd_id))
