@@ -188,12 +188,7 @@
     <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
     <div class="header-space" aria-hidden="true"></div>
   </div>
-
-  <!-- Cabeçalho curto para páginas a partir da segunda -->
-  <div class="cabecalho-segunda-pagina" style="display:none;">
-    (ATA ESCOLAR nº {{ ata.numero }} registrado na página ATA referente ao Aluno {{ ata.aluno_nome }}) ................................. ... página <span class="pageNumber"></span>
-  </div>
-
+  
   <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
   <div class="espacador-apos-titulo"></div>
   <p class="conteudo">
