@@ -1,128 +1,106 @@
 {% set resp = (ata.responsavel or '') | trim %}
 {% extends "base.html" %}
+{% block main_content_class %}impressao-livre{% endblock %}
 {% block content %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <title>ATA {{ ata.numero }}/{{ ata.ano }}</title>
+  
   <style>
-    @page {
-      size: A4;
-      margin: 8mm 14mm 10mm 14mm; /* topo, direita, baixo, esquerda - mais compacto */
-    }
-    body {
-      font-family: Arial, sans-serif;
-      color: #111;
-      margin: 0 6px 6px 6px;
-    }
-    .cabecalho {
-      text-align: center;
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-      padding-top: 0 !important;
-    }
-    .logo {
-      max-height: 96px;
-      display: block;
-      margin: 0 auto 6px;
-      margin-top: 0 !important;
-      padding-top: 0 !important;
-    }
-    .cabecalho .linha { font-size: 16px; margin: 0px; font-weight: 600; letter-spacing: 0.2px; line-height: 1.05; }
-    .cabecalho .escola { font-weight: 600; font-size: 16px; margin: 0px; line-height: 1.05; }
-    .header-space { height: 8px; }
-    h3.title { text-align:center; margin-top: 6px; margin-bottom: 6px; font-size: 16px; font-weight:700; }
-    .espacador-apos-titulo { height: 48px; }
-    .conteudo { text-align: justify; text-justify: inter-word; margin-top: 4px; line-height: 1.45; font-size: 12.5pt; max-width: 100%; box-sizing: border-box; word-break: break-word; }
-    .conteudo p { margin: 0 0 12px 0; }
-    
-    /* ----------- Assinaturas ----------- */
-        .assinaturas {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px 50px;            /* espaço entre linhas e colunas */
-      max-width: 630px;
-      margin: 25px auto 0 auto;  /* centraliza */
-    }
-    .assinatura-campo {
-      min-width: 0;
-      text-align: center;
-      margin-bottom: 10px;
-    }
-    .linha-assinatura {
-      border-top:1px solid #111;
-      height: 1px;
-      margin-bottom:8px;
-      margin-left:10px;
-      margin-right:10px;
-    }
-    .assinatura-campo p {
-      font-weight: bold;
-      margin: 0;
-      font-size: 10pt;         /* menor fonte para nome */
-      line-height: 1.10;
-      word-break: break-word;
-      text-align: center;
-    }
-    .assinatura-cargo {
-      font-weight:normal;
-      font-size: 8.5pt;        /* menor fonte para cargo */
-      color: #666;
-      margin-top: 4px;
-      text-align: center;
-    }
-    
-    @media print {
-      @page {
-        size: A4;
-        margin: 4mm 10mm 6mm 10mm !important;
-      }
-      body { margin: 0 !important; padding: 0 !important; }
-      .cabecalho, .logo { margin-top: 0 !important; padding-top: 0 !important; }
-      .assinaturas {
-        margin-top: 15px;
-        max-width: 600px;
-      }
-      .assinatura-campo p {
-        font-size: 9pt !important;
-        line-height: 1.05 !important;
-      }
-      .assinatura-cargo {
-        font-size: 7.5pt !important;
-      }
-      .espacador-apos-titulo { height: 30px; }
-    }
-  </style>
-
-  <style>
-    @media print {
-    /* Mantém escondendo menus, botões etc. */
-    .sidebar, .navbar, .btn, .sidebar-wrapper, .topbar, nav, .sidebar-menu, .main-sidebar, .sidebar, .navbar-static-top, .no-print, [onclick*="window.print"], [href*="list_atas"], a[href*="list_atas"] {
+  @page {
+    size: A4;
+    margin: 12mm 15mm 10mm 15mm;
+  }
+  body {
+    font-family: Arial, sans-serif;
+    color: #111;
+    margin: 0 6px 6px 6px;
+    background: #fff !important;
+  }
+  .cabecalho {
+    text-align: center;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+  }
+  .logo {
+    max-height: 96px;
+    display: block;
+    margin: 0 auto 6px;
+  }
+  .cabecalho .linha { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: 0.2px; line-height: 1.05; }
+  .cabecalho .escola { font-weight: 600; font-size: 16px; margin: 0; line-height: 1.05; }
+  .header-space { height: 8px; }
+  h3.title { text-align:center; margin-top: 6px; margin-bottom: 6px; font-size: 16px; font-weight:700; }
+  .espacador-apos-titulo { height: 48px; }
+  .conteudo {
+    text-align: justify;
+    margin-top: 4px;
+    line-height: 1.45;
+    font-size: 12.5pt;
+    box-sizing: border-box;
+    word-break: break-word;
+  }
+  .conteudo p { margin: 0 0 12px 0; }
+  .assinaturas {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 50px;
+    max-width: 630px;
+    margin: 25px auto 0 auto;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .assinatura-campo {
+    min-width: 0;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  .linha-assinatura {
+    border-top:1px solid #111;
+    height: 1px;
+    margin-bottom:8px;
+    margin-left:10px;
+    margin-right:10px;
+  }
+  .assinatura-campo p {
+    font-weight: bold;
+    margin: 0;
+    font-size: 10pt;
+    line-height: 1.10;
+    word-break: break-word;
+    text-align: center;
+  }
+  .assinatura-cargo {
+    font-weight:normal;
+    font-size: 8.5pt;
+    color: #666;
+    margin-top: 4px;
+    text-align: center;
+  }
+  @media print {
+    /* Remove menus, botões etc do sistema */
+    .sidebar, .navbar, .btn, .sidebar-wrapper, .topbar, nav, .sidebar-menu, .main-sidebar, .navbar-static-top, .no-print, [onclick*="window.print"], [href*="list_atas"], a[href*="list_atas"] {
       display: none !important;
     }
-    /* Remove fundo colorido */
-    body {
-      background: #fff !important;
-    }
-    /* Diminui as margens da visualização */
-    @page {
-      size: A4;
-      margin: 12mm 15mm 10mm 15mm !important; /* topo, direta, baixo, esquerda */
-    }
-    /* Ajusta containers do conteúdo para ocupar melhor a página */
-    .container, .content, .wrapper {
+    /* Libera qualquer container herdado do base.html */
+    .impressao-livre, .main-content, .container, .container-fluid, .content, .wrapper {
+      width: auto !important;
+      max-width: 100% !important;
       margin: 0 !important;
       padding: 0 !important;
-      max-width: 100% !important;
-      width: 100% !important;
+      overflow: visible !important;
+      display: block !important;
+      height: auto !important;
       box-shadow: none !important;
       background: #fff !important;
     }
-    /* Sobe o conteúdo para o topo */
-    .cabecalho, .logo {
-      margin-top: 0 !important;
-      padding-top: 0 !important;
+    body {
+      background: #fff !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
   }
   </style>
@@ -156,6 +134,12 @@
     <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
     <div class="header-space" aria-hidden="true"></div>
   </div>
+
+  <!-- Cabeçalho curto para páginas a partir da segunda -->
+  <div class="cabecalho-segunda-pagina" style="display:none;">
+    (ATA ESCOLAR nº {{ ata.numero }} registrado na página ATA referente ao Aluno {{ ata.aluno_nome }}) ................................. ... página <span class="pageNumber"></span>
+  </div>
+
   <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
   <div class="espacador-apos-titulo"></div>
   <p class="conteudo">
