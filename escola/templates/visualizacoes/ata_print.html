@@ -16,8 +16,9 @@
   body {
     font-family: Arial, sans-serif;
     color: #111;
-    margin: 0 6px 6px 6px;
+    margin: 0;
     background: #fff !important;
+    box-sizing: border-box;
   }
   .cabecalho {
     text-align: center;
@@ -103,6 +104,59 @@
       padding: 0 !important;
     }
   }
+
+  @media print {
+    html, body {
+      width: 210mm;
+      min-height: 297mm;
+      box-sizing: border-box;
+    }
+    .conteudo, .assinaturas, .cabecalho, .header-space, .espacador-apos-titulo {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    /* Garante que blocos grandes podem quebrar para próxima página */
+    p, .conteudo, div {
+      page-break-before: auto;
+      page-break-after: auto;
+      page-break-inside: auto;
+      break-before: auto;
+      break-after: auto;
+      break-inside: auto;
+    }
+  }
+
+  @media print {
+    /* Permite que a área principal do documento quebre naturalmente entre páginas */
+    body, html {
+      width: auto;
+      height: auto;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+    }
+
+    .conteudo {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-height: 100px;
+      page-break-after: auto;
+      page-break-before: auto;
+      page-break-inside: auto;
+      break-after: auto;
+      break-before: auto;
+      break-inside: auto;
+      white-space: normal !important;
+      overflow: visible !important;
+    }
+
+    /* Garante que DIV pode quebrar entre páginas */
+    div {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+  }
+
   </style>
 
 </head>
