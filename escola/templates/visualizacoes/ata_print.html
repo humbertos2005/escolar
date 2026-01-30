@@ -157,10 +157,38 @@
     }
   }
 
+  /* Cabeçalho personalizado para as próximas páginas impressas */
+  @media print {
+    .print-header-extra {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      font-size: 11pt;
+      text-align: center;
+      border-bottom: 1px solid #ccc;
+      background: #fff;
+      padding: 2mm 0 3mm 0;
+      z-index: 2000;
+      /* Só ativa nas páginas após a primeira (via JS) */
+      counter-increment: page;
+    }
+
+    body:first-of-type .print-header-extra {
+      display: none !important;
+    }
+  }
+
   </style>
 
 </head>
 <body>
+
+  <div class="print-header-extra" style="display:none;">
+    (ATA ESCOLAR nº {{ ata.numero }} referente ao {{ ata.aluno_nome }}.....................página <span class="pageNum"></span>)
+  </div>
+
   <div class="cabecalho">
     {% set raw_logo = None %}
     {% if cabecalho %}
@@ -289,13 +317,38 @@
 
   <!-- Botões de ação rodapé -->
   <div style="margin-top:40px; text-align:center;">
-    <button onclick="window.print()" style="background:#2ecc40; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; margin-right:12px;">
+    <a href="{{ url_for('visualizacoes_bp.ata_pdf', ata_id=ata.id if ata and ata.id else ata_id) }}"
+      class="no-print"
+      target="_blank"
+      style="background:#e74c3c; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; text-decoration:none; margin-right:12px;">
+      <i class="fas fa-file-pdf"></i> Baixar PDF
+    </a>
+    <button onclick="window.print()" style="display:none; background:#2ecc40; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; margin-right:12px;">
       <i class="fas fa-print"></i> Imprimir / Salvar
     </button>
     <a href="{{ url_for('formularios_ata_bp.list_atas') }}" class="no-print" style="background:#3498db; color:#fff; padding:10px 28px; border-radius:9px; font-weight:600; border:none; text-decoration:none;">
       <i class="fas fa-arrow-left"></i> Voltar
     </a>
   </div>
+
+  <script>
+  if (window.matchMedia('print').matches || window.navigator.userAgent.toLowerCase().includes('pdf')) {
+    function hideOnFirstPage() {
+      var elems = document.querySelectorAll('.print-header-extra');
+      if (elems.length) {
+        // Mostra header nas páginas após a primeira (limitação: não há numeração exata só com HTML/CSS)
+        elems.forEach(function(el) {
+          el.style.display = 'block';
+        });
+      }
+    }
+    window.addEventListener('afterprint', function() {
+      var elems = document.querySelectorAll('.print-header-extra');
+      elems.forEach(function(el){ el.style.display = 'none'; });
+    });
+    window.addEventListener('beforeprint', hideOnFirstPage);
+  }
+  </script>
 
 </body>
 {% endblock %}

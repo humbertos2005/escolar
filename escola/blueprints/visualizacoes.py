@@ -7,6 +7,7 @@ import os
 import base64
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from models_sqlalchemy import DadosEscola
 import typing
 import json
 import atexit
@@ -823,6 +824,7 @@ def ata_pdf(ata_id):
                 except Exception:
                     cabecalho['logo_url'] = f'/static/uploads/cabecalhos/{logo_fn}'
 
+
         # Garante responsável na participants_json sem duplicidade
         try:
             parts = ata.get("participants_json") or []
@@ -863,7 +865,9 @@ def ata_pdf(ata_id):
         # Diretor em dados_escola ou cabecalho
         diretor_nome = None
         try:
-            diretor_nome = cabecalho.get("diretor")
+            dados_escola_obj = db.query(DadosEscola).order_by(DadosEscola.id.desc()).first()
+            if dados_escola_obj and dados_escola_obj.diretor_nome:
+                diretor_nome = dados_escola_obj.diretor_nome
         except Exception:
             pass
 
@@ -895,10 +899,11 @@ def ata_pdf(ata_id):
         if resp and not any(a['nome'].strip().lower() == resp.strip().lower() for a in assinaturas):
             assinaturas.append({'nome': resp, 'cargo': 'Responsável'})
 
-        html = render_template("visualizacoes/ata_print.html",
+        html = render_template("visualizacoes/ata_pdf.html",
             ata=ata, ata_id=ata_id, cabecalho=cabecalho,
             diretor_nome=diretor_nome,
-            logo_file=cabecalho.get("logo_file"), logo_data=logo_data
+            logo_file=cabecalho.get("logo_file"), logo_data=logo_data,
+            participants=participants
         )
 
         base = request.url_root.rstrip('/')
@@ -907,7 +912,9 @@ def ata_pdf(ata_id):
         else:
             html = '<base href="' + base + '">' + html
 
-        pdfbytes = generate_pdf_bytes(html)
+        from weasyprint import HTML
+
+        pdfbytes = HTML(string=html).write_pdf()
     except Exception as e:
         return jsonify({"error": "Erro ao gerar PDF: " + str(e)}), 500
 

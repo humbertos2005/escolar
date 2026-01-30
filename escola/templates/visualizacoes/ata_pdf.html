@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ATA {{ ata.numero }}/{{ ata.ano }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm 15mm 15mm 15mm;
+      @top-center {
+        content: "(ATA ESCOLAR nº {{ ata.numero }} referente ao Aluno (a) {{ ata.aluno_nome }}.....................página " counter(page) ")";
+        font-size: 11pt;
+        color: #222;
+      }
+    }
+    body {
+      font-family: Arial, sans-serif;
+      color: #111;
+      margin: 0;
+      background: #fff;
+    }
+    .cabecalho-primeira-pagina {
+      text-align: center;
+      margin-bottom: 18px;
+      page-break-after: avoid;
+    }
+    .cabecalho-primeira-pagina img {
+      max-width: 220px;
+      height: auto;
+      display: block;
+      margin: 0 auto 6px;
+    }
+    .linha { font-size: 16px; margin: 0; font-weight: 600; line-height: 1.1; }
+    .escola { font-weight: 600; font-size: 16px; margin: 0; }
+    .header-space { height: 8px; }
+    .title { text-align:center; margin: 10px 0 16px 0; font-size: 16px; font-weight:700; }
+    .conteudo {
+      text-align: justify;
+      margin-top: 4px;
+      line-height: 1.45;
+      font-size: 12.5pt;
+      word-break: break-word;
+    }
+    .conteudo p { margin: 0 0 12px 0; }
+    .assinaturas {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 50px;
+      max-width: 630px;
+      margin: 32px auto 0 auto;
+      page-break-inside: avoid;
+    }
+    .assinatura-campo {
+      min-width: 0;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .linha-assinatura {
+      border-top:1px solid #111;
+      height: 1px;
+      margin-bottom:8px;
+      margin-left:10px;
+      margin-right:10px;
+    }
+    .assinatura-campo p {
+      font-weight: bold;
+      margin: 0;
+      font-size: 10pt;
+      line-height: 1.10;
+      word-break: break-word;
+    }
+    .assinatura-cargo {
+      font-weight:normal;
+      font-size: 8.5pt;
+      color: #666;
+      margin-top: 4px;
+    }
+    @page :first {
+      @top-center {
+        content: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="cabecalho-primeira-pagina">
+    <img src="{{ logo_data or logo_url }}" alt="Logotipo" style="max-width: 130px; max-height: 130px; margin-bottom: 4px;">
+    <div class="linha">{{ cabecalho.get('estado') if cabecalho else 'ESTADO DO MATO GROSSO' }}</div>
+    <div class="linha">{{ cabecalho.get('secretaria') if cabecalho else 'SECRETARIA DE ESTADO DO MATO GROSSO' }}</div>
+    <div class="linha">{{ cabecalho.get('coordenacao') if cabecalho else 'COORDENADORIA DE ESCOLAS MILITARES' }}</div>
+    <div class="escola">{{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}</div>
+    <div class="header-space" aria-hidden="true"></div>
+  </div>
+  <h3 class="title">ATA DE MEDIAÇÃO ESCOLAR Nº {{ ata.numero }}/{{ ata.ano }}</h3>
+  <div class="conteudo">
+    Aos {{ ata.data_extenso_extenso }}, compareceu na {{ escola_nome if escola_nome is defined else (cabecalho.escola if cabecalho and cabecalho.get('escola') else '') }}
+    o(a) Sr.(a) <strong>{{ ata.responsavel or "" }}</strong>,
+    responsável pelo(a) aluno(a) <strong>{{ ata.aluno_nome }}</strong>,
+    matriculado(a) na(s) {{ ata.serie_turma if ata.get('serie_turma') else '' }},
+    para tratar do(s) seguinte(s) assunto(s): {{ ata.conteudo or '' }}.
+  </div>
+  <div style="height: 64px;"></div>
+  <div class="assinaturas" aria-label="Assinaturas">
+    {% if diretor_nome %}
+      <div class="assinatura-campo">
+        <div class="linha-assinatura"></div>
+        <p>{{ diretor_nome | upper }}</p>
+        <div class="assinatura-cargo">Diretor</div>
+      </div>
+    {% endif %}
+    {% for p in participants %}
+      {% set pname = (p.get('name') or p.get('nome') or '') | trim %}
+      {% if pname and not (diretor_nome and pname | lower == diretor_nome | lower) and not (ata.responsavel and pname | lower == ata.responsavel | lower) %}
+        <div class="assinatura-campo">
+          <div class="linha-assinatura"></div>
+          <p>{{ pname | upper }}</p>
+          <div class="assinatura-cargo">{{ (p.get('cargo') or p.get('role') or '') }}</div>
+        </div>
+      {% endif %}
+    {% endfor %}
+    {% if ata.responsavel %}
+      {% if not (diretor_nome and diretor_nome | trim | lower == ata.responsavel | trim | lower) %}
+        <div class="assinatura-campo">
+          <div class="linha-assinatura"></div>
+          <p>{{ ata.responsavel | upper }}</p>
+          <div class="assinatura-cargo">Responsável</div>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</body>
+</html>
