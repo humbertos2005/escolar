@@ -7,17 +7,31 @@
   <form method="post" id="form-tac">
     <input type="hidden" id="tac_id" name="tac_id" value="{{ tac.id if tac else '' }}">
     <div class="row g-3">
-      <div class="col-md-6">
-        <label class="form-label">Escola</label>
-        <input list="cabecalhos_list" id="escola_search" name="escola" class="form-control" value="{{ tac.escola_text if tac else '' }}" placeholder="Digite para buscar...">
-        <datalist id="cabecalhos_list"></datalist>
-        <input type="hidden" id="cabecalho_id" name="cabecalho_id" value="{{ tac.cabecalho_id if tac else '' }}">
-      </div>
-      <div class="col-md-6">
+      <div class="col-md-6" style="position:relative;">
+      <label class="form-label">Escola</label>
+      <input 
+        type="text"
+        id="escola_search"
+        name="escola"
+        class="form-control"
+        value="{{ tac.escola_text if tac else '' }}"
+        placeholder="Digite para buscar...">
+      <!-- <datalist id="cabecalhos_list"></datalist> -->
+      <input type="hidden" id="cabecalho_id" name="cabecalho_id" value="{{ tac.cabecalho_id if tac else '' }}">
+    </div>
+      <div id="aluno-container-tac" class="mb-2">
         <label class="form-label">Aluno</label>
-        <input list="alunos_list" id="aluno_search" name="aluno_display" class="form-control" value="{{ tac.aluno['nome'] if tac and tac.aluno else '' }}" placeholder="Digite ao menos 3 caracteres...">
-        <datalist id="alunos_list"></datalist>
-        <input type="hidden" id="aluno_id" name="aluno_id" value="{{ tac.aluno_id if tac else '' }}">
+        <small class="form-text text-muted" style="margin-top:6px;">
+          Se for um elogio coletivo, usar o nome do líder da turma
+        </small>
+        <div class="aluno-entry d-flex align-items-start mb-2">
+          <div style="flex:1">
+            <input type="text" id="aluno_search" name="aluno_search" class="form-control aluno-search"
+                placeholder="Digite matrícula ou nome para buscar..." autocomplete="off" required>
+            <input type="hidden" name="aluno_id" id="aluno_id" class="aluno-id" />
+            <p class="aluno-info info-display mb-0"></p>
+          </div>
+        </div>
       </div>
 
       <div class="col-md-3">
@@ -109,6 +123,13 @@
 
 {% block scripts %}
 {{ super() }}
+
+<script>
+  const AUTOCOMPLETE_ALUNOS_URL = "/formularios/api/alunos_autocomplete";
+</script>
+
+<script src="{{ url_for('static', filename='js/registrar_rfo.js') }}"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function(){
   // endpoints
@@ -223,74 +244,163 @@ document.addEventListener('DOMContentLoaded', function(){
   escolaInput.addEventListener('change', resolveCabecalhoAndFillDirector);
   escolaInput.addEventListener('blur', function(){ setTimeout(resolveCabecalhoAndFillDirector, 120); });
 
-  // --- Autocomplete Aluno (triggers at 3 chars), with robust fallback ---
-  const alunoInput = document.getElementById('aluno_search');
-  const alunosList = document.getElementById('alunos_list');
-  const alunoIdInput = document.getElementById('aluno_id');
-  let alunoTimer = null;
-
-  alunoInput.addEventListener('input', function(){
-    const q = alunoInput.value.trim();
-    clearTimeout(alunoTimer);
-    if (q.length < 3){
-      alunosList.innerHTML = '';
-      alunoIdInput.value = '';
-      return;
-    }
-    alunoTimer = setTimeout(async function(){
-      try {
-        const r = await fetch(alunosAutoUrl + '?q=' + encodeURIComponent(q));
-        if (!r.ok) return;
-        const list = await r.json();
-        alunosList.innerHTML = '';
-        list.forEach(item=>{
-          const opt = document.createElement('option');
-          opt.value = (item.nome || '').trim();
-          opt.setAttribute('data-id', String(item.id));
-          alunosList.appendChild(opt);
-        });
-      } catch(e){ console.error('Erro ao buscar alunos:', e); }
-    }, 250);
-  });
-
-  alunoInput.addEventListener('change', async function(){
-    const v = alunoInput.value.trim();
-    if (!v) { alunoIdInput.value = ''; return; }
-
-    let matchedId = '';
-    try {
-      const options = Array.from(alunosList.options || []);
-      const normV = normalizeText(v);
-      const matched = options.find(o => normalizeText(o.value || '') === normV);
-      if (matched) matchedId = matched.getAttribute('data-id') || '';
-      if (!matchedId){
-        // fallback: call autocomplete API and find normalized match
-        const res = await fetch(alunosAutoUrl + '?q=' + encodeURIComponent(v));
-        if (res.ok){
-          const results = await res.json();
-          const exact = results.find(rp => normalizeText(rp.nome || '') === normV);
-          if (exact) matchedId = String(exact.id || '');
-        }
-      }
-    } catch(e){ console.error('Erro ao resolver aluno_id:', e); }
-
-    alunoIdInput.value = matchedId || '';
-
-    if (alunoIdInput.value){
-      try {
-        const r = await fetch(alunoByIdUrl + '?id=' + encodeURIComponent(alunoIdInput.value));
-        if (!r.ok) return;
-        const data = await r.json();
-        if (data){
-          if (data.serie && document.getElementById('serie')) document.getElementById('serie').value = data.serie;
-          if (data.turma && document.getElementById('turma')) document.getElementById('turma').value = data.turma;
-          if (data.responsavel && document.getElementById('responsavel')) document.getElementById('responsavel').value = data.responsavel;
-        }
-      } catch(e){ console.error('Erro ao carregar aluno por id:', e); }
-    }
-  });
-
+  
 });
 </script>
+
+<script>
+  function initAlunoSearch(inputEl, hiddenEl, infoEl){
+    if (!inputEl) return;
+    try {
+      if (!inputEl.id || String(inputEl.id).trim() === '') {
+        inputEl.id = 'aluno_busca_' + Math.floor(Math.random()*1000000);
+      }
+    } catch(e){}
+    let debounceT;
+    inputEl.addEventListener('input', function(){
+      clearTimeout(debounceT);
+      debounceT = setTimeout(function(){
+        const q = inputEl.value && inputEl.value.trim();
+        if (!q) { render([]); return; }
+        fetch(AUTOCOMPLETE_ALUNOS_URL + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+          .then(r => r.ok ? r.json() : [])
+          .then(json => render(Array.isArray(json) ? json : []))
+          .catch(()=> render([]));
+      }, 180);
+    });
+
+    function render(items){
+      let list = inputEl._autoList;
+      if (!list){
+        list = document.createElement('div');
+        list.className = 'autocomplete-items';
+        list.style.position = 'absolute';
+        list.style.zIndex = 10000;
+        list.style.left = 0;
+        list.style.right = 0;
+        inputEl.parentNode.style.position = inputEl.parentNode.style.position || 'relative';
+        inputEl.parentNode.appendChild(list);
+        inputEl._autoList = list;
+      }
+      list.innerHTML = '';
+      if (!items || !items.length){ list.style.display='none'; return; }
+      items.forEach(function(it){
+        const el = document.createElement('div');
+        // *** APENAS O NOME do aluno. Se quiser exibir o id também, remova o comentário abaixo. ***
+        el.textContent = (it.nome || '');
+        //el.textContent = (it.id ? it.id + ' - ' : '') + (it.nome || ''); // <-- Linha antiga comentada
+        
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function(){
+          inputEl.value = (it.nome || '');
+          if (hiddenEl) hiddenEl.value = it.id || '';
+          list.style.display='none';
+
+          // Ao selecionar, preenche campos automaticamente (Série, Turma, Responsável)
+          if (it.id) {
+            fetch('/formularios/api/aluno?id=' + encodeURIComponent(it.id))
+              .then(r => r.ok ? r.json() : null)
+              .then(data => {
+                if (!data) return;
+                var serieEl = document.getElementById('serie');
+                var turmaEl = document.getElementById('turma');
+                var responsavelEl = document.getElementById('responsavel');
+                if (serieEl) serieEl.value = data.serie || '';
+                if (turmaEl) turmaEl.value = data.turma || '';
+                if (responsavelEl) responsavelEl.value = data.responsavel || '';
+              });
+          }
+        });
+        list.appendChild(el);
+      });
+      list.style.display='block';
+    }
+
+    document.addEventListener('click', function(ev){
+      let list = inputEl._autoList;
+      if (!list) return;
+      if (!inputEl.contains(ev.target) && ev.target !== inputEl && !list.contains(ev.target)) {
+        list.style.display='none';
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    let alunoInput = document.getElementById('aluno_search');
+    let alunoHidden = document.getElementById('aluno_id');
+    let alunoInfo = document.querySelector('.aluno-info');
+    if (alunoInput) {
+      initAlunoSearch(alunoInput, alunoHidden, alunoInfo);
+    }
+  });
+</script>
+
+<script>
+  // URL da API de autocomplete da escola (ajuste se necessário)
+  const AUTOCOMPLETE_ESCOLAS_URL = "{{ url_for('cadastros_bp.cabecalhos_autocomplete') }}";
+
+  function initEscolaSearch(inputEl, hiddenEl) {
+    if (!inputEl) return;
+    try { if (!inputEl.id || String(inputEl.id).trim() === '') inputEl.id = 'escola_search_' + Math.floor(Math.random()*1000000); } catch(e){}
+    let debounceT;
+    inputEl.addEventListener('input', function(){
+      clearTimeout(debounceT);
+      debounceT = setTimeout(function(){
+        const q = inputEl.value && inputEl.value.trim();
+        if (!q) { render([]); return; }
+        fetch(AUTOCOMPLETE_ESCOLAS_URL + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+          .then(r => r.ok ? r.json() : [])
+          .then(json => render(Array.isArray(json) ? json : []))
+          .catch(()=> render([]));
+      }, 180);
+    });
+
+    function render(items){
+      let list = inputEl._autoList;
+      if (!list){
+        list = document.createElement('div');
+        list.className = 'autocomplete-items';
+        list.style.position = 'absolute';
+        list.style.zIndex = 10000;
+        list.style.left = 0;
+        list.style.right = 0;
+        inputEl.parentNode.style.position = inputEl.parentNode.style.position || 'relative';
+        inputEl.parentNode.appendChild(list);
+        inputEl._autoList = list;
+      }
+      list.innerHTML = '';
+      if (!items || !items.length){ list.style.display='none'; return; }
+      items.forEach(function(it){
+        const el = document.createElement('div');
+        el.textContent = (it.escola || '');
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function(){
+          inputEl.value = (it.escola || '');
+          if (hiddenEl) hiddenEl.value = it.id || '';
+          list.style.display='none';
+        });
+        list.appendChild(el);
+      });
+      list.style.display='block';
+    }
+
+    document.addEventListener('click', function(ev){
+      let list = inputEl._autoList;
+      if (!list) return;
+      if (!inputEl.contains(ev.target) && ev.target !== inputEl && !list.contains(ev.target)) {
+        list.style.display='none';
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    let escolaInput = document.getElementById('escola_search');
+    let cabecalhoHidden = document.getElementById('cabecalho_id');
+    if (escolaInput) {
+      initEscolaSearch(escolaInput, cabecalhoHidden);
+    }
+  });
+</script>
+
 {% endblock %}
 {% endblock %}

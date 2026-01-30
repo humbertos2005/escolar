@@ -307,7 +307,14 @@ def api_aluno():
         a = db.query(Aluno).filter_by(id=aid).first()
         if not a:
             return jsonify({'error':'not found'}), 404
-        return jsonify(a.__dict__)
+        # Retorna apenas os campos básicos do aluno
+        return jsonify({
+            'id': a.id,
+            'nome': a.nome,
+            'serie': a.serie,
+            'turma': a.turma,
+            'responsavel': a.responsavel
+        })
     except Exception as e:
         current_app.logger.exception('Erro ao buscar aluno por id')
         return jsonify({'error': 'internal', 'detail': str(e)}), 500
