@@ -212,6 +212,10 @@ def tac_editar(id):
     part = db.query(TACParticipante).filter_by(tac_id=id).order_by(TACParticipante.ordem).all()
     tac['obrigacoes'] = [o.descricao for o in obrig]
     tac['participantes'] = [{'nome': p.nome, 'cargo': p.cargo} for p in part]
+    # Buscar dados do Aluno e colocar em tac['aluno'] se aluno_id existir
+    if tac.get('aluno_id'):
+        aluno = db.query(Aluno).filter_by(id=tac['aluno_id']).first()
+        tac['aluno'] = aluno.__dict__ if aluno else None
     return render_template('formularios/tac_form.html', tac=tac)
 
 @formularios_tac_bp.route('/tac/visualizar/<int:id>')
@@ -227,6 +231,8 @@ def tac_visualizar(id):
     if t.aluno_id:
         a = db.query(Aluno).filter_by(id=t.aluno_id).first()
         tac['aluno'] = a.__dict__ if a else None
+        if a:
+            tac['responsavel'] = a.responsavel
     tac['obrigacoes'] = [o.descricao for o in db.query(TACObrigacao).filter_by(tac_id=id).order_by(TACObrigacao.ordem).all()]
     tac['participantes'] = [ {'nome': p.nome, 'cargo': p.cargo} for p in db.query(TACParticipante).filter_by(tac_id=id).order_by(TACParticipante.ordem).all()]
     # Derivados p/ template
@@ -260,11 +266,26 @@ def tac_visualizar(id):
                 for field in ['logo_escola', 'logo_secretaria', 'logo_estado']:
                     fn = getattr(ch, field, None)
                     if fn:
-                        cabecalho[f"{field}_url"] = url_for('static', filename=f'uploads/cabecalhos/{os.path.basename(fn)}') if os.path.exists(os.path.join(current_app.root_path, 'static', 'uploads', 'cabecalhos', os.path.basename(fn))) else None
+                        # DEBUG: Mostre o caminho que está montando
+                        print(f"DEBUG TESTE - fn={fn}")
+                        caminho_fisico = os.path.join(
+                            current_app.root_path,
+                            'static', 'uploads', 'cabecalhos',
+                            os.path.basename(fn)
+                        )
+                        print(f"DEBUG TESTE - caminho_fisico={caminho_fisico}")
+                        if os.path.exists(caminho_fisico):
+                            resultado_static = url_for('static', filename=f'uploads/cabecalhos/{os.path.basename(fn)}')
+                            cabecalho[f"{field}_url"] = resultado_static
+                            print(f"DEBUG TESTE - Achou e usou: {resultado_static}")
+                        else:
+                            cabecalho[f"{field}_url"] = None
+                            print(f"DEBUG TESTE - Não encontrou arquivo: {caminho_fisico}")
                 de = db.query(DadosEscola).filter_by(cabecalho_id=cab_id).first()
                 cabecalho['dados_escola'] = de.__dict__ if de else None
-    except Exception:
-        current_app.logger.exception("Erro ao buscar cabecalho para TAC visualizar")
+    except Exception as e:
+        print("EXCEPTION AO CRIAR CABECALHO PDF:", repr(e))
+        current_app.logger.exception("Erro ao buscar cabecalho para TAC PDF")
         cabecalho = None
 
     return render_template('formularios/tac_view.html', tac=tac, cabecalho=cabecalho)
@@ -430,3 +451,139 @@ def export_docx_template_docxtpl(id):
         current_app.logger.exception("Erro ao gerar DOCX do TAC")
         flash('Erro ao gerar DOCX do TAC. Verifique o template e os placeholders.', 'danger')
         return redirect(url_for('formularios_tac_bp.tac_visualizar', id=id))
+    
+@formularios_tac_bp.route('/tac/<int:id>/pdf')
+@login_required  # Ou @admin_secundario_required se preferir
+def tac_pdf(id):
+    import io
+    import os
+    from weasyprint import HTML
+    from flask import request, send_file
+
+    db = get_db()
+    t = db.query(TAC).filter_by(id=id).first()
+    if not t:
+        flash('TAC não encontrado.', 'warning')
+        return redirect(url_for('formularios_tac_bp.listar_tacs'))
+    tac = t.__dict__.copy()
+    tac['aluno'] = None
+    if t.aluno_id:
+        a = db.query(Aluno).filter_by(id=t.aluno_id).first()
+        tac['aluno'] = a.__dict__ if a else None
+    tac['obrigacoes'] = [o.descricao for o in db.query(TACObrigacao).filter_by(tac_id=id).order_by(TACObrigacao.ordem).all()]
+    tac['participantes'] = [{'nome': p.nome, 'cargo': p.cargo} for p in db.query(TACParticipante).filter_by(tac_id=id).order_by(TACParticipante.ordem).all()]
+
+    diretor_nome = t.diretor_nome
+    escola_nome = t.escola_text
+    cabecalho = None
+
+    # Busca cabeçalho igual na visualização normal
+    try:
+        cab_id = tac.get('cabecalho_id') or None
+        if cab_id:
+            ch = db.query(Cabecalho).filter_by(id=cab_id).first()
+            if ch:
+                cabecalho = ch.__dict__.copy()
+                for field in ['logo_escola', 'logo_secretaria', 'logo_estado']:
+                    fn = getattr(ch, field, None)
+                    if fn:
+                        cabecalho[f"{field}_url"] = url_for(
+                            'static',
+                            filename=f'uploads/cabecalhos/{os.path.basename(fn)}'
+                        ) if os.path.exists(
+                            os.path.join(
+                                current_app.root_path,
+                                'static', 'uploads', 'cabecalhos',
+                                os.path.basename(fn)
+                            )
+                        ) else None
+                de = db.query(DadosEscola).filter_by(cabecalho_id=cab_id).first()
+                cabecalho['dados_escola'] = de.__dict__ if de else None
+    except Exception:
+        current_app.logger.exception("Erro ao buscar cabecalho para TAC PDF")
+        cabecalho = None
+
+    # Carrega logo_data se disponível
+    logo_data = None
+    try:
+        from blueprints.visualizacoes import _get_logo_data_and_file
+        logo_data, _ = _get_logo_data_and_file(cabecalho)
+    except Exception:
+        logo_data = None
+
+    print("DEBUG - cabecalho.logo_estado_url:", cabecalho.get("logo_estado_url") if cabecalho else "NÃO EXISTE")
+    print("DEBUG - cabecalho.logo_escola_url:", cabecalho.get("logo_escola_url") if cabecalho else "NÃO EXISTE")
+
+    # Busque o logo do topo (estado) em formato base64
+    # ATENÇÃO: remova o try/except, copie e cole assim:
+    logo_estado_data = None
+    from blueprints.visualizacoes import _get_logo_data_and_file
+    if cabecalho and cabecalho.get("logo_estado_url"):
+        logo_estado_url = cabecalho.get("logo_estado_url")
+        if logo_estado_url.startswith("/static/"):
+            logo_estado_filepath = os.path.join(
+                current_app.root_path, "static", "uploads", "cabecalhos", os.path.basename(logo_estado_url)
+            )
+            print("Tentando abrir o logo Estado:", logo_estado_filepath)
+            if os.path.exists(logo_estado_filepath):
+                with open(logo_estado_filepath, "rb") as img_file:
+                    import base64
+                    img_data = base64.b64encode(img_file.read()).decode("ascii")
+                    logo_estado_data = "data:image/png;base64," + img_data
+                    print("SUCESSO: Leu o logo_estado e gerou base64!")
+            else:
+                print("ERRO: Não achou o arquivo no disco!")
+                logo_estado_data = None
+        else:
+            logo_estado_data, _ = _get_logo_data_and_file({'logo_url': logo_estado_url})
+
+    logo_escola_data = None
+    if cabecalho and cabecalho.get("logo_escola_url"):
+        logo_escola_url = cabecalho.get("logo_escola_url")
+        if logo_escola_url.startswith("/static/"):
+            logo_escola_filepath = os.path.join(
+                current_app.root_path, "static", "uploads", "cabecalhos", os.path.basename(logo_escola_url)
+            )
+            print("Tentando abrir o logo Escola:", logo_escola_filepath)
+            if os.path.exists(logo_escola_filepath):
+                with open(logo_escola_filepath, "rb") as img_file:
+                    import base64
+                    img_data = base64.b64encode(img_file.read()).decode("ascii")
+                    logo_escola_data = "data:image/png;base64," + img_data
+                    print("SUCESSO: Leu o logo_escola e gerou base64!")
+            else:
+                print("ERRO: Não achou o arquivo no disco!")
+                logo_escola_data = None
+        else:
+            logo_escola_data, _ = _get_logo_data_and_file({'logo_url': logo_escola_url})
+
+    print("DEBUG - LOGO ESTADO:", (logo_estado_data[:60] if logo_estado_data else "NÃO ACHOU"))
+    print("DEBUG - LOGO ESCOLA:", (logo_escola_data[:60] if logo_escola_data else "NÃO ACHOU"))
+
+    # Renderiza o HTML do PDF, adicionando <base href=...>
+    html = render_template(
+        'formularios/tac_pdf.html',
+        tac=tac,
+        participantes=tac['participantes'],
+        diretor_nome=diretor_nome,
+        escola_nome=escola_nome,
+        cabecalho=cabecalho,
+        logo_estado_data=logo_estado_data,
+        logo_escola_data=logo_escola_data
+    )
+    # Adiciona <base href="..."> para que tudo funcione (logo/css relativo)
+    base = request.url_root.rstrip('/')
+    import re
+    if re.search(r'(?i)<head\b', html):
+        html = re.sub(r'(?i)(<head\b[^>]*>)', r'\1<base href="' + base + '">', html, count=1)
+    else:
+        html = '<base href="' + base + '">' + html
+
+    pdfbytes = HTML(string=html).write_pdf()
+
+    return send_file(
+        io.BytesIO(pdfbytes),
+        mimetype="application/pdf",
+        as_attachment=False,
+        download_name=f"tac_{id}.pdf"
+    )

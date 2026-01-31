@@ -21,14 +21,13 @@
     </div>
       <div id="aluno-container-tac" class="mb-2">
         <label class="form-label">Aluno</label>
-        <small class="form-text text-muted" style="margin-top:6px;">
-          Se for um elogio coletivo, usar o nome do líder da turma
-        </small>
         <div class="aluno-entry d-flex align-items-start mb-2">
           <div style="flex:1">
             <input type="text" id="aluno_search" name="aluno_search" class="form-control aluno-search"
-                placeholder="Digite matrícula ou nome para buscar..." autocomplete="off" required>
-            <input type="hidden" name="aluno_id" id="aluno_id" class="aluno-id" />
+                placeholder="Digite matrícula ou nome para buscar..." autocomplete="off" required
+                value="{% if tac and tac.aluno %}{{ tac.aluno.nome }}{% elif tac and tac.aluno_nome %}{{ tac.aluno_nome }}{% else %}{% endif %}">
+            <input type="hidden" name="aluno_id" id="aluno_id" class="aluno-id"
+                value="{% if tac and tac.aluno %}{{ tac.aluno.id }}{% elif tac and tac.aluno_id %}{{ tac.aluno_id }}{% else %}{% endif %}" />
             <p class="aluno-info info-display mb-0"></p>
           </div>
         </div>

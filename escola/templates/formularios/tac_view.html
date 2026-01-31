@@ -129,43 +129,48 @@
     {% endif %}
   {% endfor %}
   <div class="assinaturas row" style="margin-top:22px;">
-    <div class="col-md-4 text-center">
-      <div class="assinatura-line">
-        <div><strong>{{ (tac.diretor_nome or (cabecalho.dados_escola.diretor_nome if cabecalho and cabecalho.dados_escola else 'Diretor(a)')) | e }}</strong></div>
-        <div style="margin-top:6px;"><small class="text-muted">Diretor(a)</small></div>
-      </div>
-      {% if ns.coord %}
-      <div style="height:18px;"></div>
-      <div class="assinatura-line" style="margin-top:12px;">
-        <div><strong>{{ ns.coord.get('nome') | e }}</strong></div>
-        <div style="margin-top:6px;"><small class="text-muted">{{ ns.coord.get('cargo') | e }}</small></div>
-      </div>
-      {% endif %}
+  <div class="col-md-4 text-center">
+    <div class="assinatura-line">
+      <div><strong>{{ (tac.diretor_nome or (cabecalho.dados_escola.diretor_nome if cabecalho and cabecalho.dados_escola else 'Diretor(a)')) | upper | e }}</strong></div>
+      <div style="margin-top:6px;"><small class="text-muted">Diretor(a)</small></div>
     </div>
-    <div class="col-md-8">
-      <div class="row">
-        {% for p in ns.others %}
-          {% if (p.get('nome') or p.get('cargo')) %}
-            <div class="col-md-6 text-center" style="margin-bottom:18px;">
-              <div class="assinatura-line">
-                <div><strong>{{ p.get('nome') | e }}</strong></div>
-                <div style="margin-top:6px;"><small class="text-muted">{{ p.get('cargo') | e }}</small></div>
-              </div>
+    <div class="assinatura-line" style="margin-top:20px;">
+      <div><strong>{{ (tac.responsavel or '-') | upper }}</strong></div>
+      <div style="margin-top:6px;"><small class="text-muted">Responsável</small></div>
+    </div>
+    {% if ns.coord %}
+    <div style="height:18px;"></div>
+    <div class="assinatura-line" style="margin-top:12px;">
+      <div><strong>{{ ns.coord.get('nome') | upper | e }}</strong></div>
+      <div style="margin-top:6px;"><small class="text-muted">{{ ns.coord.get('cargo') | e }}</small></div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-md-8">
+    <div class="row">
+      {% for p in ns.others %}
+        {% if (p.get('nome') or p.get('cargo')) %}
+          <div class="col-md-6 text-center" style="margin-bottom:18px;">
+            <div class="assinatura-line">
+              <div><strong>{{ p.get('nome') | upper | e }}</strong></div>
+              <div style="margin-top:6px;"><small class="text-muted">{{ p.get('cargo') | e }}</small></div>
             </div>
-          {% endif %}
-        {% endfor %}
-      </div>
+          </div>
+        {% endif %}
+      {% endfor %}
     </div>
   </div>
+</div>
   <div class="mt-3">
-    <a href="{{ url_for('formularios_tac_bp.tac_editar', id=tac.id) }}" class="btn btn-warning">Editar</a>
-    <form method="post" action="{{ url_for('formularios_tac_bp.tac_excluir', id=tac.id) }}" style="display:inline;" onsubmit="return confirm('Confirma exclusão deste TAC?');">
-      <button type="submit" class="btn btn-danger">Excluir</button>
-    </form>
-    <a href="{{ url_for('formularios_tac_bp.tac_novo') }}" class="btn btn-primary ms-2">Novo TAC</a>
-    <a href="{{ url_for('formularios_tac_bp.export_docx_template_docxtpl', id=tac.id) }}" class="btn btn-outline-primary ms-2">Baixar DOCX</a>
-    <button class="btn btn-outline-secondary ms-2" onclick="window.print()">Imprimir</button>
-    <a href="{{ url_for('formularios_tac_bp.listar_tacs') }}" class="btn btn-secondary ms-2">Voltar</a>
+      <a href="{{ url_for('formularios_tac_bp.tac_editar', id=tac.id) }}" class="btn btn-warning" style="display:none;">Editar</a>
+      <form method="post" action="{{ url_for('formularios_tac_bp.tac_excluir', id=tac.id) }}" style="display:inline; display:none;" onsubmit="return confirm('Confirma exclusão deste TAC?');">
+        <button type="submit" class="btn btn-danger">Excluir</button>
+      </form>
+      <a href="{{ url_for('formularios_tac_bp.tac_novo') }}" class="btn btn-primary ms-2" style="display:none;">Novo TAC</a>
+      <a href="{{ url_for('formularios_tac_bp.export_docx_template_docxtpl', id=tac.id) }}" class="btn btn-outline-primary ms-2" style="display:none;">Baixar DOCX</a>
+      <a href="{{ url_for('formularios_tac_bp.tac_pdf', id=tac.id) }}" target="_blank" class="btn btn-outline-danger ms-2">Baixar PDF</a>
+      <button class="btn btn-outline-secondary ms-2" onclick="window.print()" style="display:none;">Imprimir</button>
+      <a href="{{ url_for('formularios_tac_bp.listar_tacs') }}" class="btn btn-secondary ms-2">Voltar</a>
   </div>
 </div>
 {% endblock %}
