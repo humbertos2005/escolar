@@ -524,9 +524,11 @@ def listar_rfos_removidos():
 # ========================
 # Listagem TAC no módulo Visualizações (com suporte a 'baixa' administrativo)
 # ========================
+from flask import redirect, url_for
+
 @visualizacoes_bp.route('/tac')
-@login_required
 def tac_command():
+    return redirect(url_for('formularios_tac_bp.listar_tacs'))
     """
     Listagem de TACs dentro do módulo Visualizações.
     - Usuários veem apenas registros com baixa=0.
@@ -541,7 +543,7 @@ def tac_command():
         elif show_baixados:
             tacs = db.query(TAC).order_by(TAC.created_at.desc()).all()
         else:
-            tacs = db.query(TAC).filter(or_(TAC.baixa == 0, TAC.baixa == None), TAC.deleted == 0).order_by(TAC.created_at.desc()).all()
+            tacs = db.query(TAC).filter(TAC.deleted == '0').order_by(TAC.created_at.desc()).all()
 
         tacs_lista = []
         for t in tacs:

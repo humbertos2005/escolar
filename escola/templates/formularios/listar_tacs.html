@@ -35,17 +35,17 @@
             <td>{{ t.numero or '-' }}</td>
             <td><a class="btn btn-sm btn-primary" href="{{ url_for('formularios_tac_bp.tac_visualizar', id=t.id) }}">Visualizar</a></td>
             <td>
-              {% if not t.deleted %}
+              {% if t.deleted in [0, '0', False, None] %}
                 <a class="btn btn-sm btn-warning" href="{{ url_for('formularios_tac_bp.tac_editar', id=t.id) }}">Editar</a>
               {% else %}
                 -
               {% endif %}
             </td>
             <td>
-              {% if not t.deleted %}
-              <form method="post" action="{{ url_for('formularios_tac_bp.tac_excluir', id=t.id) }}" onsubmit="return confirm('Excluir esse TAC?');" style="display:inline;">
-                <button class="btn btn-sm btn-danger">Excluir</button>
-              </form>
+              {% if t.deleted in [0, '0', False, None] %}
+                <form method="post" action="{{ url_for('formularios_tac_bp.tac_excluir', id=t.id) }}" onsubmit="return confirm('Excluir esse TAC?');" style="display:inline;">
+                  <button class="btn btn-sm btn-danger">Excluir</button>
+                </form>
               {% else %}
                 -
               {% endif %}

@@ -25,6 +25,7 @@ def listar_tacs():
         query = db.query(TAC)
         if not show_deleted:
             query = query.filter_by(deleted='0')
+        print([ (t.id, t.deleted) for t in query.order_by(TAC.created_at.desc()).all() ])
         tacs = []
         for t in query.order_by(TAC.created_at.desc()).all():
             tac = t.__dict__.copy()
