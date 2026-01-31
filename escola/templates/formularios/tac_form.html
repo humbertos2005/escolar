@@ -131,124 +131,6 @@
 <script src="{{ url_for('static', filename='js/registrar_rfo.js') }}"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-  // endpoints
-  const alunosAutoUrl = "{{ url_for('formularios_tac_bp.alunos_autocomplete') }}";
-  const alunoByIdUrl = "{{ url_for('formularios_tac_bp.api_aluno') }}";
-  const cabecalhosAutoUrl = "{{ url_for('cadastros_bp.cabecalhos_autocomplete') }}";
-  const cabecalhoByIdUrl = "{{ url_for('cadastros_bp.cabecalho_by_id') }}";
-  const dadosEscolaByCabecalhoUrl = "{{ url_for('cadastros_bp.api_dados_escola_by_cabecalho') }}";
-
-  // Utils
-  function normalizeText(s){
-    if(!s) return '';
-    // remove accents, normalize spaces, lower-case
-    return s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g,' ').trim().toLowerCase();
-  }
-
-  // --- Obrigacoes / Participantes dynamic handlers (unchanged logic) ---
-  const obrigacoesContainer = document.getElementById('obrigacoes_container');
-  document.getElementById('btn-add-obrigacao').addEventListener('click', function(){
-    const div = document.createElement('div'); div.className = 'input-group mb-2 obrigacao-row';
-    div.innerHTML = '<input type="text" name="obrigacao[]" class="form-control" value=""> <button type="button" class="btn btn-outline-danger btn-remove-obrigacao">Remover</button>';
-    obrigacoesContainer.appendChild(div);
-  });
-  obrigacoesContainer.addEventListener('click', function(e){
-    if (e.target && e.target.classList.contains('btn-remove-obrigacao')){
-      e.target.closest('.obrigacao-row').remove();
-    }
-  });
-
-  const partesContainer = document.getElementById('participantes_container');
-  document.getElementById('btn-add-participante').addEventListener('click', function(){
-    const row = document.createElement('div'); row.className = 'row mb-2 participante-row';
-    row.innerHTML = '<div class="col-md-6"><input type="text" name="participante_nome[]" class="form-control" value=""></div><div class="col-md-5"><input type="text" name="participante_cargo[]" class="form-control" value=""></div><div class="col-md-1"><button type="button" class="btn btn-outline-danger btn-remove-participante">X</button></div>';
-    partesContainer.appendChild(row);
-  });
-  partesContainer.addEventListener('click', function(e){
-    if (e.target && e.target.classList.contains('btn-remove-participante')){
-      e.target.closest('.participante-row').remove();
-    }
-  });
-
-  // --- Autocomplete Escola (datalist) with robust resolution ---
-  const escolaInput = document.getElementById('escola_search');
-  const cabecalhosList = document.getElementById('cabecalhos_list');
-  const cabecalhoIdInput = document.getElementById('cabecalho_id');
-  const diretorInput = document.getElementById('diretor');
-
-  // populate datalist on input
-  escolaInput.addEventListener('input', async function(){
-    const q = escolaInput.value.trim();
-    try {
-      const res = await fetch(cabecalhosAutoUrl + '?q=' + encodeURIComponent(q));
-      if (!res.ok) return;
-      const list = await res.json();
-      cabecalhosList.innerHTML = '';
-      list.forEach(item => {
-        const opt = document.createElement('option');
-        opt.value = (item.escola || '').trim();
-        opt.setAttribute('data-id', String(item.id));
-        cabecalhosList.appendChild(opt);
-      });
-    } catch(e){ console.error('Erro ao buscar cabeçalhos:', e); }
-    // reset hidden id until resolved
-    cabecalhoIdInput.value = '';
-  });
-
-  // resolve cabecalho id by exact match or fallback search; then fetch dados_escola
-  async function resolveCabecalhoAndFillDirector(){
-    const v = escolaInput.value.trim();
-    if (!v){
-      cabecalhoIdInput.value = '';
-      return;
-    }
-    let matchedId = '';
-    try {
-      // try exact match on datalist options first (normalized compare)
-      const opts = Array.from(cabecalhosList.options || []);
-      const normV = normalizeText(v);
-      let matchedOpt = opts.find(o => normalizeText(o.value || '') === normV);
-      if (matchedOpt) matchedId = matchedOpt.getAttribute('data-id') || '';
-      // fallback: call autocomplete API and find normalized match
-      if (!matchedId){
-        const r = await fetch(cabecalhosAutoUrl + '?q=' + encodeURIComponent(v));
-        if (r.ok){
-          const results = await r.json();
-          const exact = results.find(rp => normalizeText(rp.escola || '') === normV);
-          if (exact) matchedId = String(exact.id || '');
-        }
-      }
-    } catch(e){ console.error('Erro ao resolver cabecalho_id:', e); }
-
-    cabecalhoIdInput.value = matchedId || '';
-
-    // if we found an id, fetch Dados da Escola for director
-    if (cabecalhoIdInput.value){
-      try {
-        const r2 = await fetch(dadosEscolaByCabecalhoUrl + '?cabecalho_id=' + encodeURIComponent(cabecalhoIdInput.value));
-        if (r2.ok){
-          const data = await r2.json();
-          if (data && data.diretor_nome){
-            // only overwrite if diretor field is empty (to avoid clobbering manual edits)
-            if (diretorInput && (!diretorInput.value || diretorInput.value.trim().length === 0)){
-              diretorInput.value = data.diretor_nome;
-            }
-          }
-        }
-      } catch(e){ console.error('Erro ao buscar dados da escola:', e); }
-    }
-  }
-
-  // trigger resolution on change and on blur (some browsers don't fire change with datalist)
-  escolaInput.addEventListener('change', resolveCabecalhoAndFillDirector);
-  escolaInput.addEventListener('blur', function(){ setTimeout(resolveCabecalhoAndFillDirector, 120); });
-
-  
-});
-</script>
-
-<script>
   function initAlunoSearch(inputEl, hiddenEl, infoEl){
     if (!inputEl) return;
     try {
@@ -336,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 
 <script>
-  // URL da API de autocomplete da escola (ajuste se necessário)
+  // URL da API de autocomplete da escola
   const AUTOCOMPLETE_ESCOLAS_URL = "{{ url_for('cadastros_bp.cabecalhos_autocomplete') }}";
 
   function initEscolaSearch(inputEl, hiddenEl) {
@@ -378,6 +260,19 @@ document.addEventListener('DOMContentLoaded', function(){
           inputEl.value = (it.escola || '');
           if (hiddenEl) hiddenEl.value = it.id || '';
           list.style.display='none';
+
+          // NOVO: Preencher diretor automaticamente ao escolher a escola
+          if (hiddenEl && hiddenEl.value) {
+            fetch('/cadastros/api/dados_escola_by_cabecalho?cabecalho_id=' + encodeURIComponent(hiddenEl.value))
+              .then(r => r.ok ? r.json() : null)
+              .then(data => {
+                if (!data) return;
+                var diretorInput = document.getElementById('diretor');
+                if (diretorInput && data.diretor_nome) {
+                  diretorInput.value = data.diretor_nome;
+                }
+              });
+          }
         });
         list.appendChild(el);
       });
@@ -402,5 +297,31 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const partesContainer = document.getElementById('participantes_container');
+  const btnAddParticipante = document.getElementById('btn-add-participante');
+  if (btnAddParticipante && partesContainer) {
+    btnAddParticipante.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      const row = document.createElement('div');
+      row.className = 'row mb-2 participante-row';
+      row.innerHTML = '<div class="col-md-6"><input type="text" name="participante_nome[]" class="form-control" value=""></div>' +
+        '<div class="col-md-5"><input type="text" name="participante_cargo[]" class="form-control" value=""></div>' +
+        '<div class="col-md-1"><button type="button" class="btn btn-outline-danger btn-remove-participante">X</button></div>';
+      partesContainer.appendChild(row);
+    });
+
+    partesContainer.addEventListener('click', function(e){
+      if (e.target && e.target.classList.contains('btn-remove-participante')){
+        e.target.closest('.participante-row').remove();
+      }
+    });
+  }
+});
+</script>
+
 {% endblock %}
+
 {% endblock %}
