@@ -139,7 +139,7 @@ document.getElementById('nome_lider').addEventListener('input', function(){
     resultDiv.style.display = 'none';
     return;
   }
-  fetch('/buscar_aluno_json?q=' + encodeURIComponent(query))
+  fetch('/alunos/buscar_aluno_json?q=' + encodeURIComponent(query))
     .then(response => response.json())
     .then(data => {
       if (Array.isArray(data) && data.length > 0) {
