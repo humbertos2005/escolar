@@ -309,13 +309,21 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
         delta = dias * float(config.get('acao_educativa_dia', -1.0))
         print("DEBUG - delta calculado para AÇÃO EDUCATIVA:", delta)
         return delta
-    if 'ELOGIO' in m and 'INDIVIDU' in m:
+    # Reconhece elogio individual, coletivo ou genérico
+    if 'ELOGIO' in m:
+        # Se mencionar individual
+        if 'INDIVIDU' in m:
+            delta = qtd * float(config.get('elogio_individual', 0.5))
+            print("DEBUG - delta calculado para ELOGIO INDIVIDUAL:", delta)
+            return delta
+        # Se mencionar coletivo
+        if 'COLET' in m:
+            delta = qtd * float(config.get('elogio_coletivo', 0.3))
+            print("DEBUG - delta calculado para ELOGIO COLETIVO:", delta)
+            return delta
+        # Se não especificar nada (default: individual)
         delta = qtd * float(config.get('elogio_individual', 0.5))
-        print("DEBUG - delta calculado para ELOGIO INDIVIDUAL:", delta)
-        return delta
-    if 'ELOGIO' in m and 'COLET' in m:
-        delta = qtd * float(config.get('elogio_coletivo', 0.3))
-        print("DEBUG - delta calculado para ELOGIO COLETIVO:", delta)
+        print("DEBUG - delta calculado para ELOGIO GENERICO:", delta)
         return delta
 
     print("DEBUG - Nenhum caso identificado. Retornando delta 0.0")
@@ -1035,19 +1043,12 @@ def tratar_rfo(ocorrencia_id):
             except Exception:
                 pass
         if is_elogio:
-            # Marca a ocorrência como tratada
             oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).one_or_none()
             if oc_obj:
                 oc_obj.status = 'TRATADO'
                 oc_obj.data_tratamento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 medida_aplicada = oc_obj.tipo_rfo or 'Elogio'
-                config = _get_config_values(db)
-                delta = _calcular_delta_por_medida(medida_aplicada, 1, config)
-                if delta:
-                    _apply_delta_pontuacao(db, oc_obj.aluno_id, datetime.now().strftime('%Y-%m-%d'), delta, oc_obj.id, medida_aplicada)
-                    db.commit()
 
-                # NOVO: salvar atenuantes e agravantes mesmo pra elogio!
                 circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'
                 circ_ag = request.form.get('circunstancias_agravantes', '').strip() or 'Não há'
                 if hasattr(oc_obj, 'circunstancias_atenuantes'):
@@ -1055,15 +1056,46 @@ def tratar_rfo(ocorrencia_id):
                 if hasattr(oc_obj, 'circunstancias_agravantes'):
                     oc_obj.circunstancias_agravantes = circ_ag
 
-                db.commit()
-                
-                # NOVO: Soma pontos do elogio à pontuação do aluno                
-                medida_aplicada = oc_obj.tipo_rfo or 'Elogio'
+                # Calcula pontos do elogio e registra FMD
                 config = _get_config_values(db)
                 delta = _calcular_delta_por_medida(medida_aplicada, 1, config)
-                if delta:                    
+                if delta:
                     _apply_delta_pontuacao(db, oc_obj.aluno_id, datetime.now().strftime('%Y-%m-%d'), delta, oc_obj.id, medida_aplicada)
                     db.commit()
+
+                # Registra FMD de elogio para histórico correto no prontuário
+                from models_sqlalchemy import FichaMedidaDisciplinar
+                seq, seq_ano = _next_fmd_sequence(db)
+                fmd_id = f"FMD-{seq:04d}/{seq_ano}"
+                data_fmd = datetime.now().strftime('%Y-%m-%d')
+                from services.escolar_helper import compute_pontuacao_em_data, _infer_comportamento_por_faixa
+                resultado = compute_pontuacao_em_data(oc_obj.aluno_id, data_fmd)
+                pontuacao_congelada = float(resultado.get('pontuacao')) if resultado else 8.0
+                if pontuacao_congelada < 0:
+                    pontuacao_congelada = 0.0
+                if pontuacao_congelada > 10:
+                    pontuacao_congelada = 10.0
+                comportamento_congelado = _infer_comportamento_por_faixa(pontuacao_congelada)
+
+                fmd_obj = FichaMedidaDisciplinar(
+                    fmd_id=fmd_id,
+                    aluno_id=oc_obj.aluno_id,
+                    rfo_id=oc_obj.rfo_id,
+                    data_fmd=data_fmd,
+                    tipo_falta="Elogio",
+                    medida_aplicada=medida_aplicada,
+                    descricao_falta="Elogio registrado",
+                    observacoes="",
+                    responsavel_id=session.get('user_id'),
+                    data_registro=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    pontos_aplicados=delta,
+                    pontuacao_no_documento=pontuacao_congelada,
+                    comportamento_no_documento=comportamento_congelado,
+                    atenuantes=circ_at,
+                    agravantes=circ_ag
+                )
+                db.add(fmd_obj)
+                db.commit()
 
                 # Atualiza prontuário normalmente
                 username = session.get('username') or session.get('user', {}).get('username')

@@ -619,9 +619,20 @@ def visualizar_prontuario(prontuario_id):
         if not circ_agravantes_texto or circ_agravantes_texto.strip() == "":
             circ_agravantes_texto = "Não há"
 
-        # comportamento e pontuação (compatível, removendo dependência do models.py)
-        comportamento = rd.get('comportamento') or (aluno and aluno.get('comportamento'))
-        pontuacao = rd.get('pontuacao') or (aluno and aluno.get('pontuacao'))
+        # CORREÇÃO: Buscar comportamento e pontuação pela FMD mais recente do aluno
+        comportamento = None
+        pontuacao = None
+        if p.aluno_id:
+            from models_sqlalchemy import FichaMedidaDisciplinar
+            fmd = (
+                db.query(FichaMedidaDisciplinar)
+                .filter_by(aluno_id=p.aluno_id)
+                .order_by(FichaMedidaDisciplinar.data_fmd.desc(), FichaMedidaDisciplinar.id.desc())
+                .first()
+            )
+            if fmd:
+                comportamento = getattr(fmd, 'comportamento_no_documento', None)
+                pontuacao = getattr(fmd, 'pontuacao_no_documento', None)
 
         # Buscar extras (prontuario_rfos, comportamento e pontuacao) - se disponíveis
         extras = get_prontuario_extras(db, p.id)
@@ -630,14 +641,12 @@ def visualizar_prontuario(prontuario_id):
         if not pontuacao:
             pontuacao = extras.get("prontuario_pontuacao")
 
-        # --- CÁLCULO MANUAL PARA ELOGIO ---
-
+        # Se ainda não existir, calcular manualmente a pontuação atual
         if not comportamento or not pontuacao:
             try:
                 from services.escolar_helper import compute_pontuacao_corrente, _infer_comportamento_por_faixa
                 if aluno and aluno.get('id'):
                     valor_pontuacao = compute_pontuacao_corrente(aluno['id'])
-                    print(f"### DEBUG valor_pontuacao={valor_pontuacao}")
                     if isinstance(valor_pontuacao, dict):
                         valor_pontuacao = valor_pontuacao.get('pontuacao_atual') or valor_pontuacao.get('pontuacao')
                     if valor_pontuacao is not None:
