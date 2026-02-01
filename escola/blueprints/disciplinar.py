@@ -13,6 +13,7 @@ from models_sqlalchemy import (
 
 from services.escolar_helper import get_tipos_ocorrencia, get_proximo_fmd_id, get_faltas_disciplinares
 from services.escolar_helper import compute_pontuacao_corrente, _infer_comportamento_por_faixa
+from services.escolar_helper import _calcular_delta_por_medida, _get_config_values, _apply_delta_pontuacao
 # ...
 from .utils import (
     login_required,
@@ -286,11 +287,6 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
         qtd = float(qtd or 1)
     except Exception:
         qtd = 1.0
-
-    # Print de depuração
-    print("DEBUG - medida_aplicada recebida:", medida_aplicada)
-    print("DEBUG - medida_aplicada formatada:", m)
-    print("DEBUG - qtd usada:", qtd)
 
     # Formas mais comuns de cada medida
     if 'ADVERTENCIA ORAL' in m or 'ADV ORAL' in m or ('ORAL' in m and 'ADVERT' in m):
@@ -1027,6 +1023,49 @@ def tratar_rfo(ocorrencia_id):
     medidas_map = MEDIDAS_MAP
 
     if request.method == 'POST':
+        # NOVO CÓDIGO: Permite tratar elogio sem FMD, atualizando/gerando prontuário
+        oc_tipo = ocorrencia_dict.get('tipo_rfo') or ocorrencia_dict.get('tipo_ocorrencia_nome') or ''
+        tipo_rfo_post = request.form.get('tipo_rfo', '').strip() or ''
+        is_elogio = False
+        for v in (tipo_rfo_post, oc_tipo):
+            try:
+                if v and 'elogio' in v.lower():
+                    is_elogio = True
+                    break
+            except Exception:
+                pass
+        if is_elogio:
+            # Marca a ocorrência como tratada
+            oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).one_or_none()
+            if oc_obj:
+                oc_obj.status = 'TRATADO'
+                oc_obj.data_tratamento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                # NOVO: salvar atenuantes e agravantes mesmo pra elogio!
+                circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'
+                circ_ag = request.form.get('circunstancias_agravantes', '').strip() or 'Não há'
+                if hasattr(oc_obj, 'circunstancias_atenuantes'):
+                    oc_obj.circunstancias_atenuantes = circ_at
+                if hasattr(oc_obj, 'circunstancias_agravantes'):
+                    oc_obj.circunstancias_agravantes = circ_ag
+
+                db.commit()
+                
+                # NOVO: Soma pontos do elogio à pontuação do aluno                
+                medida_aplicada = oc_obj.tipo_rfo or 'Elogio'
+                config = _get_config_values(db)
+                delta = _calcular_delta_por_medida(medida_aplicada, 1, config)
+                if delta:                    
+                    _apply_delta_pontuacao(db, oc_obj.aluno_id, datetime.now().strftime('%Y-%m-%d'), delta, oc_obj.id, medida_aplicada)
+                    db.commit()
+
+                # Atualiza prontuário normalmente
+                username = session.get('username') or session.get('user', {}).get('username')
+                create_or_append_prontuario_por_rfo(db, ocorrencia_id, username)
+
+            flash('RFO de elogio aprovado com sucesso. Pontuação somada ao aluno.', 'success')
+            return redirect(url_for('disciplinar_bp.listar_rfo'))
+    
         oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
         tipos_raw = request.form.get('tipo_falta_list', '').strip()
         if tipos_raw:
@@ -1173,12 +1212,7 @@ def tratar_rfo(ocorrencia_id):
                             else:
                                 seq, seq_ano = _next_fmd_sequence(db)
                                 fmd_id = f"FMD-{seq:04d}/{seq_ano}"
-                                data_fmd = datetime.now().strftime('%Y-%m-%d')
-
-                                # ADICIONE OS PRINTS AQUI:
-                                print("DEBUG - CAMPOS POSTADOS:", dict(request.form))  # Vai mostrar tudo do formulário enviado
-                                print("DEBUG - medida_aplicada recebida no POST:", request.form.get("medida_aplicada"))
-                                print("DEBUG - medida_aplicada utilizada na FMD:", medida_aplicada)
+                                data_fmd = datetime.now().strftime('%Y-%m-%d')                                
 
                                 from services.escolar_helper import compute_pontuacao_em_data
 
@@ -1269,7 +1303,7 @@ def tratar_rfo(ocorrencia_id):
         for field in ['rfo_id', 'status', 'data_ocorrencia', 'relato_observador']:
             ocorrencia_dict[field] = getattr(oc, field, None)
 
-    from flask import g, session
+    from flask import g
     g.nivel = session.get('nivel')
     # Sincronize campos vitais do objeto Ocorrencia principal para o dict
     if 'Ocorrencia' in ocorrencia_dict and ocorrencia_dict['Ocorrencia']:

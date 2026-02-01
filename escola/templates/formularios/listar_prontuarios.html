@@ -51,14 +51,14 @@
           </td>
           <td>{{ p.serie or '-' }} {{ p.turma or '' }}</td>
           <td class="action-cell">
-            <a class="btn btn-sm btn-info" href="{{ url_for('formularios_prontuario.visualizar_prontuario', prontuario_id=p.id) }}">Visualizar</a>
+            <a class="btn btn-sm" style="background:#004bca; color:#fff; font-weight:bold; border:2px solid #003580;" href="{{ url_for('formularios_prontuario.visualizar_prontuario', prontuario_id=p.id) }}">Visualizar</a>
           </td>
           <td class="action-cell">
-            <a class="btn btn-sm btn-warning" href="{{ url_for('formularios_prontuario.editar_prontuario', prontuario_id=p.id) }}">Editar</a>
+            <a class="btn btn-sm" style="background:#ffd600; color:#664d00; font-weight:bold; border:2px solid #b29a00;" href="{{ url_for('formularios_prontuario.editar_prontuario', prontuario_id=p.id) }}">Editar</a>
           </td>
           <td class="action-cell">
-            {% if not p.deleted %}
-              <button class="btn btn-sm btn-danger btn-delete-pront" data-id="{{ p.id }}">Excluir</button>
+            {% if p.deleted in [None, '', 0, '0', False] %}
+              <button class="btn btn-sm" style="background:#e6002a; color:#fff; font-weight:bold; border:2px solid #900018;" data-id="{{ p.id }}">Excluir</button>
             {% else %}
               <span class="text-muted">Excluído</span>
             {% endif %}

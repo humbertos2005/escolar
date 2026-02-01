@@ -46,7 +46,14 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
     tipo = getattr(ocorrencia, 'tipo_ocorrencia_nome', None) or getattr(ocorrencia, 'tipo', None) or ''
     item_desc = getattr(ocorrencia, 'item_descricao', None) or getattr(ocorrencia, 'descricao_item', None) or ''
     reinc = 'Sim' if getattr(ocorrencia, 'reincidencia', False) else 'Não'
-    medida_aplicada = getattr(ocorrencia, 'medida_aplicada', None) or getattr(ocorrencia, 'medida', None) or ''
+    medida_aplicada = (
+        getattr(ocorrencia, 'medida_aplicada', None)
+        or getattr(ocorrencia, 'medida', None)
+        or getattr(ocorrencia, 'tipo_rfo', None)
+        or getattr(ocorrencia, 'tratamento_tipo', None)
+    )
+    if not medida_aplicada or medida_aplicada.strip() == "":
+        medida_aplicada = "Elogio"
     despacho = getattr(ocorrencia, 'despacho_gestor', None) or getattr(ocorrencia, 'despacho', None) or ''
     data_despacho = getattr(ocorrencia, 'data_despacho', None) or getattr(ocorrencia, 'data_tratamento', None) or ''
 
@@ -73,6 +80,16 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
     )
     try:
         if prontuario:
+            atenuante = getattr(ocorrencia, 'circunstancias_atenuantes', '') or getattr(ocorrencia, 'atenuantes', '') or 'Não há'
+            agravante = getattr(ocorrencia, 'circunstancias_agravantes', '') or getattr(ocorrencia, 'agravantes', '') or 'Não há'
+
+            if not atenuante or atenuante.strip() == '':
+                atenuante = 'Não há'
+            if not agravante or agravante.strip() == '':
+                agravante = 'Não há'
+
+            prontuario.circunstancias_atenuantes = atenuante
+            prontuario.circunstancias_agravantes = agravante
             # Salvar histórico se integrador disponível
             try:
                 from blueprints.formularios_prontuario import insert_prontuario_history
@@ -102,14 +119,14 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
                 responsavel='',
                 email='',
                 registros_fatos=f"--- Adicionado em {timestamp} ---\n{registro_line}",
-                circunstancias_atenuantes='',
-                circunstancias_agravantes='',
+                circunstancias_atenuantes=getattr(ocorrencia, 'circunstancias_atenuantes', '') or getattr(ocorrencia, 'atenuantes', '') or 'Não há',
+                circunstancias_agravantes=getattr(ocorrencia, 'circunstancias_agravantes', '') or getattr(ocorrencia, 'agravantes', '') or 'Não há',
                 created_at=timestamp,
                 deleted=0,
                 serie=aluno_serie,
                 turma=aluno_turma,
                 turno=aluno_turno,
-                telefone1=aluno_telefone,
+                telefone1=aluno_telefone
             )
             db.add(new_prontuario)
             db.commit()

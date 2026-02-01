@@ -8,10 +8,14 @@ from models_sqlalchemy import (
     RFOSequencia, FMDSequencia,
     FaltaDisciplinar, TipoOcorrencia, Elogio,
     Circunstancia, Comportamento,
-    PontuacaoBimestral, FichaMedidaDisciplinar, Aluno
+    PontuacaoBimestral, FichaMedidaDisciplinar, Aluno,
+    TabelaDisciplinarConfig, Bimestre,
     # Se criar futuramente: NMDSequencia, OcorrenciaAluno, etc.
 )
 from database import get_db  # Deve retornar a session do SQLAlchemy
+from unidecode import unidecode
+import re
+from flask import current_app
 
 # --- Sequenciais ---
 
@@ -376,3 +380,174 @@ def compute_pontuacao_em_data(aluno_id, data_referencia):
     except Exception as ex:
         print(f"[ERRO compute_pontuacao_em_data] {ex}")
         return {'pontuacao': None, 'comportamento': None}
+    
+def _calcular_delta_por_medida(medida_aplicada, qtd, config):
+    """
+    Calcula o delta (positivo/negativo) aplicável à pontuação a partir do texto da medida e quantidade.
+    Aceita variações como advertencia oral, advertência oral, adv oral, advert oral, etc.
+    Também faz print dos valores de depuração.
+    """
+    if not medida_aplicada:
+        print("DEBUG - medida_aplicada vazia.")
+        return 0.0
+
+    # Remove acentos, coloca maiúsculo e remove espaços duplicados
+    m = unidecode(str(medida_aplicada)).upper().replace("  ", " ").strip()
+    try:
+        qtd = float(qtd or 1)
+    except Exception:
+        qtd = 1.0
+
+    # Formas mais comuns de cada medida
+    if 'ADVERTENCIA ORAL' in m or 'ADV ORAL' in m or ('ORAL' in m and 'ADVERT' in m):
+        delta = qtd * float(config.get('advertencia_oral', -0.1))
+        print("DEBUG - delta calculado para ADVERTÊNCIA ORAL:", delta)
+        return delta
+    if 'ADVERTENCIA ESCRITA' in m or 'ADV ESCRITA' in m or ('ESCRITA' in m and 'ADVERT' in m):
+        delta = qtd * float(config.get('advertencia_escrita', -0.3))
+        print("DEBUG - delta calculado para ADVERTÊNCIA ESCRITA:", delta)
+        return delta
+    if 'SUSPENS' in m or 'SUSPENSAO' in m:
+        nums = re.findall(r'(\d+)', m)
+        dias = int(nums[0]) if nums else int(qtd)
+        delta = dias * float(config.get('suspensao_dia', -0.5))
+        print("DEBUG - delta calculado para SUSPENSÃO:", delta)
+        return delta
+    if 'ACAO EDUCATIVA' in m or 'ACAO EDUCATIVA' in m or 'EDUCATIVA' in m:
+        nums = re.findall(r'(\d+)', m)
+        dias = int(nums[0]) if nums else int(qtd)
+        delta = dias * float(config.get('acao_educativa_dia', -1.0))
+        print("DEBUG - delta calculado para AÇÃO EDUCATIVA:", delta)
+        return delta
+    if 'ELOGIO' in m and 'INDIVIDU' in m:
+        delta = qtd * float(config.get('elogio_individual', 0.5))
+        print("DEBUG - delta calculado para ELOGIO INDIVIDUAL:", delta)
+        return delta
+    if 'ELOGIO' in m and 'COLET' in m:
+        delta = qtd * float(config.get('elogio_coletivo', 0.3))
+        print("DEBUG - delta calculado para ELOGIO COLETIVO:", delta)
+        return delta
+    if 'ELOGIO' in m:
+        delta = qtd * float(config.get('elogio_individual', 0.5))
+        print("DEBUG - delta calculado para ELOGIO (qualquer):", delta)
+        return delta
+
+    print("DEBUG - Nenhum caso identificado. Retornando delta 0.0")
+    return 0.0
+
+def _get_config_values(db):
+    """Lê tabela_disciplinar_config e retorna dict de valores (ORM; fallback defaults se ausente)."""
+    defaults = {
+        'advertencia_oral': -0.1,
+        'advertencia_escrita': -0.3,
+        'suspensao_dia': -0.5,
+        'acao_educativa_dia': -1.0,
+        'elogio_individual': 0.5,
+        'elogio_coletivo': 0.3
+    }
+    try:
+        rows = db.query(TabelaDisciplinarConfig).all()
+        for r in rows:
+            defaults[getattr(r, 'chave')] = float(getattr(r, 'valor'))
+    except Exception:
+        pass
+    return defaults
+
+def _get_bimestre_for_date(db, data_str):
+    """
+    Determina (ano_int, bimestre_int) consultando a tabela 'bimestres' com SQLAlchemy.
+    Se não encontrar ou erro, faz fallback para 4 bimestres por ano.
+    """
+    try:
+        d = datetime.strptime(data_str[:10], '%Y-%m-%d').date()
+    except Exception:
+        d = date.today()
+    ano = d.year
+    try:
+        rows = db.query(Bimestre).filter_by(ano=ano).order_by(Bimestre.numero).all()
+        if rows:
+            for r in rows:
+                num = int(getattr(r, 'numero')) if getattr(r, 'numero') is not None else None
+                inicio = getattr(r, 'inicio')
+                fim = getattr(r, 'fim')
+                try:
+                    inicio_date = datetime.strptime(str(inicio)[:10], '%Y-%m-%d').date() if inicio else None
+                except Exception:
+                    inicio_date = None
+                try:
+                    fim_date = datetime.strptime(str(fim)[:10], '%Y-%m-%d').date() if fim else None
+                except Exception:
+                    fim_date = None
+                if (inicio_date is None or inicio_date <= d) and (fim_date is None or fim_date >= d):
+                    if num is not None:
+                        return ano, num
+    except Exception:
+        try:
+            current_app.logger.debug("Erro ao consultar tabela bimestres; usando fallback.")
+        except Exception:
+            pass
+    b = ((d.month - 1) // 3) + 1
+    return ano, b
+
+def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_id=None, tipo_evento=None, data_despacho=None):
+    """
+    Aplica delta na pontuacao_bimestral do aluno (cria linha se inexistente).
+    Garante limites mínimos/máximos (0.0 .. 10.0).
+    Registra no pontuacao_historico usando DD/MM/AAAA (sem horas).
+    """
+    if not aluno_id:
+        return
+
+    from datetime import datetime
+    ano, bimestre = _get_bimestre_for_date(db, data_tratamento_str)
+    from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
+
+    # Formata a data para DD/MM/AAAA
+    criado_em = None
+    if data_despacho:
+        # Se vier YYYY-MM-DD, converte para DD/MM/AAAA
+        if '-' in data_despacho and len(data_despacho) >= 10:
+            criado_em = datetime.strptime(data_despacho[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+        elif '/' in data_despacho and len(data_despacho) >= 10:
+            criado_em = data_despacho[:10]
+        else:
+            criado_em = datetime.now().strftime('%d/%m/%Y')
+    else:
+        criado_em = datetime.now().strftime('%d/%m/%Y')
+
+    try:
+        print(f"DEBUG _apply_delta_pontuacao: aluno_id={aluno_id}, delta={delta}, criado_em={criado_em}")
+        row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre).first()
+        if row:
+            atual = float(row.pontuacao_atual)
+            novo = max(0.0, min(10.0, atual + float(delta)))
+            row.pontuacao_atual = novo
+            row.atualizado_em = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            inicial = 8.0
+            novo = max(0.0, min(10.0, inicial + float(delta)))
+            row = PontuacaoBimestral(
+                aluno_id=aluno_id,
+                ano=ano,
+                bimestre=bimestre,
+                pontuacao_inicial=inicial,
+                pontuacao_atual=novo,
+                atualizado_em=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            )
+            db.add(row)
+
+        hist = PontuacaoHistorico(
+            aluno_id=aluno_id,
+            ano=ano,
+            bimestre=bimestre,
+            ocorrencia_id=ocorrencia_id,
+            tipo_evento=tipo_evento,
+            valor_delta=float(delta),
+            criado_em=criado_em
+        )
+        db.add(hist)
+        db.commit()
+    except Exception:
+        print("EXCEPTION _apply_delta_pontuacao:", aluno_id, delta, criado_em)
+        current_app.logger.exception('Erro ao aplicar delta pontuacao (possível tabela ausente).')
+        db.rollback()

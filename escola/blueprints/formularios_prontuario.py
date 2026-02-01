@@ -121,7 +121,11 @@ def get_prontuario_extras(db, prontuario_id):
             data_rfo_br = data_rfo
 
         relato = o.relato_observador or ""
-        medida = (fmd.medida_aplicada if fmd else "") or o.medida_aplicada or ""
+        medida = (fmd.medida_aplicada if fmd and fmd.medida_aplicada else "") \
+            or (o.medida_aplicada if o.medida_aplicada else "") \
+            or (o.tipo_rfo if hasattr(o, "tipo_rfo") and o.tipo_rfo else "") \
+            or (o.tratamento_tipo if hasattr(o, "tratamento_tipo") and o.tratamento_tipo else "") \
+            or "Elogio"
 
         gestor_username = None
         try:
@@ -580,11 +584,7 @@ def visualizar_prontuario(prontuario_id):
                     comportamento_fmd = fmd.comportamento_no_documento
                 if getattr(fmd, 'pontuacao_no_documento', None):
                     pontuacao_fmd = fmd.pontuacao_no_documento
-
-            # Adicione estes prints aqui:
-            print("LISTA ATENUANTES:", circ_atenuantes_lista)
-            print("LISTA AGRAVANTES:", circ_agravantes_lista)
-
+            
         circ_atenuantes_lista = [x for x in circ_atenuantes_lista if x and x.strip()]
         circ_agravantes_lista = [x for x in circ_agravantes_lista if x and x.strip()]
 
@@ -597,6 +597,13 @@ def visualizar_prontuario(prontuario_id):
             circ_atenuantes_texto = rd.get('circunstancias_atenuantes')
         elif rd.get('circ_atenuantes'):
             circ_atenuantes_texto = rd.get('circ_atenuantes')
+        elif prontuario and hasattr(prontuario, 'circunstancias_atenuantes') and getattr(prontuario, 'circunstancias_atenuantes'):
+            circ_atenuantes_texto = getattr(prontuario, 'circunstancias_atenuantes')
+        elif prontuario and hasattr(prontuario, 'circ_atenuantes') and getattr(prontuario, 'circ_atenuantes'):
+            circ_atenuantes_texto = getattr(prontuario, 'circ_atenuantes')
+
+        if not circ_atenuantes_texto or circ_atenuantes_texto.strip() == "":
+            circ_atenuantes_texto = "Não há"
 
         if circ_agravantes_lista:
             circ_agravantes_texto = "\n".join(circ_agravantes_lista)
@@ -604,6 +611,13 @@ def visualizar_prontuario(prontuario_id):
             circ_agravantes_texto = rd.get('circunstancias_agravantes')
         elif rd.get('circ_agravantes'):
             circ_agravantes_texto = rd.get('circ_agravantes')
+        elif prontuario and hasattr(prontuario, 'circunstancias_agravantes') and getattr(prontuario, 'circunstancias_agravantes'):
+            circ_agravantes_texto = getattr(prontuario, 'circunstancias_agravantes')
+        elif prontuario and hasattr(prontuario, 'circ_agravantes') and getattr(prontuario, 'circ_agravantes'):
+            circ_agravantes_texto = getattr(prontuario, 'circ_agravantes')
+
+        if not circ_agravantes_texto or circ_agravantes_texto.strip() == "":
+            circ_agravantes_texto = "Não há"
 
         # comportamento e pontuação (compatível, removendo dependência do models.py)
         comportamento = rd.get('comportamento') or (aluno and aluno.get('comportamento'))
@@ -615,6 +629,22 @@ def visualizar_prontuario(prontuario_id):
             comportamento = extras.get("prontuario_comportamento")
         if not pontuacao:
             pontuacao = extras.get("prontuario_pontuacao")
+
+        # --- CÁLCULO MANUAL PARA ELOGIO ---
+
+        if not comportamento or not pontuacao:
+            try:
+                from services.escolar_helper import compute_pontuacao_corrente, _infer_comportamento_por_faixa
+                if aluno and aluno.get('id'):
+                    valor_pontuacao = compute_pontuacao_corrente(aluno['id'])
+                    print(f"### DEBUG valor_pontuacao={valor_pontuacao}")
+                    if isinstance(valor_pontuacao, dict):
+                        valor_pontuacao = valor_pontuacao.get('pontuacao_atual') or valor_pontuacao.get('pontuacao')
+                    if valor_pontuacao is not None:
+                        pontuacao = round(float(valor_pontuacao), 2)
+                        comportamento = _infer_comportamento_por_faixa(valor_pontuacao)
+            except Exception:
+                pass
 
         try:
             header = load_document_header(db)
@@ -635,8 +665,8 @@ def visualizar_prontuario(prontuario_id):
             viewer_name=viewer_name,
             circ_atenuantes_texto=circ_atenuantes_texto,
             circ_agravantes_texto=circ_agravantes_texto,
-            comportamento=comportamento_fmd,
-            pontuacao=pontuacao_fmd,
+            comportamento=comportamento,
+            pontuacao=pontuacao,
         )
     except Exception:
         current_app.logger.exception("Erro ao carregar prontuário")
