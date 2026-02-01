@@ -1040,6 +1040,12 @@ def tratar_rfo(ocorrencia_id):
             if oc_obj:
                 oc_obj.status = 'TRATADO'
                 oc_obj.data_tratamento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                medida_aplicada = oc_obj.tipo_rfo or 'Elogio'
+                config = _get_config_values(db)
+                delta = _calcular_delta_por_medida(medida_aplicada, 1, config)
+                if delta:
+                    _apply_delta_pontuacao(db, oc_obj.aluno_id, datetime.now().strftime('%Y-%m-%d'), delta, oc_obj.id, medida_aplicada)
+                    db.commit()
 
                 # NOVO: salvar atenuantes e agravantes mesmo pra elogio!
                 circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'

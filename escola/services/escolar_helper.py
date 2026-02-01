@@ -419,17 +419,9 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
         delta = dias * float(config.get('acao_educativa_dia', -1.0))
         print("DEBUG - delta calculado para AÇÃO EDUCATIVA:", delta)
         return delta
-    if 'ELOGIO' in m and 'INDIVIDU' in m:
-        delta = qtd * float(config.get('elogio_individual', 0.5))
-        print("DEBUG - delta calculado para ELOGIO INDIVIDUAL:", delta)
-        return delta
-    if 'ELOGIO' in m and 'COLET' in m:
-        delta = qtd * float(config.get('elogio_coletivo', 0.3))
-        print("DEBUG - delta calculado para ELOGIO COLETIVO:", delta)
-        return delta
     if 'ELOGIO' in m:
         delta = qtd * float(config.get('elogio_individual', 0.5))
-        print("DEBUG - delta calculado para ELOGIO (qualquer):", delta)
+        print("DEBUG - delta calculado para ELOGIO:", delta)
         return delta
 
     print("DEBUG - Nenhum caso identificado. Retornando delta 0.0")
