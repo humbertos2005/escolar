@@ -382,3 +382,15 @@ class RecuperacaoSenhaToken(Base):
     expiracao = Column(String)
     usado = Column(String)
     data_uso = Column(String)
+
+class LiderAluno(Base):
+    __tablename__ = 'lider_aluno'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    aluno_id = Column(Integer, nullable=False)  # ID do aluno que é líder
+    nome = Column(String(200), nullable=False)
+    serie = Column(String(30), nullable=True)
+    turma = Column(String(30), nullable=True)
+    criado_em = Column(String(30), nullable=True)  # Data ou hora do cadastro
+
+    def __repr__(self):
+        return f"<LiderAluno id={self.id} nome={self.nome}>"

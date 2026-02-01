@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Gerenciar Líderes</h2>
+
+<style>
+.autocomplete-item {
+  padding: 6px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+.autocomplete-item:hover {
+  background: #e2ecff;
+}
+#autocomplete-result {
+  border: 1px solid #aaa;
+  position: absolute;
+  z-index: 1000;
+  min-width: 200px;
+}
+</style>
+
+<div class="toolbar mb-4" style="display:flex;gap:10px;">
+  <button class="btn btn-primary" id="novo-cadastro-btn">Novo Cadastro</button>
+  <button class="btn btn-secondary" id="visualizar-lista-btn">Visualizar Lista</button>
+  <button class="btn btn-danger" id="excluir-multiplos-btn">Excluir</button>
+</div>
+
+<div id="novo-cadastro-panel" style="display:none;">
+  <form id="form-novo-lider" method="POST" action="{{ url_for('cadastros_bp.cadastrar_lider') }}" class="form-row align-items-end" autocomplete="off">
+    <!-- Campo oculto com o id do aluno selecionado -->
+    <input type="hidden" id="aluno_id" name="aluno_id">
+    <div class="form-group" style="margin-right:10px;">
+      <label for="nome_lider">Nome</label>
+      <!-- O campo de nome será para busca/autocomplete -->
+      <input type="text" id="nome_lider" name="nome_lider" class="form-control" autocomplete="off" placeholder="Digite ao menos 3 letras..." required>
+    </div>
+    <div class="form-group" style="margin-right:10px;">
+      <label for="serie_lider">Série</label>
+      <input type="text" id="serie_lider" name="serie_lider" class="form-control" autocomplete="off" required disabled>
+    </div>
+    <div class="form-group" style="margin-right:10px;">
+      <label for="turma_lider">Turma</label>
+      <input type="text" id="turma_lider" name="turma_lider" class="form-control" autocomplete="off" required disabled>
+    </div>
+    <button type="submit" class="btn btn-success">Salvar</button>
+  </form>
+  <div id="autocomplete-result" style="max-height:200px;overflow-y:auto;background:#fff;"></div>
+</div>
+
+<div id="lista-lideres-panel">
+  <!-- Aqui será exibida a tabela com líderes cadastrados -->
+  <table class="table table-striped" id="tabela-lideres">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Série</th>
+        <th>Turma</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+        {% if lideres %}
+            {% for lider in lideres %}
+            <tr>
+                <td>{{ lider.id }}</td>
+                <td>{{ lider.nome }}</td>
+                <td>{{ lider.serie or "-" }}</td>
+                <td>{{ lider.turma or "-" }}</td>
+                <td>
+                <!-- Botões de ação (editar/excluir) -->
+                <a href="#" class="btn btn-sm btn-info" title="Editar">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <form method="POST" action="#" style="display:inline;" onsubmit="return confirm('Excluir este líder?');">
+                    <button type="submit" class="btn btn-sm btn-danger" title="Excluir">
+                    <i class="fas fa-trash"></i>
+                    </button>
+                </form>
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+            <td colspan="5" class="text-center">Nenhum líder cadastrado ainda.</td>
+            </tr>
+        {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<div id="excluir-panel" style="display:none;">
+  <form id="form-excluir-lideres" method="POST">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="selecionar-todos" /></th>
+          <th>Nome</th>
+          <th>Série</th>
+          <th>Turma</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Renderizar backend - lista dos líderes cadastrados com checkbox -->
+      </tbody>
+    </table>
+    <button type="submit" class="btn btn-danger" onclick="return confirm('Tem certeza que deseja excluir os líderes selecionados?')">Excluir Selecionados</button>
+  </form>
+</div>
+
+<script>
+  // JS básico só para alternar os paineis usando botões (backend irá preencher listas/autocomplete!)
+  document.getElementById('novo-cadastro-btn').onclick = function(){
+    document.getElementById('novo-cadastro-panel').style.display = '';
+    document.getElementById('lista-lideres-panel').style.display = 'none';
+    document.getElementById('excluir-panel').style.display = 'none';
+  };
+  document.getElementById('visualizar-lista-btn').onclick = function(){
+    document.getElementById('novo-cadastro-panel').style.display = 'none';
+    document.getElementById('lista-lideres-panel').style.display = '';
+    document.getElementById('excluir-panel').style.display = 'none';
+  };
+  document.getElementById('excluir-multiplos-btn').onclick = function(){
+    document.getElementById('novo-cadastro-panel').style.display = 'none';
+    document.getElementById('lista-lideres-panel').style.display = 'none';
+    document.getElementById('excluir-panel').style.display = '';
+  };
+</script>
+
+<script>
+document.getElementById('nome_lider').addEventListener('input', function(){
+  var query = this.value.trim();
+  var resultDiv = document.getElementById('autocomplete-result');
+  resultDiv.innerHTML = '';
+  document.getElementById('aluno_id').value = '';
+  document.getElementById('serie_lider').value = '';
+  document.getElementById('turma_lider').value = '';
+  if (query.length < 3) {
+    resultDiv.style.display = 'none';
+    return;
+  }
+  fetch('/buscar_aluno_json?q=' + encodeURIComponent(query))
+    .then(response => response.json())
+    .then(data => {
+      if (Array.isArray(data) && data.length > 0) {
+        resultDiv.innerHTML = '';
+        data.forEach(aluno => {
+          var item = document.createElement('div');
+          item.className = 'autocomplete-item';
+          item.textContent = aluno.value;
+          item.dataset.alunoId = aluno.id;
+          item.dataset.nome = aluno.data.nome;
+          item.dataset.serie = aluno.data.serie;
+          item.dataset.turma = aluno.data.turma;
+          item.style.cursor = 'pointer';
+          item.onclick = function() {
+            document.getElementById('aluno_id').value = this.dataset.alunoId;
+            document.getElementById('nome_lider').value = this.dataset.nome;
+            document.getElementById('serie_lider').value = this.dataset.serie;
+            document.getElementById('turma_lider').value = this.dataset.turma;
+            resultDiv.style.display = 'none';
+            resultDiv.innerHTML = '';
+          }
+          resultDiv.appendChild(item);
+        });
+        resultDiv.style.display = '';
+      } else {
+        resultDiv.innerHTML = '<div style="padding:4px;color:#888;">Nenhum resultado encontrado</div>';
+        resultDiv.style.display = '';
+      }
+    });
+});
+
+document.addEventListener('click', function(event) {
+  var resultDiv = document.getElementById('autocomplete-result');
+  var nomeInput = document.getElementById('nome_lider');
+  if (!resultDiv.contains(event.target) && event.target !== nomeInput) {
+    resultDiv.style.display = 'none';
+  }
+});
+</script>
+
+{% endblock %}
