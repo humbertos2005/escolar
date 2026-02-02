@@ -740,25 +740,23 @@ def listar_rfo():
         tipo = rfo.get('tipo_ocorrencia_nome', '').lower()
         subtipo = rfo.get('subtipo_elogio', '').lower()
 
-        # GARANTE O NOME DO LÍDER no registro de elogio coletivo
+        # Ajustado: Mostra sempre o nome do líder correto para elogio coletivo
         if tipo == "elogio" and subtipo == "coletivo":
+            lider_nome = None
             serie = rfo.get("serie_lider")
             turma = rfo.get("turma_lider")
-            lider_nome = None
+
+            # Busca exclusivamente pelo líder da turma (NÃO usa fallback pelo aluno da ocorrência)
             if serie and turma:
                 lider_obj = db.query(LiderAluno).filter(
                     LiderAluno.serie == serie,
                     LiderAluno.turma == turma
-                ).first()
+                ).order_by(LiderAluno.id.desc()).first()
                 if lider_obj:
-                    aluno_lider = db.query(AlunoModel).filter(AlunoModel.id == lider_obj.aluno_id).first()
-                    if aluno_lider:
-                        lider_nome = aluno_lider.nome
-            # FORÇA o campo a ser o nome do líder SEMPRE
-            if lider_nome:
-                rfo["nome_aluno"] = lider_nome
-            else:
-                rfo["nome_aluno"] = "Líder não encontrado"
+                    lider_nome = lider_obj.nome
+
+            # Define o campo para o nome do líder
+            rfo["nome_aluno"] = lider_nome if lider_nome else "Líder não encontrado"
             if rfo_id not in agrupados:
                 agrupados[rfo_id] = rfo
         else:
