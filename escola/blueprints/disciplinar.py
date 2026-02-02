@@ -737,26 +737,26 @@ def listar_rfo():
     agrupados = {}
     for rfo in rfos_list:
         rfo_id = rfo["rfo_id"]
-        tipo = rfo.get('tipo_ocorrencia_nome', '').lower()
-        subtipo = rfo.get('subtipo_elogio', '').lower()
+        tipo = rfo.get('tipo_ocorrencia_nome', '').strip().lower()
+        subtipo = rfo.get('subtipo_elogio', '').strip().lower()
 
-        # Ajustado: Mostra sempre o nome do líder correto para elogio coletivo
+        # Se for elogio coletivo, busca o nome do líder na tabela lider_aluno, SEMPRE
         if tipo == "elogio" and subtipo == "coletivo":
-            lider_nome = None
-            serie = rfo.get("serie_lider")
-            turma = rfo.get("turma_lider")
-
-            # Busca exclusivamente pelo líder da turma (NÃO usa fallback pelo aluno da ocorrência)
-            if serie and turma:
+            # Pegue sempre o primeiro "series_turmas" e divida série/turma certinho
+            turma_formatada = str(rfo.get("series_turmas") or "").split(";")[0].strip()
+            if " - " in turma_formatada:
+                serie_str, turma_str = [s.strip() for s in turma_formatada.split(" - ", 1)]
                 lider_obj = db.query(LiderAluno).filter(
-                    LiderAluno.serie == serie,
-                    LiderAluno.turma == turma
+                    LiderAluno.serie == serie_str,
+                    LiderAluno.turma == turma_str
                 ).order_by(LiderAluno.id.desc()).first()
                 if lider_obj:
-                    lider_nome = lider_obj.nome
-
-            # Define o campo para o nome do líder
-            rfo["nome_aluno"] = lider_nome if lider_nome else "Líder não encontrado"
+                    rfo["nome_aluno"] = lider_obj.nome
+                else:
+                    rfo["nome_aluno"] = "Líder não encontrado"
+            else:
+                rfo["nome_aluno"] = "Líder não encontrado"
+            # Esse grupo é único por rfo_id
             if rfo_id not in agrupados:
                 agrupados[rfo_id] = rfo
         else:
@@ -851,10 +851,28 @@ def visualizar_rfo(ocorrencia_id):
     else:
         rfo_dict['series_turmas'] = rfo_dict.get('series_turmas') or ((rfo_dict.get('serie') and rfo_dict.get('turma')) and f"{rfo_dict.get('serie')} - {rfo_dict.get('turma')}" or '')
 
-    if any(names_list):
-        rfo_dict['alunos'] = '; '.join([n for n in names_list if n])
+    # CORREÇÃO: se for elogio coletivo, mostrar sempre o nome do líder cadastrado da turma
+    is_elogio_coletivo = (
+        (rfo.get('tipo_ocorrencia_nome', '').strip().lower() == 'elogio')
+        and (rfo.get('subtipo_elogio', '').strip().lower() == 'coletivo')
+    )
+    if is_elogio_coletivo:
+        serie = rfo.get('serie_lider') or rfo.get('serie')
+        turma = rfo.get('turma_lider') or rfo.get('turma')
+        if serie and turma:
+            from models_sqlalchemy import LiderAluno
+            lider = db.query(LiderAluno).filter_by(serie=serie, turma=turma).order_by(LiderAluno.id.desc()).first()
+            if lider:
+                rfo["nome_aluno"] = lider.nome
+            else:
+                rfo["nome_aluno"] = 'Líder não encontrado'
+        else:
+            rfo["nome_aluno"] = 'Líder não encontrado'
+    # Se quiser tratar outros nomes, use:
+    elif rfo.get('alunos'):
+        rfo['nome_aluno'] = rfo.get('alunos')
     else:
-        rfo_dict['alunos'] = rfo_dict.get('alunos') or rfo_dict.get('nome_aluno') or ''
+        rfo['nome_aluno'] = rfo.get('nome_aluno') or ''
 
     tratamento = rfo_dict.get('tratamento_tipo') or rfo_dict.get('tipo_ocorrencia_text') or rfo_dict.get('tipo_ocorrencia_nome') or ''
     associado = (rfo_dict.get('advertencia_oral') or rfo_dict.get('subtipo_elogio') or '')

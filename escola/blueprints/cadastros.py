@@ -748,12 +748,6 @@ def importar_faltas():
 
     return render_template('cadastros/importar_faltas.html', mensagem=mensagem)
 
-@cadastros_bp.route('/gerenciar_lideres')
-def gerenciar_lideres():
-    db = get_db()
-    lideres = db.query(LiderAluno).order_by(LiderAluno.nome).all()
-    return render_template('cadastros/gerenciar_lideres.html', lideres=lideres)
-
 @cadastros_bp.route('/lideres/novo', methods=['POST'])
 def cadastrar_lider():
     db = get_db()
@@ -777,3 +771,22 @@ def cadastrar_lider():
     db.commit()
     flash('Líder cadastrado com sucesso!', 'success')
     return redirect(url_for('cadastros_bp.gerenciar_lideres'))
+
+@cadastros_bp.route('/gerenciar_lideres')
+def gerenciar_lideres():
+    db = get_db()
+    lideres = db.query(LiderAluno).order_by(LiderAluno.nome).all()
+    return render_template('cadastros/gerenciar_lideres.html', lideres=lideres)
+
+@cadastros_bp.route('/lideres/excluir/<int:lider_id>', methods=['POST'])
+def excluir_lider(lider_id):
+    db = get_db()
+    lider = db.query(LiderAluno).filter_by(id=lider_id).first()
+    if not lider:
+        flash('Líder não encontrado.', 'danger')
+    else:
+        db.delete(lider)
+        db.commit()
+        flash('Líder excluído com sucesso.', 'success')
+    return redirect(url_for('cadastros_bp.gerenciar_lideres'))
+
