@@ -1044,45 +1044,50 @@ def tratar_rfo(ocorrencia_id):
 
     ocorrencia_dict = dict(ocorrencia._asdict() if hasattr(ocorrencia, "_asdict") else ocorrencia)
 
-    # --- INÍCIO DO AJUSTE PARA ELOGIO COLETIVO/LÍDER ---
-    tipo_val = (ocorrencia_dict.get('tratamento_tipo') or ocorrencia_dict.get('tipo_rfo') or ocorrencia_dict.get('tipo_ocorrencia_nome') or '').lower()
-    subtipo_val = (ocorrencia_dict.get('subtipo_elogio') or '').lower()
+    alunos_rows = (
+        db.query(
+            Aluno.id, Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma
+        )
+        .join(OcorrenciaAluno, OcorrenciaAluno.aluno_id == Aluno.id)
+        .filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id)
+        .order_by(OcorrenciaAluno.id)
+        .all()
+    )
 
-    if tipo_val == 'elogio' and subtipo_val == 'coletivo':
-        # Sempre pega da turma do líder cadastrado
-        from models_sqlalchemy import LiderAluno
-        lider_obj = db.query(LiderAluno).order_by(LiderAluno.id.desc()).first()
-        serie = lider_obj.serie if lider_obj else None
-        turma = lider_obj.turma if lider_obj else None
-
-        lider_nome = None
-        lider_matricula = None
-        serie_turma_lider = None
-
-        if serie and turma:
-            from models_sqlalchemy import LiderAluno
-            lider_obj = db.query(LiderAluno).filter(
-                LiderAluno.serie == serie,
-                LiderAluno.turma == turma
-            ).order_by(LiderAluno.id.desc()).first()
-            if lider_obj:
-                lider_nome = lider_obj.nome
-                lider_matricula = lider_obj.matricula if hasattr(lider_obj, 'matricula') else None
-                serie_turma_lider = f"{lider_obj.serie} - {lider_obj.turma}"
-
-        ocorrencia_dict['nome_aluno'] = lider_nome or 'Líder não encontrado'
-        ocorrencia_dict['matricula'] = lider_matricula or '-'
-        ocorrencia_dict['series_turmas'] = serie_turma_lider or (f"{serie} - {turma}" if serie and turma else '-')
-
-        # Opcional: Só mostra o líder na lista (template só mostra um)
-        ocorrencia_dict['alunos_list'] = [{
-            'id': '',
-            'nome': lider_nome or 'Líder não encontrado',
-            'matricula': lider_matricula or '-',
+    alunos_list = []
+    series_list = []
+    nomes_list = []
+    for ar in alunos_rows:
+        # Adicionando o ID!
+        aluno_id = getattr(ar, 'id', None)
+        if aluno_id is None:
+            aluno_id = getattr(ar, 'aluno_id', None)
+        if aluno_id is None:
+            aluno_id = ''
+        nome = getattr(ar, 'nome', None)
+        matricula = getattr(ar, 'matricula', None)
+        serie = getattr(ar, 'serie', None)
+        turma = getattr(ar, 'turma', None)
+        alunos_list.append({
+            'id': aluno_id,               # <-- ESSENCIAL!
+            'nome': nome or '',
+            'matricula': matricula or '',
             'serie': serie or '',
             'turma': turma or ''
-        }]
-    
+        })
+        s = (serie or '')
+        t = (turma or '')
+        if s or t:
+            series_list.append(f"{s} - {t}".strip(' - '))
+        nomes_list.append(nome or '')
+
+    ocorrencia_dict['alunos_list'] = alunos_list
+    ocorrencia_dict['alunos'] = '; '.join([n for n in nomes_list if n]) if any(nomes_list) else ocorrencia_dict.get('alunos') or ocorrencia_dict.get('nome_aluno') or ''
+    if series_list:
+        ocorrencia_dict['series_turmas'] = '; '.join(series_list)
+    else:
+        ocorrencia_dict['series_turmas'] = ocorrencia_dict.get('series_turmas') or ((ocorrencia_dict.get('serie') and ocorrencia_dict.get('turma')) and f"{ocorrencia_dict.get('serie')} - {ocorrencia_dict.get('turma')}" or '')
+
     tipos_falta = TIPO_FALTA_MAP
     medidas_map = MEDIDAS_MAP
 
