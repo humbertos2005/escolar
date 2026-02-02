@@ -789,4 +789,3 @@ def excluir_lider(lider_id):
         db.commit()
         flash('Líder excluído com sucesso.', 'success')
     return redirect(url_for('cadastros_bp.gerenciar_lideres'))
-
