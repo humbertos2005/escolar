@@ -669,13 +669,14 @@ def registrar_rfo():
 @admin_secundario_required
 def listar_rfo():
     db = get_db()
-    from sqlalchemy.orm import joinedload, aliased
+    from sqlalchemy.orm import aliased
     from sqlalchemy import func, cast, String
+
+    from models_sqlalchemy import LiderAluno, Aluno as AlunoModel
 
     Aluno1 = aliased(Aluno)
     Aluno2 = aliased(Aluno)
 
-    # Consulta principal com JOINs para obter informações relevantes e agrupamentos
     ocorrencias = (
         db.query(
             Ocorrencia.id,
@@ -698,6 +699,9 @@ def listar_rfo():
             ).label('series_turmas'),
             Usuario.username.label('responsavel_registro_username'),
             TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
+            Ocorrencia.subtipo_elogio.label('subtipo_elogio'),
+            Aluno1.serie.label('serie_lider'),
+            Aluno1.turma.label('turma_lider'),
         )
         .join(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id, isouter=True)
         .join(Aluno2, Aluno2.id == OcorrenciaAluno.aluno_id, isouter=True)
@@ -721,15 +725,48 @@ def listar_rfo():
             Aluno1.serie,
             Aluno1.turma,
             Usuario.username,
-            TipoOcorrencia.nome
+            TipoOcorrencia.nome,
+            Ocorrencia.subtipo_elogio
         )
         .order_by(Ocorrencia.data_registro.desc())
         .all()
     )
 
     rfos_list = [dict(rfo._asdict()) for rfo in ocorrencias]
-    return render_template('disciplinar/listar_rfo.html', rfos=rfos_list)
 
+    agrupados = {}
+    for rfo in rfos_list:
+        rfo_id = rfo["rfo_id"]
+        tipo = rfo.get('tipo_ocorrencia_nome', '').lower()
+        subtipo = rfo.get('subtipo_elogio', '').lower()
+
+        # GARANTE O NOME DO LÍDER no registro de elogio coletivo
+        if tipo == "elogio" and subtipo == "coletivo":
+            serie = rfo.get("serie_lider")
+            turma = rfo.get("turma_lider")
+            lider_nome = None
+            if serie and turma:
+                lider_obj = db.query(LiderAluno).filter(
+                    LiderAluno.serie == serie,
+                    LiderAluno.turma == turma
+                ).first()
+                if lider_obj:
+                    aluno_lider = db.query(AlunoModel).filter(AlunoModel.id == lider_obj.aluno_id).first()
+                    if aluno_lider:
+                        lider_nome = aluno_lider.nome
+            # FORÇA o campo a ser o nome do líder SEMPRE
+            if lider_nome:
+                rfo["nome_aluno"] = lider_nome
+            else:
+                rfo["nome_aluno"] = "Líder não encontrado"
+            if rfo_id not in agrupados:
+                agrupados[rfo_id] = rfo
+        else:
+            agrupados[(rfo_id, rfo.get("matricula", ""))] = rfo
+
+    rfos_filtrados = list(agrupados.values())
+
+    return render_template('disciplinar/listar_rfo.html', rfos=rfos_filtrados)
 
 @disciplinar_bp.route('/visualizar_rfo/<int:ocorrencia_id>')
 @admin_secundario_required
