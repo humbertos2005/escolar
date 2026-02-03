@@ -1401,15 +1401,7 @@ def tratar_rfo(ocorrencia_id):
                         current_app.logger.exception('Erro ao gravar pontos_aplicados em ficha_medida_disciplinar/ocorrencias')
 
                 except Exception:
-                    current_app.logger.exception('Erro ao aplicar atualização de pontuacao')
-
-                try:
-                    from flask import session as flask_session
-                    ok, msg = create_or_append_prontuario_por_rfo(db, ocorrencia_id, flask_session.get('username'))
-                    if not ok:
-                        current_app.logger.debug('create_or_append_prontuario_por_rfo: ' + str(msg))
-                except Exception:
-                    current_app.logger.exception('Erro ao integrar RFO ao prontuário (tarefa auxiliar)')
+                    current_app.logger.exception('Erro ao aplicar atualização de pontuacao')               
 
                 try:
                     db.commit()
