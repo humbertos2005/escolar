@@ -9,6 +9,10 @@
             <i class="fas fa-check-square"></i> Selecionar Todos
         </button>
 
+        <a href="{{ url_for('alunos_bp.visualizar_por_turma') }}" class="button btn-info btn-sm" style="margin-left:5px;">
+            <i class="fas fa-layer-group"></i> Visualizar por Turmas
+        </a>
+
         <!-- Botão Excluir Selecionados (apenas admin) -->
         <button type="button" id="btn-excluir-selecionados" class="button btn-danger btn-sm d-none" title="Excluir alunos selecionados">
             <i class="fas fa-trash"></i> Excluir Selecionados

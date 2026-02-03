@@ -414,3 +414,39 @@ def gerenciar_alunos():
         else:
             return adicionar_aluno()
     return render_template('cadastros/gerenciar_alunos.html')
+
+@alunos_bp.route('/visualizar_por_turma', methods=['GET', 'POST'])
+@login_required
+def visualizar_por_turma():
+    """
+    Exibe uma página para o usuário selecionar uma série e uma turma,
+    e mostra os alunos da combinação escolhida.
+    """
+    db = get_db()
+    
+    # Busca todas as séries e turmas distintas para os filtros
+    series = db.query(Aluno.serie).distinct().order_by(Aluno.serie).all()
+    turmas = db.query(Aluno.turma).distinct().order_by(Aluno.turma).all()
+
+    alunos_filtrados = None
+    serie_selecionada = None
+    turma_selecionada = None
+
+    if request.method == 'POST':
+        serie_selecionada = request.form.get('serie')
+        turma_selecionada = request.form.get('turma')
+        if serie_selecionada and turma_selecionada:
+            alunos_filtrados = (
+                db.query(Aluno)
+                .filter(Aluno.serie == serie_selecionada, Aluno.turma == turma_selecionada)
+                .order_by(Aluno.nome)
+                .all()
+            )
+    return render_template(
+        'visualizacoes/visualizar_por_turma.html',
+        series=[s[0] for s in series if s[0]],
+        turmas=[t[0] for t in turmas if t[0]],
+        alunos=alunos_filtrados,
+        serie_selecionada=serie_selecionada,
+        turma_selecionada=turma_selecionada
+    )

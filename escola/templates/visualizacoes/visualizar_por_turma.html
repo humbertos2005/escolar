@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Visualizar Alunos por Série/Turma</h2>
+<div style="max-width:700px;margin:30px auto;">
+    <form method="POST" style="display:flex;gap:20px;align-items:center;justify-content:center;background:#f7f7f7;padding:20px;border-radius:10px;">
+        <div>
+            <label for="serie">Série:</label>
+            <select name="serie" id="serie" required>
+                <option value="">Selecione...</option>
+                {% for serie in series %}
+                <option value="{{ serie }}" {% if serie == serie_selecionada %}selected{% endif %}>{{ serie }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="turma">Turma:</label>
+            <select name="turma" id="turma" required>
+                <option value="">Selecione...</option>
+                {% for turma in turmas %}
+                <option value="{{ turma }}" {% if turma == turma_selecionada %}selected{% endif %}>{{ turma }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="button btn-primary">Buscar</button>
+    </form>
+</div>
+{% if alunos is defined and alunos %}
+<div class="table-info">
+    <p>Exibindo {{ alunos|length }} aluno(s) da Série {{ serie_selecionada }} Turma {{ turma_selecionada }}</p>
+</div>
+<div class="table-container" style="max-width:1100px;margin:0 auto;">
+    <table class="table table-data table-full">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Matrícula</th>
+                <th>Nome Completo</th>
+                <th>Série</th>
+                <th>Turma</th>
+                <th>Turno</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for aluno in alunos %}
+            <tr>
+                <td>{{ aluno.id }}</td>
+                <td>{{ aluno.matricula }}</td>
+                <td>{{ aluno.nome }}</td>
+                <td>{{ aluno.serie }}</td>
+                <td>{{ aluno.turma }}</td>
+                <td>{{ aluno.turno }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% elif alunos is defined %}
+<div class="empty-state">
+    <i class="fas fa-users"></i>
+    <p>Nenhum aluno encontrado para Série "{{ serie_selecionada }}" Turma "{{ turma_selecionada }}".</p>
+</div>
+{% endif %}
+{% endblock %}
