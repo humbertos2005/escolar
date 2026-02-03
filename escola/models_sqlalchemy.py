@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, Numeric
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, Numeric, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -41,6 +41,7 @@ class Aluno(Base):
     photo = Column(String)
     data_matricula = Column(String)
     data_nascimento = Column(String)
+    lider = Column(Boolean, default=False)
 
 # Telefones
 class Telefone(Base):

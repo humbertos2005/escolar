@@ -442,11 +442,46 @@ def visualizar_por_turma():
                 .order_by(Aluno.nome)
                 .all()
             )
+    
+    lider_id = None
+    if alunos_filtrados:
+        lider_aluno = next((a for a in alunos_filtrados if getattr(a, 'lider', False)), None)
+        lider_id = lider_aluno.id if lider_aluno else None
+    
     return render_template(
         'visualizacoes/visualizar_por_turma.html',
         series=[s[0] for s in series if s[0]],
         turmas=[t[0] for t in turmas if t[0]],
         alunos=alunos_filtrados,
         serie_selecionada=serie_selecionada,
-        turma_selecionada=turma_selecionada
+        turma_selecionada=turma_selecionada,
+        lider_id=lider_id
     )
+
+from flask import jsonify, request
+from models_sqlalchemy import Aluno
+from database import get_db
+
+@alunos_bp.route('/definir_lider/', methods=['POST'])
+def definir_lider():
+    """
+    Recebe o ID do aluno, série e turma e define esse aluno como líder da turma/série.
+    Garante que só um aluno seja líder por turma/série.
+    """
+    db = get_db()
+    data = request.get_json()
+    aluno_id = data.get('aluno_id')
+    serie = data.get('serie')
+    turma = data.get('turma')
+
+    # Remove o papel de líder dos outros alunos dessa turma/série
+    db.query(Aluno).filter(Aluno.serie==serie, Aluno.turma==turma).update({'lider': False})
+
+    # Marca o aluno como líder
+    aluno = db.query(Aluno).filter_by(id=aluno_id, serie=serie, turma=turma).first()
+    if aluno:
+        aluno.lider = True
+        db.commit()
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Aluno não encontrado.'}), 404
