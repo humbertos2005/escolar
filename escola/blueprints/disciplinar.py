@@ -526,6 +526,7 @@ def registrar_rfo():
                     (AlunoModel.turma == lider.turma)
                 ).all()
                 aluno_ids = [str(al.id) for al in alunos_da_turma]
+                print("Alunos vinculados ao RFO coletivo:", aluno_ids)
 
 
         tipo_ocorrencia_id_raw = request.form.get('tipo_ocorrencia_id')
@@ -587,14 +588,16 @@ def registrar_rfo():
                     for aluno in alunos_objs:
                         alunos_nome_map[str(aluno.id)] = f"{aluno.matricula} - {aluno.nome}"
                 flash('Nenhum aluno válido selecionado.', 'danger')
-                return render_template('disciplinar/registrar_rfo.html',
-                                    rfo_id_gerado=rfo_id_gerado,
-                                    tipos_ocorrencia=tipos_ocorrencia,
-                                    request_form=request.form,
-                                    g=g,
-                                    alunos_nome_map=alunos_nome_map)
+                return render_template(
+                    'disciplinar/registrar_rfo.html',
+                    rfo_id_gerado=rfo_id_gerado,
+                    tipos_ocorrencia=tipos_ocorrencia,
+                    request_form=request.form,
+                    g=g,
+                    alunos_nome_map=alunos_nome_map
+                )
 
-            primeiro_aluno = valid_aluno_ids[0] if valid_aluno_ids else None
+            primeiro_aluno = valid_aluno_ids[0]
 
             ocorrencia = Ocorrencia(
                 rfo_id=rfo_id_final,
@@ -606,7 +609,7 @@ def registrar_rfo():
                 advertencia_oral=advertencia_oral,
                 material_recolhido=material_recolhido,
                 tratamento_tipo=tipo_rfo,
-                tipo_rfo=tipo_rfo,                  # <--- LINHA NOVA, ESSENCIAL!
+                tipo_rfo=tipo_rfo,  # <--- LINHA NOVA, ESSENCIAL!
                 subtipo_elogio=subtipo_elogio,
                 responsavel_registro_id=session.get('user_id'),
                 status='AGUARDANDO TRATAMENTO'
@@ -614,25 +617,17 @@ def registrar_rfo():
             db.add(ocorrencia)
             db.commit()
 
-            ocorrencia_id = ocorrencia.id
+            from models_sqlalchemy import OcorrenciaAluno
 
             for aid in valid_aluno_ids:
-                try:
-                    oa = OcorrenciaAluno(ocorrencia_id=ocorrencia_id, aluno_id=aid)
-                    db.add(oa)
-                except Exception:
-                    try:
-                        oa = OcorrenciaAluno(ocorrencia_id=ocorrencia_id, aluno_id=str(aid))
-                        db.add(oa)
-                    except Exception:
-                        pass
+                db.add(OcorrenciaAluno(ocorrencia_id=ocorrencia.id, aluno_id=aid))
             db.commit()
 
             from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
 
             for aid in valid_aluno_ids:
                 try:
-                    create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
+                    create_or_append_prontuario_por_rfo(db, ocorrencia.id, session.get('username'), aluno_id=aid)
                 except Exception:
                     pass
             db.commit()
@@ -658,12 +653,15 @@ def registrar_rfo():
                 g=g,
                 alunos_nome_map=alunos_nome_map
             )
-
-    return render_template('disciplinar/registrar_rfo.html',
-                       rfo_id_gerado=rfo_id_gerado,
-                       tipos_ocorrencia=tipos_ocorrencia,
-                       g=g,
-                       alunos_nome_map={})
+    
+    return render_template(
+    'disciplinar/registrar_rfo.html',
+    rfo_id_gerado=rfo_id_gerado,
+    tipos_ocorrencia=tipos_ocorrencia,
+    request_form=request.form,
+    g=g,
+    alunos_nome_map={}
+)
 
 @disciplinar_bp.route('/listar_rfo')
 @admin_secundario_required
@@ -1208,85 +1206,16 @@ def tratar_rfo(ocorrencia_id):
                             _apply_delta_pontuacao(db, oa.aluno_id, datetime.now().strftime('%Y-%m-%d'), delta, oc_obj.id, medida_aplicada)
                             db.commit()
 
-                        # FMD de elogio para cada aluno
-                        from models_sqlalchemy import FichaMedidaDisciplinar
-                        seq, seq_ano = _next_fmd_sequence(db)
-                        fmd_id = f"FMD-{seq:04d}/{seq_ano}"
-                        data_fmd = datetime.now().strftime('%Y-%m-%d')
-                        from services.escolar_helper import compute_pontuacao_em_data, _infer_comportamento_por_faixa
-                        resultado = compute_pontuacao_em_data(oa.aluno_id, data_fmd)
-                        pontuacao_congelada = float(resultado.get('pontuacao')) if resultado else 8.0
-                        if pontuacao_congelada < 0:
-                            pontuacao_congelada = 0.0
-                        if pontuacao_congelada > 10:
-                            pontuacao_congelada = 10.0
-                        comportamento_congelado = _infer_comportamento_por_faixa(pontuacao_congelada)
-                        fmd_obj = FichaMedidaDisciplinar(
-                            fmd_id=fmd_id,
-                            aluno_id=oa.aluno_id,
-                            rfo_id=oc_obj.rfo_id,
-                            data_fmd=data_fmd,
-                            tipo_falta="Elogio",
-                            medida_aplicada=medida_aplicada,
-                            descricao_falta="Elogio registrado",
-                            observacoes="",
-                            responsavel_id=session.get('user_id'),
-                            data_registro=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            pontos_aplicados=delta,
-                            pontuacao_no_documento=pontuacao_congelada,
-                            comportamento_no_documento=comportamento_congelado,
-                            atenuantes=circ_at,
-                            agravantes=circ_ag
-                        )
-                        db.add(fmd_obj)
-                        db.commit()
+                        # REMOVIDA geração de FMD para elogio!
 
-                        # Atualiza prontuário de cada aluno
+                        # Mantém apenas o registro no prontuário:
                         from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
                         create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
                     except Exception:
                         continue
 
-                # Registra FMD de elogio para histórico correto no prontuário
-                from models_sqlalchemy import FichaMedidaDisciplinar
-                seq, seq_ano = _next_fmd_sequence(db)
-                fmd_id = f"FMD-{seq:04d}/{seq_ano}"
-                data_fmd = datetime.now().strftime('%Y-%m-%d')
-                from services.escolar_helper import compute_pontuacao_em_data, _infer_comportamento_por_faixa
-                resultado = compute_pontuacao_em_data(oc_obj.aluno_id, data_fmd)
-                pontuacao_congelada = float(resultado.get('pontuacao')) if resultado else 8.0
-                if pontuacao_congelada < 0:
-                    pontuacao_congelada = 0.0
-                if pontuacao_congelada > 10:
-                    pontuacao_congelada = 10.0
-                comportamento_congelado = _infer_comportamento_por_faixa(pontuacao_congelada)
-
-                fmd_obj = FichaMedidaDisciplinar(
-                    fmd_id=fmd_id,
-                    aluno_id=oc_obj.aluno_id,
-                    rfo_id=oc_obj.rfo_id,
-                    data_fmd=data_fmd,
-                    tipo_falta="Elogio",
-                    medida_aplicada=medida_aplicada,
-                    descricao_falta="Elogio registrado",
-                    observacoes="",
-                    responsavel_id=session.get('user_id'),
-                    data_registro=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    pontos_aplicados=delta,
-                    pontuacao_no_documento=pontuacao_congelada,
-                    comportamento_no_documento=comportamento_congelado,
-                    atenuantes=circ_at,
-                    agravantes=circ_ag
-                )
-                db.add(fmd_obj)
-                db.commit()
-
-                # Atualiza prontuário normalmente
-                username = session.get('username') or session.get('user', {}).get('username')
-                create_or_append_prontuario_por_rfo(db, ocorrencia_id, username)
-
             flash('RFO de elogio aprovado com sucesso. Pontuação somada ao aluno.', 'success')
-            return redirect(url_for('disciplinar_bp.listar_rfo'))
+            return redirect(url_for('disciplinar_bp.listar_rfo'))                        
     
         oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
         tipos_raw = request.form.get('tipo_falta_list', '').strip()

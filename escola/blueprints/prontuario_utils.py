@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import session, current_app
 
-def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
+def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_id=None):
     """
     Integra um RFO (ocorrencia_id) ao prontuário do aluno. Usa ORM/SQLAlchemy.
     - Evita duplicação consultando ProntuarioRFO.
@@ -35,7 +35,10 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
     if not ocorrencia:
         return False, 'Ocorrência/RFO não encontrada'
 
-    aluno = db.query(Aluno).filter_by(id=ocorrencia.aluno_id).first() if ocorrencia.aluno_id else None
+    if aluno_id is not None:
+        aluno = db.query(Aluno).filter_by(id=aluno_id).first()
+    else:
+        aluno = db.query(Aluno).filter_by(id=ocorrencia.aluno_id).first() if ocorrencia.aluno_id else None
     if not aluno:
         return False, 'Aluno relacionado ao RFO não encontrado'
 
