@@ -447,7 +447,9 @@ def visualizar_por_turma():
     if alunos_filtrados:
         lider_aluno = next((a for a in alunos_filtrados if getattr(a, 'lider', False)), None)
         lider_id = lider_aluno.id if lider_aluno else None
-    
+
+    # Busca todos os líderes da escola
+    lideres = db.query(Aluno).filter(Aluno.lider == True).order_by(Aluno.serie, Aluno.turma, Aluno.nome).all()
     return render_template(
         'visualizacoes/visualizar_por_turma.html',
         series=[s[0] for s in series if s[0]],
@@ -455,7 +457,8 @@ def visualizar_por_turma():
         alunos=alunos_filtrados,
         serie_selecionada=serie_selecionada,
         turma_selecionada=turma_selecionada,
-        lider_id=lider_id
+        lider_id=lider_id,
+        lideres=lideres
     )
 
 from flask import jsonify, request

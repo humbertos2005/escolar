@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from database import get_db
-from models_sqlalchemy import FaltaDisciplinar, Elogio, Cabecalho, DadosEscola, Aluno, LiderAluno   # use os modelos necessários em cada rota!
+from models_sqlalchemy import FaltaDisciplinar, Elogio, Cabecalho, DadosEscola, Aluno
 from models_sqlalchemy import Usuario
 from .utils import login_required, admin_secundario_required
 import re
@@ -748,32 +748,32 @@ def importar_faltas():
 
     return render_template('cadastros/importar_faltas.html', mensagem=mensagem)
 
-@cadastros_bp.route('/gerenciar_lideres')
-def gerenciar_lideres():
-    db = get_db()
-    lideres = db.query(LiderAluno).order_by(LiderAluno.nome).all()
-    return render_template('cadastros/gerenciar_lideres.html', lideres=lideres)
+#@cadastros_bp.route('/gerenciar_lideres')
+#def gerenciar_lideres():
+#    db = get_db()
+#    lideres = db.query(LiderAluno).order_by(LiderAluno.nome).all()
+#    return render_template('cadastros/gerenciar_lideres.html', lideres=lideres)
 
-@cadastros_bp.route('/lideres/novo', methods=['POST'])
-def cadastrar_lider():
-    db = get_db()
-    aluno_id = request.form.get('aluno_id')
-    if not aluno_id:
-        return "Selecione um aluno.", 400
-    aluno = db.query(Aluno).filter_by(id=aluno_id).first()
-    if not aluno:
-        return "Aluno não encontrado.", 404
-    # Evitar duplicidade
-    if db.query(LiderAluno).filter_by(aluno_id=aluno.id).first():
-        return "Este aluno já é líder.", 400
-    novo_lider = LiderAluno(
-        aluno_id=aluno.id,
-        nome=aluno.nome,
-        serie=aluno.serie,
-        turma=aluno.turma,
-        criado_em=datetime.utcnow().strftime("%Y-%m-%d %H:%M")
-    )
-    db.add(novo_lider)
-    db.commit()
-    flash('Líder cadastrado com sucesso!', 'success')
-    return redirect(url_for('cadastros_bp.gerenciar_lideres'))
+#@cadastros_bp.route('/lideres/novo', methods=['POST'])
+#def cadastrar_lider():
+#    db = get_db()
+#    aluno_id = request.form.get('aluno_id')
+#    if not aluno_id:
+#        return "Selecione um aluno.", 400
+#    aluno = db.query(Aluno).filter_by(id=aluno_id).first()
+#    if not aluno:
+#        return "Aluno não encontrado.", 404
+#    # Evitar duplicidade
+#    if db.query(LiderAluno).filter_by(aluno_id=aluno.id).first():
+#        return "Este aluno já é líder.", 400
+#    novo_lider = LiderAluno(
+#        aluno_id=aluno.id,
+#        nome=aluno.nome,
+#        serie=aluno.serie,
+#        turma=aluno.turma,
+#        criado_em=datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+#    )
+#    db.add(novo_lider)
+#    db.commit()
+#    flash('Líder cadastrado com sucesso!', 'success')
+#    return redirect(url_for('cadastros_bp.gerenciar_lideres'))

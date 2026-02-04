@@ -24,6 +24,31 @@
         <button type="submit" class="button btn-primary">Buscar</button>
     </form>
 </div>
+
+{% if lideres %}
+    <div class="table-info" style="margin-top:30px;">
+        <h4>Líderes Cadastrados</h4>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Série</th>
+                    <th>Turma</th>
+                    <th>Nome</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lider in lideres %}
+                <tr>
+                    <td>{{ lider.serie }}</td>
+                    <td>{{ lider.turma }}</td>
+                    <td>{{ lider.nome }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+
 {% if alunos is defined and alunos %}
 <div class="table-info">
     <p>Exibindo {{ alunos|length }} aluno(s) da Série {{ serie_selecionada }} Turma {{ turma_selecionada }}</p>
@@ -63,7 +88,7 @@
         </tbody>
     </table>
 </div>
-{% elif alunos is defined %}
+{% elif alunos is defined and serie_selecionada and turma_selecionada %}
 <div class="empty-state">
     <i class="fas fa-users"></i>
     <p>Nenhum aluno encontrado para Série "{{ serie_selecionada }}" Turma "{{ turma_selecionada }}".</p>
