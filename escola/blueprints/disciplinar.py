@@ -521,9 +521,20 @@ def registrar_rfo():
             lider_id = aluno_ids[0]
             lider = db.query(LiderAluno).filter((LiderAluno.aluno_id == lider_id)).first()
             if lider and lider.serie and lider.turma:
+                print("DEBUG SERIE LÍDER:", repr(lider.serie), [ord(c) for c in lider.serie])
+                # Solução robusta: filtra só pelo número da série e a turma
+                import re
+
+                def extrair_numero_serie(serie_str):
+                    m = re.match(r'^(\d+)', str(serie_str))
+                    return m.group(1) if m else ''
+
+                numero_serie_lider = extrair_numero_serie(lider.serie)
+                turma_lider = lider.turma
+
                 alunos_da_turma = db.query(AlunoModel).filter(
-                    (AlunoModel.serie == lider.serie) &
-                    (AlunoModel.turma == lider.turma)
+                    AlunoModel.turma == turma_lider,
+                    AlunoModel.serie.op('~')(rf'^{numero_serie_lider}\D*')
                 ).all()
                 aluno_ids = [str(al.id) for al in alunos_da_turma]
                 print("Alunos vinculados ao RFO coletivo:", aluno_ids)
@@ -625,6 +636,8 @@ def registrar_rfo():
 
             from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
 
+            print("Alunos vinculados ao RFO coletivo:", aluno_ids)
+            print("IDs para criar prontuário coletivo:", valid_aluno_ids)
             for aid in valid_aluno_ids:
                 try:
                     create_or_append_prontuario_por_rfo(db, ocorrencia.id, session.get('username'), aluno_id=aid)
