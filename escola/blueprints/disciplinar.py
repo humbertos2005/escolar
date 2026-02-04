@@ -630,10 +630,9 @@ def registrar_rfo():
 
             from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
 
-            alunos_vinculados = db.query(OcorrenciaAluno).filter_by(ocorrencia_id=ocorrencia_id).all()
-            for oa in alunos_vinculados:
+            for aid in valid_aluno_ids:
                 try:
-                    create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'), aluno_id=oa.aluno_id)
+                    create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
                 except Exception:
                     pass
             db.commit()
@@ -1121,6 +1120,7 @@ def tratar_rfo(ocorrencia_id):
                 config = _get_config_values(db)
                 delta = _calcular_delta_por_medida(medida_aplicada, 1, config)
 
+                # Busca todos os alunos vinculados a esta ocorrência coletiva
                 alunos_coletivo = db.query(OcorrenciaAluno).filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id).all()
                 for oa in alunos_coletivo:
                     try:
@@ -1160,8 +1160,12 @@ def tratar_rfo(ocorrencia_id):
                         )
                         db.add(fmd_obj)
                         db.commit()
+
+                        # Atualiza prontuário de cada aluno
+                        from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
+                        create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
                     except Exception:
-                        continue  # ou use 'pass' se preferir ignorar o erro
+                        continue
 
                 # Registra FMD de elogio para histórico correto no prontuário
                 from models_sqlalchemy import FichaMedidaDisciplinar
@@ -1198,13 +1202,8 @@ def tratar_rfo(ocorrencia_id):
                 db.commit()
 
                 # Atualiza prontuário normalmente
-                alunos_vinculados = db.query(OcorrenciaAluno).filter_by(ocorrencia_id=ocorrencia_id).all()
                 username = session.get('username') or session.get('user', {}).get('username')
-                for oa in alunos_vinculados:
-                    try:
-                        create_or_append_prontuario_por_rfo(db, ocorrencia_id, username, aluno_id=oa.aluno_id)
-                    except Exception:
-                        pass
+                create_or_append_prontuario_por_rfo(db, ocorrencia_id, username)
 
             flash('RFO de elogio aprovado com sucesso. Pontuação somada ao aluno.', 'success')
             return redirect(url_for('disciplinar_bp.listar_rfo'))
@@ -1401,7 +1400,15 @@ def tratar_rfo(ocorrencia_id):
                         current_app.logger.exception('Erro ao gravar pontos_aplicados em ficha_medida_disciplinar/ocorrencias')
 
                 except Exception:
-                    current_app.logger.exception('Erro ao aplicar atualização de pontuacao')               
+                    current_app.logger.exception('Erro ao aplicar atualização de pontuacao')
+
+                try:
+                    from flask import session as flask_session
+                    ok, msg = create_or_append_prontuario_por_rfo(db, ocorrencia_id, flask_session.get('username'))
+                    if not ok:
+                        current_app.logger.debug('create_or_append_prontuario_por_rfo: ' + str(msg))
+                except Exception:
+                    current_app.logger.exception('Erro ao integrar RFO ao prontuário (tarefa auxiliar)')
 
                 try:
                     db.commit()

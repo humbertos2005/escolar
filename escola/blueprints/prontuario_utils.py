@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import session, current_app
 
-def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_id=None):
+def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None):
     """
     Integra um RFO (ocorrencia_id) ao prontuário do aluno. Usa ORM/SQLAlchemy.
     - Evita duplicação consultando ProntuarioRFO.
@@ -22,25 +22,9 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_i
         Prontuario, ProntuarioRFO, Ocorrencia, Aluno
     )
     # Checar se já existe vínculo
-    if aluno_id:
-        prontuario_do_aluno = db.query(Prontuario).filter_by(aluno_id=aluno_id).order_by(Prontuario.id.desc()).first()
-        if not prontuario_do_aluno:
-            prontuario_do_aluno = Prontuario(
-                aluno_id=aluno_id,
-                responsavel='',
-                email='',
-                registros_fatos='',
-                created_at=datetime.utcnow().isoformat(),
-                deleted=0,
-            )
-            db.add(prontuario_do_aluno)
-            db.commit()
-        existing_link = db.query(ProntuarioRFO).filter_by(
-            ocorrencia_id=ocorrencia_id,
-            prontuario_id=prontuario_do_aluno.id
-        ).first()
-        if existing_link:
-            return False, 'RFO já integrado ao prontuário deste aluno (vínculo existente)'
+    existing_link = db.query(ProntuarioRFO).filter_by(ocorrencia_id=ocorrencia_id).first()
+    if existing_link:
+        return False, 'RFO já integrado ao prontuário (vínculo existente)'
 
     ocorrencia = (
         db.query(Ocorrencia)
@@ -51,10 +35,7 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_i
     if not ocorrencia:
         return False, 'Ocorrência/RFO não encontrada'
 
-    if aluno_id:
-        aluno = db.query(Aluno).filter_by(id=aluno_id).first()
-    else:
-        aluno = db.query(Aluno).filter_by(id=ocorrencia.aluno_id).first() if ocorrencia.aluno_id else None
+    aluno = db.query(Aluno).filter_by(id=ocorrencia.aluno_id).first() if ocorrencia.aluno_id else None
     if not aluno:
         return False, 'Aluno relacionado ao RFO não encontrado'
 
