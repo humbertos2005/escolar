@@ -26,6 +26,7 @@ class Aluno(Base):
     turma = Column(String)
     turno = Column(String)
     pai = Column(String)
+    serie_numerica = Column(String)
     mae = Column(String)
     responsavel = Column(String)
     email = Column(String)

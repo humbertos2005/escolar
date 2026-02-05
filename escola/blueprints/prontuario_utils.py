@@ -21,11 +21,7 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_i
     from models_sqlalchemy import (
         Prontuario, ProntuarioRFO, Ocorrencia, Aluno
     )
-    # Checar se já existe vínculo
-    existing_link = db.query(ProntuarioRFO).filter_by(ocorrencia_id=ocorrencia_id).first()
-    if existing_link:
-        return False, 'RFO já integrado ao prontuário (vínculo existente)'
-
+    
     ocorrencia = (
         db.query(Ocorrencia)
         .filter_by(id=ocorrencia_id)
@@ -81,6 +77,15 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_i
         .order_by(Prontuario.id.desc())
         .first()
     )
+
+    # Checar se já existe vínculo
+    existing_link = db.query(ProntuarioRFO).filter_by(
+        ocorrencia_id=ocorrencia_id,
+        prontuario_id=prontuario.id if prontuario else None
+    ).first()
+    if existing_link:
+        return False, 'RFO já integrado ao prontuário deste aluno (vínculo existente)'
+
     try:
         if prontuario:
             atenuante = getattr(ocorrencia, 'circunstancias_atenuantes', '') or getattr(ocorrencia, 'atenuantes', '') or 'Não há'

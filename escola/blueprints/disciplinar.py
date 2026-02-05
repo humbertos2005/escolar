@@ -534,7 +534,7 @@ def registrar_rfo():
 
                 alunos_da_turma = db.query(AlunoModel).filter(
                     AlunoModel.turma == turma_lider,
-                    AlunoModel.serie.op('~')(rf'^{numero_serie_lider}\D*')
+                    AlunoModel.serie_numerica == numero_serie_lider
                 ).all()
                 aluno_ids = [str(al.id) for al in alunos_da_turma]
                 print("Alunos vinculados ao RFO coletivo:", aluno_ids)

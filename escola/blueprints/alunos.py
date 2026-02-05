@@ -61,6 +61,13 @@ def process_aluno_data(data_source):
 from models_sqlalchemy import Aluno, Ocorrencia
 from sqlalchemy import or_
 
+import re
+
+def extrair_numero_serie(serie_str):
+    """Extrai só o número da série de um texto (ex: '5║', '5º', '5°' vira '5')"""
+    m = re.match(r'^(\d+)', str(serie_str).strip())
+    return m.group(1) if m else ''
+
 @alunos_bp.route('/listar_alunos')
 @login_required
 def listar_alunos():
@@ -98,6 +105,7 @@ def adicionar_aluno():
                     serie = data['serie'],
                     turma = data['turma'],
                     turno = data['turno'],
+                    serie_numerica = extrair_numero_serie(data['serie']),
                     pai = data['pai'],
                     mae = data['mae'],
                     responsavel = data['responsavel'],
@@ -162,6 +170,7 @@ def editar_aluno(aluno_id):
                 # atualiza campos
                 for k, v in data.items():
                     setattr(aluno, k, v)
+                aluno.serie_numerica = extrair_numero_serie(data.get('serie', ''))
                 db.commit()
                 flash(f'Dados do aluno "{data["nome"]}" atualizados com sucesso!', 'success')
                 return redirect(url_for('alunos_bp.listar_alunos'))
@@ -283,7 +292,8 @@ def importar_alunos():
                 telefone_str = ', '.join(telefones[:3])
                 aluno = Aluno(
                     matricula=matricula, nome=nome, data_nascimento=data_nascimento, data_matricula=data_matricula,
-                    serie=serie, turma=turma, turno=turno, pai=pai, mae=mae, responsavel=responsavel,
+                    serie=serie, turma=turma, serie_numerica=extrair_numero_serie(serie), turno=turno, 
+                    pai=pai, mae=mae, responsavel=responsavel,
                     telefone=telefone_str, email=email, rua=rua, numero=numero, complemento=complemento,
                     bairro=bairro, cidade=cidade, estado=estado
                 )
