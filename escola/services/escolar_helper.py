@@ -323,8 +323,9 @@ def compute_pontuacao_em_data(aluno_id, data_referencia):
     Retorna a pontuação e o comportamento do aluno NA DATA informada.
     - aluno_id: ID do aluno
     - data_referencia: data (string: 'YYYY-MM-DD') ou datetime
+    INCLUI CÁLCULO DE BÔNUS (60 dias sem ocorrências)
     """
-    from datetime import datetime  # <-- Importação correta no início!
+    from datetime import datetime, timedelta
     db = get_db()
     try:
         # Garante formato correto de data
@@ -369,6 +370,101 @@ def compute_pontuacao_em_data(aluno_id, data_referencia):
                 pontuacao += float(h.valor_delta)
             except Exception:
                 continue
+
+        # BÔNUS: 60 dias sem ocorrências = +0.2 por dia após o período de graça
+        bonus_tempo = 0.0
+        print(f"DEBUG INÍCIO CÁLCULO BÔNUS - aluno_id={aluno_id}")
+        try:
+            # Busca a última ocorrência COM perda (delta negativo)
+            historico_perdas = [
+                h for h in db.query(PontuacaoHistorico).filter(
+                    PontuacaoHistorico.aluno_id == aluno_id,
+                    PontuacaoHistorico.valor_delta < 0
+                ).all()
+                if string_to_date(h.criado_em) and string_to_date(h.criado_em) < data_ref.date()
+            ]
+            
+            print(f"DEBUG - Histórico de perdas encontrado: {len(historico_perdas)} registros")
+            
+            if historico_perdas:
+                # Última perda
+                ultima_perda_date = max([string_to_date(h.criado_em) for h in historico_perdas])
+                print(f"DEBUG - Última perda em: {ultima_perda_date}")
+            else:
+                # Se não tem perdas, usa a data de matrícula do aluno
+                print(f"DEBUG - Nenhuma perda encontrada, buscando data de matrícula...")
+                aluno = db.query(Aluno).get(aluno_id)
+                dm = aluno.data_matricula if aluno else None
+                print(f"DEBUG - Data de matrícula: {dm}")
+                if dm:
+                    try:
+                        ultima_perda_date = datetime.strptime(dm, '%Y-%m-%d').date()
+                        print(f"DEBUG - Data de matrícula convertida: {ultima_perda_date}")
+                    except Exception as ex:
+                        print(f"DEBUG - ERRO ao converter data de matrícula: {ex}")
+                        ultima_perda_date = None
+                else:
+                    ultima_perda_date = None
+            
+            if ultima_perda_date:
+                # Calcula dias desde a última perda até a data de referência
+                dias_sem_perda = (data_ref.date() - ultima_perda_date).days
+                print(f"DEBUG - Dias sem perda: {dias_sem_perda}")
+                
+                # Aplica bônus SOMENTE após 60 dias de graça
+                if dias_sem_perda > 60:
+                    dias_bonus = dias_sem_perda - 60
+                    bonus_tempo = dias_bonus * 0.2
+                    print(f"DEBUG BÔNUS APLICADO: {dias_sem_perda} dias sem perda, {dias_bonus} dias de bônus = +{bonus_tempo}")
+                else:
+                    print(f"DEBUG - Ainda no período de graça (60 dias)")
+            else:
+                print(f"DEBUG - Não foi possível determinar data base para bônus")
+        except Exception as ex:
+            print(f"[ERRO ao calcular bônus de tempo] {ex}")
+            import traceback
+            traceback.print_exc()
+            bonus_tempo = 0.0
+        try:
+            # Busca a última ocorrência COM perda (delta negativo)
+            historico_perdas = [
+                h for h in db.query(PontuacaoHistorico).filter(
+                    PontuacaoHistorico.aluno_id == aluno_id,
+                    PontuacaoHistorico.valor_delta < 0
+                ).all()
+                if string_to_date(h.criado_em) and string_to_date(h.criado_em) <= data_ref.date()
+            ]
+            
+            if historico_perdas:
+                # Última perda
+                ultima_perda_date = max([string_to_date(h.criado_em) for h in historico_perdas])
+            else:
+                # Se não tem perdas, usa a data de matrícula do aluno
+                aluno = db.query(Aluno).get(aluno_id)
+                dm = aluno.data_matricula if aluno else None
+                if dm:
+                    try:
+                        ultima_perda_date = datetime.strptime(dm, '%Y-%m-%d').date()
+                    except Exception:
+                        ultima_perda_date = None
+                else:
+                    ultima_perda_date = None
+            
+            if ultima_perda_date:
+                # Calcula dias desde a última perda até a data de referência
+                dias_sem_perda = (data_ref.date() - ultima_perda_date).days
+                
+                # Aplica bônus SOMENTE após 60 dias de graça
+                if dias_sem_perda > 60:
+                    dias_bonus = dias_sem_perda - 60
+                    bonus_tempo = dias_bonus * 0.2
+                    print(f"DEBUG BÔNUS: {dias_sem_perda} dias sem perda, {dias_bonus} dias de bônus = +{bonus_tempo}")
+        except Exception as ex:
+            print(f"[ERRO ao calcular bônus de tempo] {ex}")
+            bonus_tempo = 0.0
+
+        # Soma o bônus
+        pontuacao += bonus_tempo
 
         # Limites conforme regras do sistema
         pontuacao = max(0.0, min(10.0, pontuacao))

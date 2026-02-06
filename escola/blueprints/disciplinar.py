@@ -13,7 +13,7 @@ from models_sqlalchemy import (
 
 from services.escolar_helper import get_tipos_ocorrencia, get_proximo_fmd_id, get_faltas_disciplinares
 from services.escolar_helper import compute_pontuacao_corrente, _infer_comportamento_por_faixa
-from services.escolar_helper import _calcular_delta_por_medida, _get_config_values, _apply_delta_pontuacao
+from services.escolar_helper import _calcular_delta_por_medida, _get_config_values, _apply_delta_pontuacao, compute_pontuacao_em_data
 # ...
 from .utils import (
     login_required,
@@ -275,7 +275,6 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
     """
     Calcula o delta (positivo/negativo) aplicável à pontuação a partir do texto da medida e quantidade.
     Aceita variações como advertencia oral, advertência oral, adv oral, advert oral, etc.
-    Também faz print dos valores de depuração.
     """
     if not medida_aplicada:
         print("DEBUG - medida_aplicada vazia.")
@@ -283,50 +282,57 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
 
     # Remove acentos, coloca maiúsculo e remove espaços duplicados
     m = unidecode(str(medida_aplicada)).upper().replace("  ", " ").strip()
+    print(f"DEBUG _calcular_delta_por_medida - Original: '{medida_aplicada}', Normalizado: '{m}'")
+    
     try:
         qtd = float(qtd or 1)
     except Exception:
         qtd = 1.0
 
-    # Formas mais comuns de cada medida
-    if 'ADVERTENCIA ORAL' in m or 'ADV ORAL' in m or ('ORAL' in m and 'ADVERT' in m):
+    # ADVERTÊNCIA ORAL (inclui mais variações)
+    if any(x in m for x in ['ADVERTENCIA ORAL', 'ADV ORAL', 'ADVERT ORAL', 'ORAL']):
         delta = qtd * float(config.get('advertencia_oral', -0.1))
-        print("DEBUG - delta calculado para ADVERTÊNCIA ORAL:", delta)
+        print(f"DEBUG - ADVERTÊNCIA ORAL identificada! Delta calculado: {delta} (qtd={qtd}, config={config.get('advertencia_oral', -0.1)})")
         return delta
-    if 'ADVERTENCIA ESCRITA' in m or 'ADV ESCRITA' in m or ('ESCRITA' in m and 'ADVERT' in m):
+    
+    # ADVERTÊNCIA ESCRITA
+    if any(x in m for x in ['ADVERTENCIA ESCRITA', 'ADV ESCRITA', 'ADVERT ESCRITA', 'ESCRITA']):
         delta = qtd * float(config.get('advertencia_escrita', -0.3))
-        print("DEBUG - delta calculado para ADVERTÊNCIA ESCRITA:", delta)
+        print(f"DEBUG - ADVERTÊNCIA ESCRITA identificada! Delta calculado: {delta}")
         return delta
+    
+    # SUSPENSÃO
     if 'SUSPENS' in m or 'SUSPENSAO' in m:
         nums = re.findall(r'(\d+)', m)
         dias = int(nums[0]) if nums else int(qtd)
         delta = dias * float(config.get('suspensao_dia', -0.5))
-        print("DEBUG - delta calculado para SUSPENSÃO:", delta)
+        print(f"DEBUG - SUSPENSÃO identificada! Delta calculado: {delta} (dias={dias})")
         return delta
-    if 'ACAO EDUCATIVA' in m or 'ACAO EDUCATIVA' in m or 'EDUCATIVA' in m:
+    
+    # AÇÃO EDUCATIVA
+    if 'ACAO EDUCATIVA' in m or 'EDUCATIVA' in m:
         nums = re.findall(r'(\d+)', m)
         dias = int(nums[0]) if nums else int(qtd)
         delta = dias * float(config.get('acao_educativa_dia', -1.0))
-        print("DEBUG - delta calculado para AÇÃO EDUCATIVA:", delta)
+        print(f"DEBUG - AÇÃO EDUCATIVA identificada! Delta calculado: {delta} (dias={dias})")
         return delta
-    # Reconhece elogio individual, coletivo ou genérico
+    
+    # ELOGIOS
     if 'ELOGIO' in m:
-        # Se mencionar individual
         if 'INDIVIDU' in m:
             delta = qtd * float(config.get('elogio_individual', 0.5))
-            print("DEBUG - delta calculado para ELOGIO INDIVIDUAL:", delta)
+            print(f"DEBUG - ELOGIO INDIVIDUAL identificado! Delta calculado: {delta}")
             return delta
-        # Se mencionar coletivo
         if 'COLET' in m:
             delta = qtd * float(config.get('elogio_coletivo', 0.3))
-            print("DEBUG - delta calculado para ELOGIO COLETIVO:", delta)
+            print(f"DEBUG - ELOGIO COLETIVO identificado! Delta calculado: {delta}")
             return delta
-        # Se não especificar nada (default: individual)
+        # Elogio genérico
         delta = qtd * float(config.get('elogio_individual', 0.5))
-        print("DEBUG - delta calculado para ELOGIO GENERICO:", delta)
+        print(f"DEBUG - ELOGIO GENÉRICO identificado! Delta calculado: {delta}")
         return delta
 
-    print("DEBUG - Nenhum caso identificado. Retornando delta 0.0")
+    print(f"DEBUG - NENHUM CASO IDENTIFICADO para '{m}'. Retornando delta 0.0")
     return 0.0
 
 def _next_fmd_sequence(db):
@@ -653,9 +659,7 @@ def registrar_rfo():
             for aid in valid_aluno_ids:
                 db.add(OcorrenciaAluno(ocorrencia_id=ocorrencia.id, aluno_id=aid))
             db.commit()
-
-            from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
-
+            
             print("Alunos vinculados ao RFO coletivo:", aluno_ids)
             print("IDs para criar prontuário coletivo:", valid_aluno_ids)
             for aid in valid_aluno_ids:
@@ -1074,6 +1078,7 @@ def tratar_rfo(ocorrencia_id):
 
     ocorrencia_dict = dict(ocorrencia._asdict() if hasattr(ocorrencia, "_asdict") else ocorrencia)
 
+
     # Monta lista inicial de alunos com base no aluno principal da ocorrência
     alunos_list = [{
         'id': '',
@@ -1174,8 +1179,7 @@ def tratar_rfo(ocorrencia_id):
 
                         # REMOVIDA geração de FMD para elogio!
 
-                        # Mantém apenas o registro no prontuário:
-                        from blueprints.prontuario_utils import create_or_append_prontuario_por_rfo
+                        # Mantém apenas o registro no prontuário:                        
                         create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
                     except Exception:
                         continue
@@ -1301,6 +1305,8 @@ def tratar_rfo(ocorrencia_id):
                             config = _get_config_values(db)
                             qtd_form = request.form.get('sim_qtd') or request.form.get('dias') or request.form.get('quantidade') or 1
                             delta = _calcular_delta_por_medida(medida_aplicada, qtd_form, config)
+                            aluno_id_local = getattr(oc_obj, 'aluno_id', None)
+                            data_fmd = datetime.now().strftime('%Y-%m-%d')
                             _apply_delta_pontuacao(db, oc_obj.aluno_id, data_trat, delta, ocorrencia_id, medida_aplicada, data_despacho)
                             db.commit()
                             resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd)
@@ -1313,8 +1319,7 @@ def tratar_rfo(ocorrencia_id):
                         )
 
                     try:
-                        rfo_id = getattr(oc_obj, 'rfo_id', None)
-                        aluno_id_local = getattr(oc_obj, 'aluno_id', None)
+                        rfo_id = getattr(oc_obj, 'rfo_id', None)                        
                         responsavel_id = getattr(oc_obj, 'responsavel_registro_id', None) or getattr(oc_obj, 'observador_id', None)
                         responsavel_id = int(responsavel_id) if responsavel_id is not None else 0
                         tipo_falta_val = tipos_csv
@@ -1328,11 +1333,8 @@ def tratar_rfo(ocorrencia_id):
                                 existing.pontos_aplicados = float(delta) if 'delta' in locals() else 0.0
                             else:
                                 seq, seq_ano = _next_fmd_sequence(db)
-                                fmd_id = f"FMD-{seq:04d}/{seq_ano}"
-                                data_fmd = datetime.now().strftime('%Y-%m-%d')                                
-
-                                from services.escolar_helper import compute_pontuacao_em_data
-
+                                fmd_id = f"FMD-{seq:04d}/{seq_ano}"                                
+                                
                                 # Corrigido: pega a pontuação atual do aluno (já descontada), NÃO aplica o delta de novo!
                                 resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd)
                                 pontuacao_congelada = float(resultado.get('pontuacao'))

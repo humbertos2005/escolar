@@ -56,6 +56,9 @@ def get_prontuario_extras(db, prontuario_id):
       - prontuario_comportamento: string ou None
       - prontuario_pontuacao: number or None
     """
+
+    db.rollback()
+
     # SQLAlchemy imports dos modelos necessários:
     from models_sqlalchemy import (
         ProntuarioRFO, Ocorrencia, FichaMedidaDisciplinar, Usuario, Comportamento
@@ -536,6 +539,7 @@ def visualizar_prontuario(prontuario_id):
     Também carrega o cabeçalho de documentos (Cadastros/Cabeçalho Documentos) e o passa ao template.
     """
     db = get_db()
+    db.rollback()
     try:
         p = db.query(Prontuario).filter_by(id=prontuario_id).first()
         if not p:
@@ -619,20 +623,40 @@ def visualizar_prontuario(prontuario_id):
         if not circ_agravantes_texto or circ_agravantes_texto.strip() == "":
             circ_agravantes_texto = "Não há"
 
-        # CORREÇÃO: Buscar comportamento e pontuação pela FMD mais recente do aluno
+        # CORREÇÃO: Buscar comportamento e pontuação ATUALIZADOS
         comportamento = None
         pontuacao = None
+
         if p.aluno_id:
-            from models_sqlalchemy import FichaMedidaDisciplinar
-            fmd = (
-                db.query(FichaMedidaDisciplinar)
-                .filter_by(aluno_id=p.aluno_id)
-                .order_by(FichaMedidaDisciplinar.data_fmd.desc(), FichaMedidaDisciplinar.id.desc())
-                .first()
-            )
-            if fmd:
-                comportamento = getattr(fmd, 'comportamento_no_documento', None)
-                pontuacao = getattr(fmd, 'pontuacao_no_documento', None)
+            try:
+                from services.escolar_helper import compute_pontuacao_corrente, _infer_comportamento_por_faixa
+                
+                # Calcula a pontuação ATUAL do aluno
+                pontuacao_result = compute_pontuacao_corrente(p.aluno_id)
+                
+                if isinstance(pontuacao_result, dict):
+                    valor_pontuacao = pontuacao_result.get('pontuacao_atual') or pontuacao_result.get('pontuacao') or 8.0
+                else:
+                    valor_pontuacao = pontuacao_result if pontuacao_result is not None else 8.0
+                
+                pontuacao = round(float(valor_pontuacao), 2)
+                comportamento = _infer_comportamento_por_faixa(valor_pontuacao)
+                
+                print(f"DEBUG PONTUAÇÃO PRONTUÁRIO - Aluno ID: {p.aluno_id}, Pontuação calculada: {pontuacao}, Comportamento: {comportamento}")
+            
+            except Exception as e:
+                print(f"ERRO ao calcular pontuação do prontuário: {e}")
+                # Fallback: tenta pegar da FMD mais recente
+                from models_sqlalchemy import FichaMedidaDisciplinar
+                fmd = (
+                    db.query(FichaMedidaDisciplinar)
+                    .filter_by(aluno_id=p.aluno_id)
+                    .order_by(FichaMedidaDisciplinar.data_fmd.desc(), FichaMedidaDisciplinar.id.desc())
+                    .first()
+                )
+                if fmd:
+                    comportamento = getattr(fmd, 'comportamento_no_documento', None)
+                    pontuacao = getattr(fmd, 'pontuacao_no_documento', None)
 
         # Buscar extras (prontuario_rfos, comportamento e pontuacao) - se disponíveis
         extras = get_prontuario_extras(db, p.id)

@@ -419,28 +419,42 @@ console.trace("Carregando tratar_rfo.js em", window.location.href, "timestamp", 
 
     // decide which falta identifier to use for reincidencia checking: first selected id OR current input text
     function decideFaltaIdentifier() {
+      console.log('decideFaltaIdentifier: selectedFaltas =', selectedFaltas);
+      console.log('decideFaltaIdentifier: faltaHidden.value =', faltaHidden ? faltaHidden.value : 'N/A');
+      
       if (selectedFaltas && selectedFaltas.length) {
+        console.log('decideFaltaIdentifier: retornando ID do array:', String(selectedFaltas[0].id));
         return String(selectedFaltas[0].id);
       }
       if (faltaHidden && faltaHidden.value && faltaHidden.value.trim()) {
         const first = faltaHidden.value.split(',').map(s => s.trim()).filter(Boolean)[0];
-        if (first) return String(first);
+        if (first) {
+          console.log('decideFaltaIdentifier: retornando ID do hidden:', String(first));
+          return String(first);
+        }
       }
       if (faltaSearch && faltaSearch.value && faltaSearch.value.trim()) {
+        console.log('decideFaltaIdentifier: retornando texto do input:', faltaSearch.value.trim());
         return faltaSearch.value.trim();
       }
+      console.log('decideFaltaIdentifier: retornando NULL');
       return null;
     }
 
-    // checkReincidencia wrapper with debounce
     const debouncedCheck = debounce(function () {
       const identifier = decideFaltaIdentifier();
       console.log('debouncedCheck invoked, identifier=', identifier);
+      console.log('debouncedCheck: alunoIdInput =', alunoIdInput);
+      console.log('debouncedCheck: alunoIdInput.value =', alunoIdInput ? alunoIdInput.value : 'N/A');
+      
       if (!identifier || !alunoIdInput || !alunoIdInput.value) {
+        console.warn('⚠️ debouncedCheck: ABORTADO - faltam dados');
         showResult('');
         clearReclassifyUI();
         return;
       }
+      
+      console.log('✅ debouncedCheck: CHAMANDO checkReincidenciaUsing com identifier:', identifier);
           
       checkReincidenciaUsing(identifier).then(data => {
         console.log('checkReincidencia result ->', data);
@@ -549,7 +563,13 @@ console.trace("Carregando tratar_rfo.js em", window.location.href, "timestamp", 
                 selectedFaltas.push({ id: id, descricao: descricao });
                 selectedFaltas = dedupeById(selectedFaltas);
                 renderFaltas();
-                debouncedCheck.run();
+                
+                // CRÍTICO: Log e chamada forçada após 100ms
+                console.log('selectedFaltas após adicionar:', selectedFaltas);
+                console.log('Forçando verificação de reincidência com ID:', id);
+                setTimeout(function() {
+                  debouncedCheck.run();
+                }, 100);
               }
               faltaSearch.value = '';
               closeDropdown();
@@ -767,4 +787,6 @@ console.trace("Carregando tratar_rfo.js em", window.location.href, "timestamp", 
     alert("CHAMANDO INIT DIRETO!");
     init();
   }
+
+
 })();

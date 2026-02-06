@@ -152,7 +152,7 @@
         </h3>
 
         <form method="POST" id="form-tratar-rfo" data-tipo="{{ tipo_val }}">
-            <input type="hidden" name="aluno_id" value="{{ ocorrencia.alunos_list[0].id if ocorrencia.alunos_list and ocorrencia.alunos_list[0].id else ocorrencia.aluno_id }}">
+            <input type="hidden" name="aluno_id" id="aluno_id_hidden" value="{% if ocorrencia.Ocorrencia and ocorrencia.Ocorrencia.aluno_id %}{{ ocorrencia.Ocorrencia.aluno_id }}{% elif ocorrencia.alunos_list and ocorrencia.alunos_list|length > 0 and ocorrencia.alunos_list[0].id %}{{ ocorrencia.alunos_list[0].id }}{% elif ocorrencia.aluno_id %}{{ ocorrencia.aluno_id }}{% endif %}">
             <input type="hidden" id="reincidencia_hidden" name="reincidencia" value="{{ ocorrencia.reincidencia if ocorrencia.reincidencia is not none else 0 }}">
 
             <fieldset class="form-fieldset" id="fieldset-classificacao">
