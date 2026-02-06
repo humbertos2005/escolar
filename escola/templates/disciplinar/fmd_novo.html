@@ -86,7 +86,7 @@ FMD {{ fmd.fmd_id.split('/')[0].replace('FMD-', '') }}_{{ fmd.fmd_id.split('/')[
 
     <div class="section">
         <span class="label">Há necessidade de comparecimento do responsável?</span>
-        {% if fmd.comparecimento_responsavel %}
+        {% if fmd.comparecimento_responsavel == 1 or fmd.comparecimento_responsavel == '1' %}
             ( X ) sim   (   ) não
             <br>
             <span class="label">Prazo para comparecimento: </span>
@@ -100,6 +100,8 @@ FMD {{ fmd.fmd_id.split('/')[0].replace('FMD-', '') }}_{{ fmd.fmd_id.split('/')[
             {% endif %}
         {% else %}
             (   ) sim   ( X ) não
+            <br>
+            <span class="label">Prazo para comparecimento: </span>-
         {% endif %}
     </div>
 

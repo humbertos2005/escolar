@@ -1270,7 +1270,9 @@ def tratar_rfo(ocorrencia_id):
                 except Exception:
                     primeiro_falta_id = None
 
-                data_trat = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                # Usa a data de DESPACHO (tratamento) se existir, senão usa hoje
+                data_trat = data_despacho if data_despacho else datetime.now().strftime('%Y-%m-%d')
+                print(f"DEBUG data_trat: {data_trat}, data_despacho: {data_despacho}")
 
                 # Atualiza a ocorrência
                 oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).one_or_none()
@@ -1306,10 +1308,11 @@ def tratar_rfo(ocorrencia_id):
                             qtd_form = request.form.get('sim_qtd') or request.form.get('dias') or request.form.get('quantidade') or 1
                             delta = _calcular_delta_por_medida(medida_aplicada, qtd_form, config)
                             aluno_id_local = getattr(oc_obj, 'aluno_id', None)
-                            data_fmd = datetime.now().strftime('%Y-%m-%d')
+                            data_fmd = data_trat  # USA A DATA DO RFO, NÃO A DATA DE HOJE!
+                            print(f"DEBUG data_trat: {data_trat}, tipo: {type(data_trat)}")
                             _apply_delta_pontuacao(db, oc_obj.aluno_id, data_trat, delta, ocorrencia_id, medida_aplicada, data_despacho)
                             db.commit()
-                            resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd)
+                            resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd, congelar=True)
                         except Exception:
                             current_app.logger.exception("Erro ao aplicar delta de pontuação")
                     else:
@@ -1336,7 +1339,7 @@ def tratar_rfo(ocorrencia_id):
                                 fmd_id = f"FMD-{seq:04d}/{seq_ano}"                                
                                 
                                 # Corrigido: pega a pontuação atual do aluno (já descontada), NÃO aplica o delta de novo!
-                                resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd)
+                                resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd, congelar=True)
                                 pontuacao_congelada = float(resultado.get('pontuacao'))
 
                                 if pontuacao_congelada < 0:
@@ -1941,18 +1944,25 @@ def fmd_novo_real(fmd_id):
     # ==== 3. Busca o aluno relacionado ====
     aluno = db.query(Aluno).filter_by(id=fmd.aluno_id).first() or {}
 
-    # REMOVIDO: from models import get_aluno_estado_atual
-
+    # ==== USA A PONTUAÇÃO CONGELADA DA FMD (não recalcula!) ====
     comportamento = "-"
     pontuacao = "-"
 
-    if aluno and hasattr(aluno, 'id'):
-        p_corrente = compute_pontuacao_corrente(aluno.id)
-        if p_corrente is not None:
-            # p_corrente pode ser um dict, então busque o campo correto:
-            valor_pontuacao = p_corrente if isinstance(p_corrente, (int, float)) else p_corrente.get('pontuacao') or p_corrente.get('pontuacao_atual') or 8.0
-            pontuacao = round(float(valor_pontuacao), 2)
-            comportamento = _infer_comportamento_por_faixa(valor_pontuacao) or "-"
+    if fmd:
+        # Usa os valores congelados no momento da criação da FMD
+        if hasattr(fmd, 'pontuacao_no_documento') and fmd.pontuacao_no_documento is not None:
+            pontuacao = round(float(fmd.pontuacao_no_documento), 2)
+        else:
+            # Fallback: se não tem pontuação congelada, usa 8.0
+            pontuacao = 8.0
+        
+        if hasattr(fmd, 'comportamento_no_documento') and fmd.comportamento_no_documento:
+            comportamento = fmd.comportamento_no_documento
+        else:
+            # Fallback: infere pelo valor de pontuação
+            comportamento = _infer_comportamento_por_faixa(pontuacao)
+
+        print(f"DEBUG FMD {fmd_id} - Pontuação congelada: {pontuacao}, Comportamento: {comportamento}")
 
     # ==== 4. Busca ocorrência relacionada (RFO) ====
     try:
