@@ -31,12 +31,16 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_i
     if not ocorrencia:
         return False, 'Ocorrência/RFO não encontrada'
 
+    # Se aluno_id foi passado explicitamente, usa ele (para elogios coletivos)
+    # Senão, usa o aluno_id da ocorrência (comportamento padrão)
     if aluno_id is not None:
-        aluno = db.query(Aluno).filter_by(id=aluno_id).first()
+        target_aluno_id = aluno_id
     else:
-        aluno = db.query(Aluno).filter_by(id=ocorrencia.aluno_id).first() if ocorrencia.aluno_id else None
+        target_aluno_id = ocorrencia.aluno_id
+    
+    aluno = db.query(Aluno).filter_by(id=target_aluno_id).first()
     if not aluno:
-        return False, 'Aluno relacionado ao RFO não encontrado'
+        return False, f'Aluno (ID: {target_aluno_id}) relacionado ao RFO não encontrado'
 
     # ----- Monta os campos-formatados -----
     rfo_numero = getattr(ocorrencia, 'rfo_id', None) or getattr(ocorrencia, 'rfo', None) or getattr(ocorrencia, 'codigo', None) or f"RFO-{getattr(ocorrencia, 'id', '')}"
@@ -78,13 +82,14 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_i
         .first()
     )
 
-    # Checar se já existe vínculo
-    existing_link = db.query(ProntuarioRFO).filter_by(
-        ocorrencia_id=ocorrencia_id,
-        prontuario_id=prontuario.id if prontuario else None
-    ).first()
-    if existing_link:
-        return False, 'RFO já integrado ao prontuário deste aluno (vínculo existente)'
+    # Checar se já existe vínculo - APENAS SE O PRONTUÁRIO JÁ EXISTIR
+    if prontuario:
+        existing_link = db.query(ProntuarioRFO).filter_by(
+            ocorrencia_id=ocorrencia_id,
+            prontuario_id=prontuario.id
+        ).first()
+        if existing_link:
+            return False, 'RFO já integrado ao prontuário deste aluno (vínculo existente)'
 
     try:
         if prontuario:

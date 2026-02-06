@@ -517,27 +517,47 @@ def registrar_rfo():
         subtipo_elogio = request.form.get('subtipo_elogio', '').strip()
 
         if tipo_rfo == 'Elogio' and subtipo_elogio.lower() == 'coletivo' and aluno_ids:
-            from models_sqlalchemy import LiderAluno, Aluno as AlunoModel
+            from models_sqlalchemy import Aluno as AlunoModel
             lider_id = aluno_ids[0]
-            lider = db.query(LiderAluno).filter((LiderAluno.aluno_id == lider_id)).first()
-            if lider and lider.serie and lider.turma:
-                print("DEBUG SERIE LÍDER:", repr(lider.serie), [ord(c) for c in lider.serie])
-                # Solução robusta: filtra só pelo número da série e a turma
-                import re
-
-                def extrair_numero_serie(serie_str):
-                    m = re.match(r'^(\d+)', str(serie_str))
-                    return m.group(1) if m else ''
-
-                numero_serie_lider = extrair_numero_serie(lider.serie)
-                turma_lider = lider.turma
-
+            
+            # VALIDA se o aluno selecionado é realmente um líder
+            lider = db.query(AlunoModel).filter(
+                AlunoModel.id == lider_id,
+                AlunoModel.lider == True
+            ).first()
+            
+            if not lider:
+                # Se não for líder, bloqueia o registro
+                flash('ALUNO REGISTRADO NÃO É LÍDER DE TURMA', 'danger')
+                aluno_ids_req = request.form.getlist('aluno_id')
+                alunos_nome_map = {}
+                if aluno_ids_req:
+                    alunos_objs = db.query(Aluno).filter(Aluno.id.in_(aluno_ids_req)).all()
+                    for aluno in alunos_objs:
+                        alunos_nome_map[str(aluno.id)] = f"{aluno.matricula} - {aluno.nome}"
+                return render_template(
+                    'disciplinar/registrar_rfo.html',
+                    rfo_id_gerado=rfo_id_gerado,
+                    tipos_ocorrencia=tipos_ocorrencia,
+                    request_form=request.form,
+                    g=g,
+                    alunos_nome_map=alunos_nome_map
+                )
+            
+            # Se for líder, busca todos os alunos da turma
+            if lider.serie_numerica and lider.turma:
+                print("DEBUG - Líder validado:", lider.nome, "Serie_numerica:", lider.serie_numerica, "Turma:", lider.turma)
+                
                 alunos_da_turma = db.query(AlunoModel).filter(
-                    AlunoModel.turma == turma_lider,
-                    AlunoModel.serie_numerica == numero_serie_lider
+                    AlunoModel.turma == lider.turma,
+                    AlunoModel.serie_numerica == lider.serie_numerica
                 ).all()
-                aluno_ids = [str(al.id) for al in alunos_da_turma]
-                print("Alunos vinculados ao RFO coletivo:", aluno_ids)
+                
+                # CRÍTICO: Garante que o líder seja sempre o primeiro da lista
+                aluno_ids = [str(lider.id)]  # Líder SEMPRE em primeiro
+                aluno_ids.extend([str(al.id) for al in alunos_da_turma if al.id != lider.id])
+                
+                print("Alunos vinculados ao RFO coletivo (líder primeiro):", aluno_ids)
 
 
         tipo_ocorrencia_id_raw = request.form.get('tipo_ocorrencia_id')
@@ -686,8 +706,7 @@ def listar_rfo():
     from models_sqlalchemy import LiderAluno, Aluno as AlunoModel
 
     Aluno1 = aliased(Aluno)
-    Aluno2 = aliased(Aluno)
-
+    
     ocorrencias = (
         db.query(
             Ocorrencia.id,
@@ -698,24 +717,17 @@ def listar_rfo():
             Ocorrencia.relato_observador,
             Ocorrencia.advertencia_oral,
             Ocorrencia.material_recolhido,
-            func.string_agg(Aluno2.nome, '; ').label('alunos'),
-            func.coalesce(Aluno1.matricula, Aluno2.matricula).label('matricula'),
-            func.coalesce(Aluno1.nome, Aluno2.nome).label('nome_aluno'),
-            func.coalesce(
-                func.string_agg(
-                    cast(Aluno2.serie, String) + " - " + cast(Aluno2.turma, String),
-                    '; '
-                ),
-                cast(Aluno1.serie, String) + " - " + cast(Aluno1.turma, String)
-            ).label('series_turmas'),
+            Aluno1.matricula.label('matricula'),
+            Aluno1.nome.label('nome_aluno'),
+            (cast(Aluno1.serie, String) + " - " + cast(Aluno1.turma, String)).label('series_turmas'),
             Usuario.username.label('responsavel_registro_username'),
             TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
             Ocorrencia.subtipo_elogio.label('subtipo_elogio'),
+            Ocorrencia.tipo_rfo.label('tipo_rfo'),
             Aluno1.serie.label('serie_lider'),
             Aluno1.turma.label('turma_lider'),
+            Aluno1.serie_numerica.label('serie_numerica'),
         )
-        .join(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id, isouter=True)
-        .join(Aluno2, Aluno2.id == OcorrenciaAluno.aluno_id, isouter=True)
         .join(Aluno1, Aluno1.id == Ocorrencia.aluno_id, isouter=True)
         .join(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id, isouter=True)
         .join(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id, isouter=True)
@@ -730,14 +742,14 @@ def listar_rfo():
             Ocorrencia.advertencia_oral,
             Ocorrencia.material_recolhido,
             Aluno1.matricula,
-            Aluno2.matricula,
             Aluno1.nome,
-            Aluno2.nome,
             Aluno1.serie,
             Aluno1.turma,
+            Aluno1.serie_numerica,
             Usuario.username,
             TipoOcorrencia.nome,
-            Ocorrencia.subtipo_elogio
+            Ocorrencia.subtipo_elogio,
+            Ocorrencia.tipo_rfo
         )
         .order_by(Ocorrencia.data_registro.desc())
         .all()
@@ -745,37 +757,31 @@ def listar_rfo():
 
     rfos_list = [dict(rfo._asdict()) for rfo in ocorrencias]
 
-    agrupados = {}
+    # Processa cada RFO para ajustar o nome do líder em elogios coletivos
     for rfo in rfos_list:
-        rfo_id = rfo["rfo_id"]
-        tipo = rfo.get('tipo_ocorrencia_nome', '').lower()
-        subtipo = rfo.get('subtipo_elogio', '').lower()
+        tipo_rfo = (rfo.get('tipo_rfo') or '').lower()
+        subtipo = (rfo.get('subtipo_elogio') or '').lower()
+        tipo_ocorrencia = (rfo.get('tipo_ocorrencia_nome') or '').lower()
 
-        # Ajustado: Mostra sempre o nome do líder correto para elogio coletivo
-        if tipo == "elogio" and subtipo == "coletivo":
-            lider_nome = None
-            serie = rfo.get("serie_lider")
+        # Se for elogio coletivo, busca o líder real da turma
+        if (tipo_rfo == 'elogio' or 'elogio' in tipo_ocorrencia) and subtipo == 'coletivo':
+            serie_numerica = rfo.get("serie_numerica")
             turma = rfo.get("turma_lider")
 
-            # Busca exclusivamente pelo líder da turma (NÃO usa fallback pelo aluno da ocorrência)
-            if serie and turma:
-                lider_obj = db.query(LiderAluno).filter(
-                    LiderAluno.serie == serie,
-                    LiderAluno.turma == turma
-                ).order_by(LiderAluno.id.desc()).first()
+            if serie_numerica and turma:
+                lider_obj = db.query(AlunoModel).filter(
+                    AlunoModel.serie_numerica == str(serie_numerica),
+                    AlunoModel.turma == turma,
+                    AlunoModel.lider == True
+                ).first()
+                
                 if lider_obj:
-                    lider_nome = lider_obj.nome
+                    rfo["nome_aluno"] = lider_obj.nome
+                    rfo["matricula"] = lider_obj.matricula
+                else:
+                    rfo["nome_aluno"] = "Líder não encontrado"
 
-            # Define o campo para o nome do líder
-            rfo["nome_aluno"] = lider_nome if lider_nome else "Líder não encontrado"
-            if rfo_id not in agrupados:
-                agrupados[rfo_id] = rfo
-        else:
-            agrupados[(rfo_id, rfo.get("matricula", ""))] = rfo
-
-    rfos_filtrados = list(agrupados.values())
-
-    return render_template('disciplinar/listar_rfo.html', rfos=rfos_filtrados)
+    return render_template('disciplinar/listar_rfo.html', rfos=rfos_list)
 
 @disciplinar_bp.route('/visualizar_rfo/<int:ocorrencia_id>')
 @admin_secundario_required
@@ -786,27 +792,21 @@ def visualizar_rfo(ocorrencia_id):
     rfo = (
         db.query(
             Ocorrencia,
-            func.string_agg(Aluno.nome.cast(String), '; ').label('alunos'),
-            func.string_agg(
-                (Aluno.serie.cast(String) + " - " + Aluno.turma.cast(String)),
-                '; '
-            ).label('series_turmas'),
             Aluno.matricula.label('matricula'),
             Aluno.nome.label('nome_aluno'),
             Aluno.serie.label('serie'),
             Aluno.turma.label('turma'),
+            Aluno.serie_numerica.label('serie_numerica'),
             TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
             Usuario.username.label('responsavel_registro_username'),
             Ocorrencia.tipo_rfo.label('tipo_rfo'),
             Ocorrencia.subtipo_elogio.label('subtipo_elogio'),
         )
         .select_from(Ocorrencia)
-        .outerjoin(OcorrenciaAluno, OcorrenciaAluno.ocorrencia_id == Ocorrencia.id)
-        .outerjoin(Aluno, Aluno.id == OcorrenciaAluno.aluno_id)
+        .outerjoin(Aluno, Aluno.id == Ocorrencia.aluno_id)
         .outerjoin(TipoOcorrencia, TipoOcorrencia.id == Ocorrencia.tipo_ocorrencia_id)
         .outerjoin(Usuario, Usuario.id == Ocorrencia.responsavel_registro_id)
         .filter(Ocorrencia.id == ocorrencia_id)
-        .group_by(Ocorrencia.id, Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma, TipoOcorrencia.nome, Usuario.username)
         .first()
     )
 
@@ -817,71 +817,48 @@ def visualizar_rfo(ocorrencia_id):
     # rfo é uma namedtuple (ou Row); transformar em dict mutável para manipulação
     rfo_dict = dict(rfo._asdict() if hasattr(rfo, "_asdict") else rfo)
 
-    # Obter lista de alunos da ocorrência, incluindo o ID
-    alunos_rows = (
-        db.query(
-            Aluno.id,
-            Aluno.matricula,
-            Aluno.nome,
-            Aluno.serie,
-            Aluno.turma
-        )
-        .join(OcorrenciaAluno, OcorrenciaAluno.aluno_id == Aluno.id)
-        .filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id)
-        .order_by(OcorrenciaAluno.id)
-        .all()
-    )
-    alunos_list = []
-    series_list = []
-    names_list = []
-    for ar in alunos_rows:
-        # ar = (id, matricula, nome, serie, turma)
-        aluno_id = ar[0]
-        matricula = ar[1]
-        nome = ar[2]
-        serie = ar[3]
-        turma = ar[4]
-        alunos_list.append({
-            'id': aluno_id,
-            'nome': nome or '',
-            'matricula': matricula or '',
-            'serie': serie or '',
-            'turma': turma or ''
-        })
-        # Para os nomes/séries/turmas
-        s = (serie or '')
-        t = (turma or '')
-        if s or t:
-            series_list.append(f"{s} - {t}".strip(' - '))
-        names_list.append(nome or '')
+    # Monta lista inicial de alunos com base no aluno principal da ocorrência
+    alunos_list = [{
+        'id': '',
+        'nome': rfo_dict.get('nome_aluno') or '',
+        'matricula': rfo_dict.get('matricula') or '',
+        'serie': rfo_dict.get('serie') or '',
+        'turma': rfo_dict.get('turma') or ''
+    }]
+    
+    serie = rfo_dict.get('serie') or ''
+    turma = rfo_dict.get('turma') or ''
+    series_list = [f"{serie} - {turma}".strip(' - ') if serie or turma else '']
+    names_list = [rfo_dict.get('nome_aluno') or '']
 
-    # --- AJUSTE: Mostra só o líder para RFO de elogio coletivo ---
-    tipo_rfo = rfo_dict.get('tipo_rfo', '').lower()
-    subtipo_elogio = rfo_dict.get('subtipo_elogio', '').lower()
+    # --- AJUSTE: Para elogio coletivo, substitui pelo líder real ---
+    tipo_rfo = (rfo_dict.get('tipo_rfo') or '').lower()
+    subtipo_elogio = (rfo_dict.get('subtipo_elogio') or '').lower()
+    
     if tipo_rfo == 'elogio' and subtipo_elogio == 'coletivo':
-        serie_lider = rfo_dict.get('serie') or (alunos_list[0]['serie'] if alunos_list else None)
-        turma_lider = rfo_dict.get('turma') or (alunos_list[0]['turma'] if alunos_list else None)
-        lider_nome = None
-        lider_matricula = None
-        if serie_lider and turma_lider:
-            from models_sqlalchemy import LiderAluno
-            lider = db.query(LiderAluno).filter(
-                LiderAluno.serie == serie_lider,
-                LiderAluno.turma == turma_lider
-            ).order_by(LiderAluno.id.desc()).first()
+        serie_numerica = rfo_dict.get('serie_numerica')
+        turma_lider = rfo_dict.get('turma')
+        
+        if serie_numerica and turma_lider:
+            lider = db.query(Aluno).filter(
+                Aluno.serie_numerica == str(serie_numerica),
+                Aluno.turma == turma_lider,
+                Aluno.lider == True
+            ).first()
+            
             if lider:
-                lider_nome = lider.nome
-                lider_matricula = lider.matricula
-
-        alunos_list = [{
-            'id': '',
-            'nome': lider_nome if lider_nome else 'Líder não encontrado',
-            'matricula': lider_matricula if lider_matricula else '',
-            'serie': serie_lider if serie_lider else '',
-            'turma': turma_lider if turma_lider else ''
-        }]
-        names_list = [alunos_list[0]['nome']]
-        series_list = [f"{serie_lider} - {turma_lider}".strip(' - ') if serie_lider or turma_lider else '']
+                alunos_list = [{
+                    'id': lider.id,
+                    'nome': lider.nome,
+                    'matricula': lider.matricula,
+                    'serie': lider.serie or '',
+                    'turma': lider.turma or ''
+                }]
+                names_list = [lider.nome]
+                series_list = [f"{lider.serie} - {lider.turma}".strip(' - ')]
+            else:
+                alunos_list[0]['nome'] = 'Líder não encontrado'
+                names_list = ['Líder não encontrado']
 
     # Atualiza dict de alunos para template
     rfo_dict['alunos_list'] = alunos_list
@@ -1079,6 +1056,7 @@ def tratar_rfo(ocorrencia_id):
             Aluno.nome.label('nome_aluno'),
             Aluno.serie,
             Aluno.turma,
+            Aluno.serie_numerica,
             TipoOcorrencia.nome.label('tipo_ocorrencia_nome'),
             Usuario.username.label('responsavel_registro_username')
         )
@@ -1096,73 +1074,48 @@ def tratar_rfo(ocorrencia_id):
 
     ocorrencia_dict = dict(ocorrencia._asdict() if hasattr(ocorrencia, "_asdict") else ocorrencia)
 
-    alunos_rows = (
-        db.query(
-            Aluno.id, Aluno.matricula, Aluno.nome, Aluno.serie, Aluno.turma
-        )
-        .join(OcorrenciaAluno, OcorrenciaAluno.aluno_id == Aluno.id)
-        .filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id)
-        .order_by(OcorrenciaAluno.id)
-        .all()
-    )
+    # Monta lista inicial de alunos com base no aluno principal da ocorrência
+    alunos_list = [{
+        'id': '',
+        'nome': ocorrencia_dict.get('nome_aluno') or '',
+        'matricula': ocorrencia_dict.get('matricula') or '',
+        'serie': ocorrencia_dict.get('serie') or '',
+        'turma': ocorrencia_dict.get('turma') or ''
+    }]
+    
+    serie = ocorrencia_dict.get('serie') or ''
+    turma = ocorrencia_dict.get('turma') or ''
+    series_list = [f"{serie} - {turma}".strip(' - ') if serie or turma else '']
+    nomes_list = [ocorrencia_dict.get('nome_aluno') or '']
 
-    alunos_list = []
-    series_list = []
-    nomes_list = []
-    for ar in alunos_rows:
-        # Adicionando o ID!
-        aluno_id = getattr(ar, 'id', None)
-        if aluno_id is None:
-            aluno_id = getattr(ar, 'aluno_id', None)
-        if aluno_id is None:
-            aluno_id = ''
-        nome = getattr(ar, 'nome', None)
-        matricula = getattr(ar, 'matricula', None)
-        serie = getattr(ar, 'serie', None)
-        turma = getattr(ar, 'turma', None)
-        alunos_list.append({
-            'id': aluno_id,               # <-- ESSENCIAL!
-            'nome': nome or '',
-            'matricula': matricula or '',
-            'serie': serie or '',
-            'turma': turma or ''
-        })
-        s = (serie or '')
-        t = (turma or '')
-        if s or t:
-            series_list.append(f"{s} - {t}".strip(' - '))
-        nomes_list.append(nome or '')
-
-    # --- AJUSTE: Mostra só o líder para RFO de elogio coletivo ---
-    tipo_rfo = ocorrencia_dict.get('tipo_rfo', '').lower()
-    subtipo_elogio = ocorrencia_dict.get('subtipo_elogio', '').lower()
+    # --- AJUSTE: Para elogio coletivo, substitui pelo líder real ---
+    tipo_rfo = (ocorrencia_dict.get('tipo_rfo') or '').lower()
+    subtipo_elogio = (ocorrencia_dict.get('subtipo_elogio') or '').lower()
+    
     if tipo_rfo == 'elogio' and subtipo_elogio == 'coletivo':
-        # Busca série e turma do RFO
-        serie_lider = ocorrencia_dict.get('serie') or (alunos_list[0]['serie'] if alunos_list else None)
-        turma_lider = ocorrencia_dict.get('turma') or (alunos_list[0]['turma'] if alunos_list else None)
-        # Consulta o líder no banco
-        lider_nome = None
-        lider_matricula = None
-        if serie_lider and turma_lider:
-            from models_sqlalchemy import LiderAluno
-            lider = db.query(LiderAluno).filter(
-                LiderAluno.serie == serie_lider,
-                LiderAluno.turma == turma_lider
-            ).order_by(LiderAluno.id.desc()).first()
+        serie_numerica = ocorrencia_dict.get('serie_numerica')
+        turma_lider = ocorrencia_dict.get('turma')
+        
+        if serie_numerica and turma_lider:
+            lider = db.query(Aluno).filter(
+                Aluno.serie_numerica == str(serie_numerica),
+                Aluno.turma == turma_lider,
+                Aluno.lider == True
+            ).first()
+            
             if lider:
-                lider_nome = lider.nome
-                lider_matricula = lider.matricula
-
-        # Atualiza para mostrar só o líder
-        alunos_list = [{
-            'id': '',               # ID não é obrigatório para visualização do líder
-            'nome': lider_nome if lider_nome else 'Líder não encontrado',
-            'matricula': lider_matricula if lider_matricula else '',
-            'serie': serie_lider if serie_lider else '',
-            'turma': turma_lider if turma_lider else ''
-        }]
-        nomes_list = [alunos_list[0]['nome']]
-        series_list = [f"{serie_lider} - {turma_lider}".strip(' - ') if serie_lider or turma_lider else '']
+                alunos_list = [{
+                    'id': lider.id,
+                    'nome': lider.nome,
+                    'matricula': lider.matricula,
+                    'serie': lider.serie or '',
+                    'turma': lider.turma or ''
+                }]
+                nomes_list = [lider.nome]
+                series_list = [f"{lider.serie} - {lider.turma}".strip(' - ')]
+            else:
+                alunos_list[0]['nome'] = 'Líder não encontrado'
+                nomes_list = ['Líder não encontrado']
 
     # Atualiza dict de alunos para template
     ocorrencia_dict['alunos_list'] = alunos_list
