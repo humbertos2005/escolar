@@ -2,6 +2,17 @@ from datetime import datetime
 from flask import session, current_app
 
 def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_id=None):
+    """..."""
+    print(f"DEBUG create_or_append_prontuario_por_rfo: ocorrencia_id={ocorrencia_id}, aluno_id={aluno_id}, usuario={usuario}")
+    
+    if not usuario:
+        try:
+            from flask import session
+            usuario = session.get('username', 'system')
+        except Exception:
+            usuario = 'system'
+    
+    print(f"DEBUG usuario final: {usuario}")
     """
     Integra um RFO (ocorrencia_id) ao prontuário do aluno. Usa ORM/SQLAlchemy.
     - Evita duplicação consultando ProntuarioRFO.
@@ -82,14 +93,28 @@ def create_or_append_prontuario_por_rfo(db, ocorrencia_id, usuario=None, aluno_i
         .first()
     )
 
-    # Checar se já existe vínculo - APENAS SE O PRONTUÁRIO JÁ EXISTIR
+    # Checar se já existe vínculo - SE EXISTIR, ATUALIZA EM VEZ DE RETORNAR ERRO
     if prontuario:
         existing_link = db.query(ProntuarioRFO).filter_by(
             ocorrencia_id=ocorrencia_id,
             prontuario_id=prontuario.id
         ).first()
         if existing_link:
-            return False, 'RFO já integrado ao prontuário deste aluno (vínculo existente)'
+            print(f"DEBUG: Vínculo já existe, ATUALIZANDO prontuário {prontuario.id}")
+            # ✅ ATUALIZA as circunstâncias mesmo que o vínculo já exista
+            atenuante = getattr(ocorrencia, 'circunstancias_atenuantes', '') or 'Não há'
+            agravante = getattr(ocorrencia, 'circunstancias_agravantes', '') or 'Não há'
+            
+            if not atenuante or atenuante.strip() == '':
+                atenuante = 'Não há'
+            if not agravante or agravante.strip() == '':
+                agravante = 'Não há'
+            
+            prontuario.circunstancias_atenuantes = atenuante
+            prontuario.circunstancias_agravantes = agravante
+            db.commit()
+            print(f"DEBUG: Prontuário atualizado - atenuantes: {atenuante}, agravantes: {agravante}")
+            return True, 'Prontuário atualizado com circunstâncias'
 
     try:
         if prontuario:

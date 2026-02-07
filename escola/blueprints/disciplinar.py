@@ -1156,7 +1156,13 @@ def tratar_rfo(ocorrencia_id):
             oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).one_or_none()
             if oc_obj:
                 oc_obj.status = 'TRATADO'
-                oc_obj.data_tratamento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                # ✅ Define data_despacho e data_trat UMA ÚNICA VEZ
+                data_despacho = request.form.get('data_despacho', '').strip()
+                data_trat = data_despacho if data_despacho else datetime.now().strftime('%Y-%m-%d')
+                oc_obj.data_tratamento = data_trat
+                oc_obj.data_despacho = data_despacho
+                
                 medida_aplicada = oc_obj.tipo_rfo or 'Elogio'
 
                 circ_at = request.form.get('circunstancias_atenuantes', '').strip() or 'Não há'
@@ -1166,26 +1172,39 @@ def tratar_rfo(ocorrencia_id):
                 if hasattr(oc_obj, 'circunstancias_agravantes'):
                     oc_obj.circunstancias_agravantes = circ_ag
 
+                # ✅ Busca o subtipo direto do banco
+                subtipo = getattr(oc_obj, 'subtipo_elogio', '').strip().lower() if hasattr(oc_obj, 'subtipo_elogio') else ''
+                if subtipo == 'coletivo':
+                    medida_aplicada = 'Elogio Coletivo'
+                elif subtipo == 'individual':
+                    medida_aplicada = 'Elogio Individual'
+
                 config = _get_config_values(db)
                 delta = _calcular_delta_por_medida(medida_aplicada, 1, config)
-
+                
                 # Busca todos os alunos vinculados a esta ocorrência coletiva
                 alunos_coletivo = db.query(OcorrenciaAluno).filter(OcorrenciaAluno.ocorrencia_id == ocorrencia_id).all()
                 for oa in alunos_coletivo:
                     try:
                         if delta:
-                            _apply_delta_pontuacao(db, oa.aluno_id, datetime.now().strftime('%Y-%m-%d'), delta, oc_obj.id, medida_aplicada)
+                            _apply_delta_pontuacao(db, oa.aluno_id, data_trat, delta, oc_obj.id, medida_aplicada, data_despacho=data_trat)
                             db.commit()
-
-                        # REMOVIDA geração de FMD para elogio!
-
-                        # Mantém apenas o registro no prontuário:                        
-                        create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'))
                     except Exception:
                         continue
 
-            flash('RFO de elogio aprovado com sucesso. Pontuação somada ao aluno.', 'success')
-            return redirect(url_for('disciplinar_bp.listar_rfo'))                        
+                # ✅ MOVIDO PARA FORA DO LOOP: cria prontuário DEPOIS de salvar tudo
+                try:
+                    print(f"DEBUG: Criando prontuários para {len(alunos_coletivo)} alunos")
+                    for oa in alunos_coletivo:
+                        print(f"DEBUG: Chamando create_or_append_prontuario_por_rfo para aluno_id={oa.aluno_id}")
+                        result = create_or_append_prontuario_por_rfo(db, ocorrencia_id, session.get('username'), aluno_id=oa.aluno_id)
+                        print(f"DEBUG: Resultado: {result}")
+                except Exception as e:
+                    print(f"DEBUG ERRO ao criar prontuário coletivo: {e}")
+                    current_app.logger.exception('Erro ao criar prontuário coletivo')
+
+                flash('RFO de elogio aprovado com sucesso. Pontuação somada ao aluno.', 'success')
+                return redirect(url_for('disciplinar_bp.listar_rfo'))
     
         oc_obj = db.query(Ocorrencia).filter_by(id=ocorrencia_id).first()
         tipos_raw = request.form.get('tipo_falta_list', '').strip()
@@ -1306,11 +1325,21 @@ def tratar_rfo(ocorrencia_id):
                         try:
                             config = _get_config_values(db)
                             qtd_form = request.form.get('sim_qtd') or request.form.get('dias') or request.form.get('quantidade') or 1
+
+                            # Se for elogio, adiciona o tipo (individual/coletivo) na medida
+                            if medida_aplicada and 'elogio' in medida_aplicada.lower():
+                                subtipo = ocorrencia_dict.get('subtipo_elogio', '').strip().lower()
+                                if subtipo == 'coletivo':
+                                    medida_aplicada = 'Elogio Coletivo'
+                                elif subtipo == 'individual':
+                                    medida_aplicada = 'Elogio Individual'
+                                # Se não tem subtipo definido, mantém 'Elogio' (assume individual)
+
                             delta = _calcular_delta_por_medida(medida_aplicada, qtd_form, config)
                             aluno_id_local = getattr(oc_obj, 'aluno_id', None)
                             data_fmd = data_trat  # USA A DATA DO RFO, NÃO A DATA DE HOJE!
                             print(f"DEBUG data_trat: {data_trat}, tipo: {type(data_trat)}")
-                            _apply_delta_pontuacao(db, oc_obj.aluno_id, data_trat, delta, ocorrencia_id, medida_aplicada, data_despacho)
+                            _apply_delta_pontuacao(db, oc_obj.aluno_id, data_trat, delta, ocorrencia_id, medida_aplicada, data_despacho=data_trat)
                             db.commit()
                             resultado = compute_pontuacao_em_data(aluno_id_local, data_fmd, congelar=True)
                         except Exception:
