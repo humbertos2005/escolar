@@ -22,6 +22,13 @@
           <td>{{ ano }}</td>
           <td>
             <a class="btn btn-sm btn-secondary" href="{{ url_for('bimestres_bp.gerenciar_bimestres', ano=ano, iframe=1) }}">Editar</a>
+            
+            <form method="post" action="{{ url_for('bimestres_bp.fechar_ano', ano=ano) }}" style="display:inline-block"
+                  target="_top"
+                  onsubmit="return confirm('Deseja realmente fechar o ano letivo {{ ano }}? Esta ação transferirá o saldo de todos os alunos para o próximo ano e não poderá ser desfeita!');">
+              <button type="submit" class="btn btn-sm btn-warning">Fechar ano letivo</button>
+            </form>
+            
             <form method="post" action="{{ url_for('bimestres_bp.excluir_bimestres', ano=ano, iframe=1) }}" style="display:inline-block" onsubmit="return confirm('Confirma exclusão dos bimestres do ano {{ ano }}?');">
               <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
             </form>

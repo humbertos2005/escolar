@@ -9,7 +9,7 @@ from models_sqlalchemy import (
     FaltaDisciplinar, TipoOcorrencia, Elogio,
     Circunstancia, Comportamento,
     PontuacaoBimestral, FichaMedidaDisciplinar, Aluno,
-    TabelaDisciplinarConfig, Bimestre,
+    TabelaDisciplinarConfig, Bimestre, PontuacaoHistorico
     # Se criar futuramente: NMDSequencia, OcorrenciaAluno, etc.
 )
 from database import get_db  # Deve retornar a session do SQLAlchemy
@@ -232,15 +232,6 @@ def next_fmd_seq_and_year():
 def compute_pontuacao_em_data(aluno_id, data_referencia, congelar=False):
     """
     Retorna a pontuação e o comportamento do aluno NA DATA informada.
-    
-    Args:
-        aluno_id: ID do aluno
-        data_referencia: data (string: 'YYYY-MM-DD') ou datetime
-        congelar: Se True, calcula APENAS até a data (para FMDs antigas).
-                  Se False, aplica bônus de tempo até a data de referência.
-    
-    Returns:
-        {'pontuacao': float, 'comportamento': str}
     """
     from datetime import datetime, timedelta
     db = get_db()
@@ -262,7 +253,19 @@ def compute_pontuacao_em_data(aluno_id, data_referencia, congelar=False):
         # Pontuação base inicial
         pontuacao_base = 8.0
 
-        from models_sqlalchemy import PontuacaoHistorico
+        from models_sqlalchemy import PontuacaoHistorico, Aluno
+
+        ano_letivo = data_ref.year
+        
+        # --- NOVO: saldo transferido do ano anterior, se houver ---
+        hist_abertura = db.query(PontuacaoHistorico).filter_by(
+            aluno_id=aluno_id, ano=ano_letivo, tipo_evento="INICIO_ANO"
+        ).order_by(PontuacaoHistorico.bimestre.asc(), PontuacaoHistorico.id.asc()).first()
+        data_abertura = None
+        if hist_abertura:
+            pontuacao_base = float(hist_abertura.valor_delta)
+            # só vão entrar lançamentos a partir da data desse evento
+            data_abertura = hist_abertura.criado_em if hist_abertura.criado_em else None
 
         def string_to_date(s):
             try:
@@ -275,90 +278,79 @@ def compute_pontuacao_em_data(aluno_id, data_referencia, congelar=False):
 
         # Busca TODOS os lançamentos até a data de referência (inclusive)
         historico_ate_data = []
-        
         for h in db.query(PontuacaoHistorico).filter(
             PontuacaoHistorico.aluno_id == aluno_id
         ).all():
             h_date = string_to_date(h.criado_em)
+            # NOVO: só lançamentos do novo ano (a partir do INICIO_ANO)
             if not h_date:
                 continue
-            
+            if data_abertura and string_to_date(hist_abertura.criado_em):
+                # Ignora eventos anteriores ao saldo lançado no início do ano
+                if h_date < string_to_date(hist_abertura.criado_em):
+                    continue
             if h_date <= data_ref.date():
                 historico_ate_data.append((h_date, float(h.valor_delta)))
 
         # Ordena por data
         historico_ate_data.sort(key=lambda x: x[0])
 
-        print(f"DEBUG compute_pontuacao_em_data - aluno_id={aluno_id}, data={data_ref.date()}, congelar={congelar}")
-        print(f"DEBUG - Base inicial: {pontuacao_base}")
-        print(f"DEBUG - Histórico até a data: {len(historico_ate_data)} lançamentos")
-
         # Aplica todos os deltas até a data de referência
         pontuacao_acumulada = pontuacao_base
         ultima_perda_date = None
-        
+
         for h_date, delta in historico_ate_data:
             pontuacao_acumulada += delta
-            # Registra última perda (delta negativo)
             if delta < 0:
                 ultima_perda_date = h_date
-                print(f"DEBUG - Perda registrada em {h_date}: {delta}, pontuação: {pontuacao_acumulada}")
-            else:
-                print(f"DEBUG - Ganho registrado em {h_date}: {delta}, pontuação: {pontuacao_acumulada}")
 
-        print(f"DEBUG - Pontuação após deltas: {pontuacao_acumulada}")
-        print(f"DEBUG - Última perda em: {ultima_perda_date}")
-
-        # BÔNUS por tempo sem perda (apenas se não estiver congelando)
-        bonus_tempo = 0.0
-        
-        if not congelar:
-            # Se não há perdas, usa data de matrícula
-            if not ultima_perda_date:
-                print(f"DEBUG - Sem perdas, buscando data de matrícula...")
-                aluno = db.query(Aluno).get(aluno_id)
-                dm = aluno.data_matricula if aluno else None
-                if dm:
+        # Se não houve nenhuma perda, considera data de matrícula (só para novos!)
+        if not ultima_perda_date:
+            aluno = db.query(Aluno).get(aluno_id)
+            dm = aluno.data_matricula if aluno else None
+            if dm:
+                try:
+                    ultima_perda_date = datetime.strptime(dm, '%Y-%m-%d').date()
+                except Exception:
                     try:
-                        ultima_perda_date = datetime.strptime(dm, '%Y-%m-%d').date()
-                        print(f"DEBUG - Usando data de matrícula: {ultima_perda_date}")
+                        ultima_perda_date = datetime.strptime(dm, '%d/%m/%Y').date()
                     except Exception:
-                        pass
-            
-            if ultima_perda_date:
-                dias_sem_perda = (data_ref.date() - ultima_perda_date).days
-                print(f"DEBUG - Dias sem perda: {dias_sem_perda}")
-                
-                if dias_sem_perda >= 180:
-                    # A cada 180 dias sem perda = +1.0 ponto
-                    bonus_tempo = ((dias_sem_perda - 60) / 180) * 1.0
-                    
-                    # LIMITE: bônus não pode fazer ultrapassar a base do bimestre (8.0)
-                    # Mas pode chegar a 10.0 (limite máximo)
-                    pontuacao_antes_bonus = pontuacao_acumulada
-                    pontuacao_com_bonus = pontuacao_acumulada + bonus_tempo
-                    
-                    # Limita a 10.0
-                    pontuacao_com_bonus = min(10.0, pontuacao_com_bonus)
-                    
-                    bonus_tempo = pontuacao_com_bonus - pontuacao_antes_bonus
-                    
-                    print(f"DEBUG - BÔNUS: {dias_sem_perda} dias sem perda, {dias_bonus} dias de bônus")
-                    print(f"DEBUG - Bônus calculado: +{bonus_tempo:.2f}")
+                        ultima_perda_date = data_ref.date()  # fallback ruim, mas garantia
 
-        # Pontuação final
-        pontuacao_final = pontuacao_acumulada + bonus_tempo
-        
-        # Limita entre 0.0 e 10.0
-        pontuacao_final = max(0.0, min(10.0, pontuacao_final))
-        
-        print(f"DEBUG - Pontuação final: {pontuacao_final}")
+        # BÔNUS por tempo sem perder ponto após 60 dias
+        bonus_tempo = 0.0
+        if ultima_perda_date:
+            dias_sem_perda = (data_ref.date() - ultima_perda_date).days
+            if dias_sem_perda > 60:
+                bonus_tempo = (dias_sem_perda - 60) * 0.2
+                pontuacao_acumulada += bonus_tempo
+                pontuacao_acumulada = min(10.0, pontuacao_acumulada)
 
-        # Determina comportamento
-        comportamento = _infer_comportamento_por_faixa(pontuacao_final)
+        # BÔNUS por média >= 8,0 em cada bimestre concluído até a data_ref (não altera regra anterior)
+        try:
+            medias = db.execute(f"""
+                SELECT ano, bimestre, media
+                FROM medias_bimestrais
+                WHERE aluno_id = {aluno_id}
+                  AND (ano < {data_ref.year}
+                    OR (ano = {data_ref.year} AND bimestre <= (
+                        SELECT MAX(numero)
+                        FROM bimestres
+                        WHERE ano = {data_ref.year}
+                          AND CAST(fim AS date) <= '{data_ref.strftime('%Y-%m-%d')}'
+                    )))
+                  AND media >= 8.0
+            """).fetchall()
+            bonus_bimestral = 0.5 * len(medias)
+            pontuacao_acumulada += bonus_bimestral
+            pontuacao_acumulada = min(10.0, pontuacao_acumulada)
+        except Exception as ex_bonus:
+            print(f"DEBUG ERRO NO BÔNUS BIMESTRAL: {ex_bonus}")
 
-        return {'pontuacao': round(pontuacao_final, 2), 'comportamento': comportamento}
-        
+        pontuacao_acumulada = max(0.0, pontuacao_acumulada)
+        comportamento = _infer_comportamento_por_faixa(pontuacao_acumulada)
+        return {'pontuacao': round(pontuacao_acumulada, 2), 'comportamento': comportamento}
+
     except Exception as ex:
         print(f"[ERRO compute_pontuacao_em_data] {ex}")
         import traceback
@@ -369,6 +361,7 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
     """
     Calcula o delta (positivo/negativo) aplicável à pontuação a partir do texto da medida e quantidade.
     Aceita variações como advertencia oral, advertência oral, adv oral, advert oral, etc.
+    Diferencia elogio individual (+0,5) de coletivo (+0,3).
     Também faz print dos valores de depuração.
     """
     if not medida_aplicada:
@@ -397,16 +390,21 @@ def _calcular_delta_por_medida(medida_aplicada, qtd, config):
         delta = dias * float(config.get('suspensao_dia', -0.5))
         print("DEBUG - delta calculado para SUSPENSÃO:", delta)
         return delta
-    if 'ACAO EDUCATIVA' in m or 'ACAO EDUCATIVA' in m or 'EDUCATIVA' in m:
+    if 'ACAO EDUCATIVA' in m or 'EDUCATIVA' in m:
         nums = re.findall(r'(\d+)', m)
         dias = int(nums[0]) if nums else int(qtd)
         delta = dias * float(config.get('acao_educativa_dia', -1.0))
         print("DEBUG - delta calculado para AÇÃO EDUCATIVA:", delta)
         return delta
     if 'ELOGIO' in m:
-        delta = qtd * float(config.get('elogio_individual', 0.5))
-        print("DEBUG - delta calculado para ELOGIO:", delta)
-        return delta
+        if 'COLETIVO' in m:
+            delta = qtd * float(config.get('elogio_coletivo', 0.3))
+            print("DEBUG - delta calculado para ELOGIO COLETIVO:", delta)
+            return delta
+        else:
+            delta = qtd * float(config.get('elogio_individual', 0.5))
+            print("DEBUG - delta calculado para ELOGIO INDIVIDUAL:", delta)
+            return delta
 
     print("DEBUG - Nenhum caso identificado. Retornando delta 0.0")
     return 0.0
@@ -527,3 +525,87 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
         print("EXCEPTION _apply_delta_pontuacao:", aluno_id, delta, criado_em)
         current_app.logger.exception('Erro ao aplicar delta pontuacao (possível tabela ausente).')
         db.rollback()
+
+def fechamento_ano_letivo(aluno_id, ano_encerrado):
+    """
+    Ao encerrar o ano letivo, registra o saldo final do aluno para ser usado
+    como ponto de partida do próximo ano.
+    """
+    db = get_db()
+    # Encontra a maior data do último bimestre do ano anterior:
+    ponto_final = db.query(PontuacaoBimestral)\
+        .filter_by(aluno_id=aluno_id, ano=ano_encerrado)\
+        .order_by(PontuacaoBimestral.bimestre.desc()).first()
+    if ponto_final:
+        saldo = float(ponto_final.pontuacao_atual)
+    else:
+        # fallback para 8.0 se ano anterior não existir
+        saldo = 8.0
+
+    # Verifica se já existe registro de INICIO_ANO para o próximo ano
+    proximo_ano = ano_encerrado + 1
+    ja_lancado = db.query(PontuacaoHistorico)\
+        .filter_by(aluno_id=aluno_id, ano=proximo_ano, tipo_evento="INICIO_ANO")\
+        .first()
+    if not ja_lancado:
+        from datetime import datetime
+        hist = PontuacaoHistorico(
+            aluno_id=aluno_id,
+            ano=proximo_ano,
+            bimestre=1,
+            ocorrencia_id=None,
+            tipo_evento="INICIO_ANO",
+            valor_delta=saldo,
+            criado_em=f"{proximo_ano}-01-01"
+        )
+        db.add(hist)
+        db.commit()
+    return saldo  # opcional, para debug/uso
+
+def fechamento_ano_letivo_em_lote(ano_encerrado):
+    """
+    Para TODOS os alunos, registra o saldo final do ano letivo encerrado
+    como saldo de abertura (INICIO_ANO) para o ano seguinte.
+    Só registra se ainda não houver 'INICIO_ANO' lançado para aquele aluno/ano.
+    """
+    db = get_db()
+    from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico, Aluno
+
+    alunos = db.query(Aluno.id).all()
+    total = 0
+    for aluno in alunos:
+        aluno_id = aluno[0] if isinstance(aluno, (tuple, list)) else aluno.id
+
+        # Busca o saldo final do ano encerrado (> do bimestre mais alto existente)
+        ponto_final = (
+            db.query(PontuacaoBimestral)
+            .filter_by(aluno_id=aluno_id, ano=ano_encerrado)
+            .order_by(PontuacaoBimestral.bimestre.desc())
+            .first()
+        )
+        if ponto_final and ponto_final.pontuacao_atual is not None:
+            saldo = float(ponto_final.pontuacao_atual)
+        else:
+            # fallback para 8.0 se ano anterior não existir ou aluno for novo
+            saldo = 8.0
+
+        proximo_ano = ano_encerrado + 1
+        ja_lancado = (
+            db.query(PontuacaoHistorico)
+            .filter_by(aluno_id=aluno_id, ano=proximo_ano, tipo_evento="INICIO_ANO")
+            .first()
+        )
+        if not ja_lancado:
+            hist = PontuacaoHistorico(
+                aluno_id=aluno_id,
+                ano=proximo_ano,
+                bimestre=1,
+                ocorrencia_id=None,
+                tipo_evento="INICIO_ANO",
+                valor_delta=saldo,
+                criado_em=f"{proximo_ano}-01-01"
+            )
+            db.add(hist)
+            total += 1
+    db.commit()
+    print(f"Rotina de fechamento: {total} saldos de alunos transferidos para {ano_encerrado + 1}")

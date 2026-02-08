@@ -138,3 +138,18 @@ def excluir_bimestres(ano):
     if request.form.get('iframe') == '1' or request.args.get('iframe') == '1':
         return redirect(url_for('bimestres_bp.listar_bimestres', iframe=1))
     return redirect(url_for('bimestres_bp.listar_bimestres'))
+
+@bimestres_bp.route('/fechar/<int:ano>', methods=['POST'])
+@admin_required
+def fechar_ano(ano):
+    try:
+        from services.escolar_helper import fechamento_ano_letivo_em_lote
+        fechamento_ano_letivo_em_lote(ano)
+        flash(f'Ano letivo {ano} fechado com sucesso! Saldos transferidos para {ano + 1}.', 'success')
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao fechar ano letivo: {e}', 'danger')
+
+    # Atualiza a página (mantém visualgação no modo iframe se necessário)
+    return redirect(url_for('bimestres_bp.listar_bimestres'))
