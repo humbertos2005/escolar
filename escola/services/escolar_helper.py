@@ -329,9 +329,9 @@ def compute_pontuacao_em_data(aluno_id, data_referencia, congelar=False):
                 dias_sem_perda = (data_ref.date() - ultima_perda_date).days
                 print(f"DEBUG - Dias sem perda: {dias_sem_perda}")
                 
-                if dias_sem_perda > 60:
-                    dias_bonus = dias_sem_perda - 60
-                    bonus_tempo = dias_bonus * 0.2
+                if dias_sem_perda >= 180:
+                    # A cada 180 dias sem perda = +1.0 ponto
+                    bonus_tempo = ((dias_sem_perda - 60) / 180) * 1.0
                     
                     # LIMITE: bônus não pode fazer ultrapassar a base do bimestre (8.0)
                     # Mas pode chegar a 10.0 (limite máximo)
