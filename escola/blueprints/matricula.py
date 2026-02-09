@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Blueprint mínimo para atualizar alunos.data_matricula.
+Blueprint mï¿½nimo para atualizar alunos.data_matricula.
 
 Rota:
   POST /alunos/<int:aluno_id>/matricula
@@ -12,7 +12,7 @@ Retorno JSON:
 """
 from flask import Blueprint, request, jsonify, current_app
 from database import get_db
-from models_sqlalchemy import Aluno
+from models_sqlalchemy import Aluno, PontuacaoBimestral
 from datetime import datetime
 
 bp_matricula = Blueprint("matricula_bp", __name__)
@@ -25,11 +25,11 @@ except Exception:
     login_required = lambda f: f
 
 def br_to_iso(date_str):
-    """Converte dd/mm/aaaa -> YYYY-MM-DD. Se já for ISO, retorna como está."""
+    """Converte dd/mm/aaaa -> YYYY-MM-DD. Se jï¿½ for ISO, retorna como estï¿½."""
     if not date_str:
         return None
     s = date_str.strip()
-    # já no formato ISO?
+    # jï¿½ no formato ISO?
     try:
         datetime.strptime(s, "%Y-%m-%d")
         return s
@@ -53,15 +53,35 @@ def update_data_matricula(aluno_id):
     raw = (data.get("data_matricula") or data.get("data_matricula_br") or "").strip()
     iso = br_to_iso(raw) if raw else None
     if raw and not iso:
-        return jsonify({"ok": False, "error": "Formato de data inválido. Use dd/mm/aaaa ou YYYY-MM-DD."}), 400
+        return jsonify({"ok": False, "error": "Formato de data invï¿½lido. Use dd/mm/aaaa ou YYYY-MM-DD."}), 400
 
     db = get_db()
     try:
         aluno = db.query(Aluno).filter_by(id=aluno_id).first()
         if not aluno:
-            return jsonify({"ok": False, "error": "Aluno não encontrado"}), 404
+            return jsonify({"ok": False, "error": "Aluno nï¿½o encontrado"}), 404
 
         aluno.data_matricula = iso
+        
+        # Verifica existÃªncia da pontuaÃ§Ã£o inicial no ano letivo da matrÃ­cula
+        ano_matricula = int(iso[:4]) if iso else None
+        bimestre_inicial = 1
+
+        if ano_matricula:
+            existe = db.query(PontuacaoBimestral).filter_by(
+                aluno_id=aluno_id, ano=str(ano_matricula), bimestre=bimestre_inicial
+            ).first()
+            if not existe:
+                row = PontuacaoBimestral(
+                    aluno_id=aluno_id,
+                    ano=str(ano_matricula),
+                    bimestre=bimestre_inicial,
+                    pontuacao_inicial=8.0,
+                    pontuacao_atual=8.0,
+                    atualizado_em=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                )
+                db.add(row)
+
         db.commit()
         return jsonify({"ok": True, "updated": True, "data_matricula_stored": iso}), 200
     except Exception as e:

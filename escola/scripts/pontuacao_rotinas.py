@@ -21,16 +21,17 @@ from blueprints import disciplinar
 # IMPORT MODELS ORM
 from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
 
+from sqlalchemy import text
+
 def get_media_bimestral(db, aluno_id, ano, bimestre):
     """
-    RETORNAR a média acadêmica bimestral do aluno (0.0-10.0).
-    Substitua esta função pela consulta real às tabelas de notas/boletim, usando ORM.
-    Atualmente retorna None (não aplica bônus).
+    Busca a média bimestral real do aluno na tabela medias_bimestrais.
     """
-    # Exemplo (ajuste para seu ORM/notas):
-    # row = db.query(MediaAcademica).filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre).first()
-    # return row.media if row else None
-    return None
+    query = text(
+        "SELECT media FROM medias_bimestrais WHERE aluno_id = :aluno_id AND ano = :ano AND bimestre = :bimestre"
+    )
+    row = db.execute(query, {"aluno_id": aluno_id, "ano": ano, "bimestre": bimestre}).fetchone()
+    return float(row[0]) if row and row[0] is not None else None
 
 def apply_bimestral_bonus(ano: int, bimestre: int, force=False):
     """Aplica +0.5 para cada aluno com média_bimestral >= 8.0."""
