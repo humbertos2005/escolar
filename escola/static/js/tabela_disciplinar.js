@@ -165,30 +165,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Carrega pontuação do aluno para o bimestre selecionado
     function carregarPontuacao(aluno_id) {
-        const b = bimestreSelect.value;
-        if (!aluno_id || !b) return;
-        const [ano, numero] = b.split('|');
-        fetch(`/formularios/api/aluno_pontuacao?aluno_id=${aluno_id}&ano=${ano}&bimestre=${numero}`)
-        .then(r => r.json())
-        .then(data => {
-            pontAnterior.value = Number(data.pontuacao_inicial).toFixed(2);
-            const atual = Number(data.pontuacao_atual);
-            pontAtual.value = atual.toFixed(2);
-            displayPont.textContent = atual.toFixed(2);
+    const b = bimestreSelect.value;
+    if (!aluno_id || !b) return;
+    const [ano, numero] = b.split('|');
+    fetch(`/formularios/api/aluno_pontuacao?aluno_id=${aluno_id}&ano=${ano}&bimestre=${numero}`)
+    .then(r => r.json())
+    .then(data => {
+        console.log('Resposta da API:', data); // DEBUG - pode remover depois
+        
+        pontAnterior.value = Number(data.pontuacao_inicial || 8.0).toFixed(2);
+        const atual = Number(data.pontuacao_atual || 8.0);
+        pontAtual.value = atual.toFixed(2);
+        displayPont.textContent = atual.toFixed(2);
+        
+        // Usa comportamento da API se disponível, senão calcula localmente
+        if (data.comportamento) {
+            displayClass.textContent = data.comportamento;
+        } else {
             displayClass.textContent = classificacaoPorPontos(atual);
-            if (data.acrescimo_info) {
-                infoAcrescimo.textContent = data.acrescimo_info;
-            } else {
-                infoAcrescimo.textContent = '';
-            }
-        })
-        .catch(()=> {
-            pontAnterior.value = '8.00';
-            pontAtual.value = '8.00';
-            displayPont.textContent = '8.00';
-            displayClass.textContent = classificacaoPorPontos(8.0);
-        });
-    }
+        }
+        
+        // Mostra informação de bônus/acréscimo se disponível
+        if (data.acrescimo_info) {
+            infoAcrescimo.textContent = data.acrescimo_info;
+            infoAcrescimo.style.display = 'block';
+        } else {
+            infoAcrescimo.textContent = '';
+            infoAcrescimo.style.display = 'none';
+        }
+    })
+    .catch((err)=> {
+        console.error('Erro ao carregar pontuação:', err); // DEBUG
+        pontAnterior.value = '8.00';
+        pontAtual.value = '8.00';
+        displayPont.textContent = '8.00';
+        displayClass.textContent = classificacaoPorPontos(8.0);
+        infoAcrescimo.textContent = '';
+    });
+}
 
     bimestreSelect.addEventListener('change', function(){
         if (alunoIdInput.value) carregarPontuacao(alunoIdInput.value);

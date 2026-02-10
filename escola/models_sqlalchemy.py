@@ -396,3 +396,12 @@ class LiderAluno(Base):
 
     def __repr__(self):
         return f"<LiderAluno id={self.id} nome={self.nome}>"
+    
+# Médias Bimestrais
+class MediaBimestral(Base):
+    __tablename__ = "medias_bimestrais"
+    id = Column(Integer, primary_key=True)
+    aluno_id = Column(Integer, ForeignKey("alunos.id", ondelete="CASCADE"))
+    ano = Column(Integer, nullable=False)
+    bimestre = Column(Integer, nullable=False)
+    media = Column(Numeric(5, 2), nullable=False)

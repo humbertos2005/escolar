@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from models_sqlalchemy import (
     PontuacaoHistorico,
     FichaMedidaDisciplinar,
-    medias_bimestrais, # tabela: id, aluno_id, ano, bimestre, media
-    Bimestre
+    MediaBimestral,  # ← AQUI: usar o modelo ORM
+    Bimestre,
+    Aluno
 )
 from database import get_db
 

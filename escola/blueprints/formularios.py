@@ -210,18 +210,32 @@ def api_config():
 @login_required
 def api_aluno_pontuacao():
     """
-    Retorna pontuação do aluno para ano/bimestre informado (ou bimestre atual por data se não informado).
+    Retorna pontuação do aluno CALCULADA DINAMICAMENTE com todos os bônus.
     Response:
-      { pontuacao_inicial, pontuacao_atual, acrescimo_info (opcional) }
+      { pontuacao_inicial, pontuacao_atual, comportamento, acrescimo_info }
     """
     aluno_id = request.args.get('aluno_id')
     ano = request.args.get('ano')
     bimestre = request.args.get('bimestre')
     db = get_db()
+    
     if not aluno_id:
         return jsonify({'error': 'aluno_id obrigatório'}), 400
 
     try:
+        # ========================================
+        # NOVA LÓGICA: CALCULA PONTUAÇÃO DINÂMICA
+        # ========================================
+        from services.automated_pontuacao import calcular_pontuacao_aluno
+        
+        # Calcula a pontuação com TODOS os bônus aplicados
+        resultado = calcular_pontuacao_aluno(int(aluno_id))
+        pontuacao_calculada = resultado['pontuacao']
+        comportamento = resultado['comportamento']
+        
+        # ========================================
+        # DETERMINA ANO/BIMESTRE ATUAL
+        # ========================================
         if not ano or not bimestre:
             hoje = datetime.now().strftime('%Y-%m-%d')
             row = db.query(Bimestre).filter(
@@ -235,41 +249,78 @@ def api_aluno_pontuacao():
                 bimestre = ((m - 1) // 2) + 1
                 ano = date.today().year
 
+        # ========================================
+        # BUSCA PONTUAÇÃO INICIAL DO BIMESTRE
+        # ========================================
         pb = db.query(PontuacaoBimestral).filter_by(
-            aluno_id=aluno_id, ano=int(ano), bimestre=int(bimestre)
+            aluno_id=int(aluno_id), ano=int(ano), bimestre=int(bimestre)
         ).first()
-        if pb:
-            inicial = float(pb.pontuacao_inicial)
-            atual = float(pb.pontuacao_atual)
-        else:
-            inicial = 8.0
-            atual = 8.0
-
+        
+        pontuacao_inicial = float(pb.pontuacao_inicial) if pb else 8.0
+        
+        # ========================================
+        # MONTA INFORMAÇÃO DE ACRÉSCIMO/BÔNUS
+        # ========================================
+        acrescimo_info = None
+        
+        # Verifica última falta (evento negativo)
         last_negative = (
             db.query(PontuacaoHistorico)
             .filter(
-                PontuacaoHistorico.aluno_id == aluno_id,
+                PontuacaoHistorico.aluno_id == int(aluno_id),
                 PontuacaoHistorico.valor_delta < 0
             )
             .order_by(PontuacaoHistorico.criado_em.desc())
             .first()
         )
-        acrescimo_info = None
+        
         if last_negative:
-            from datetime import timedelta
-            last_date = datetime.strptime(last_negative.criado_em[:19], '%Y-%m-%d %H:%M:%S')
-            diff_days = (datetime.now() - last_date).days
-            if diff_days > 60:
-                dias_acresc = diff_days - 60
-                potencial = dias_acresc * 0.2
-                max_possivel = max(0, 10.0 - atual)
-                acrescimo = min(potencial, max_possivel)
-                if acrescimo > 0:
-                    acrescimo_info = f'Bônus projetado: +{acrescimo:.2f} pontos (após {diff_days} dias sem perda).'
+            # Tem falta registrada - calcula dias desde a última
+            try:
+                last_date = datetime.strptime(last_negative.criado_em[:19], '%Y-%m-%d %H:%M:%S')
+                diff_days = (datetime.now() - last_date).days
+                
+                if diff_days > 60:
+                    dias_bonus = diff_days - 60
+                    bonus_aplicado = min(dias_bonus * 0.2, 10.0 - pontuacao_inicial)
+                    acrescimo_info = f'Bônus de {dias_bonus} dias sem falta: +{bonus_aplicado:.2f} pontos'
+            except Exception:
+                pass
+        else:
+            # Sem faltas - verifica data de matrícula
+            aluno = db.query(Aluno).filter_by(id=int(aluno_id)).first()
+            if aluno and aluno.data_matricula:
+                try:
+                    data_matricula_str = aluno.data_matricula
+                    if isinstance(data_matricula_str, str):
+                        data_matricula = datetime.strptime(data_matricula_str[:10], '%Y-%m-%d')
+                    else:
+                        data_matricula = data_matricula_str
+                    
+                    diff_days = (datetime.now() - data_matricula).days
+                    
+                    if diff_days > 60:
+                        dias_bonus = diff_days - 60
+                        bonus_aplicado = min(dias_bonus * 0.2, 10.0 - pontuacao_inicial)
+                        acrescimo_info = f'Bônus de {dias_bonus} dias sem falta desde a matrícula: +{bonus_aplicado:.2f} pontos'
+                except Exception:
+                    pass
+        
+        # ========================================
+        # RETORNA RESULTADO COM PONTUAÇÃO CALCULADA
+        # ========================================
         return jsonify({
-            'pontuacao_inicial': round(inicial, 2),
-            'pontuacao_atual': round(atual, 2),
+            'pontuacao_inicial': round(pontuacao_inicial, 2),
+            'pontuacao_atual': round(pontuacao_calculada, 2),
+            'comportamento': comportamento,
             'acrescimo_info': acrescimo_info
         })
-    except Exception:
-        return jsonify({'pontuacao_inicial': 8.0, 'pontuacao_atual': 8.0})
+        
+    except Exception as e:
+        current_app.logger.exception('Erro ao calcular pontuação do aluno')
+        return jsonify({
+            'pontuacao_inicial': 8.0, 
+            'pontuacao_atual': 8.0,
+            'comportamento': 'Bom',
+            'acrescimo_info': None
+        }), 200
