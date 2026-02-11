@@ -468,15 +468,19 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
     Aplica delta na pontuacao_bimestral do aluno (cria linha se inexistente).
     Garante limites mínimos/máximos (0.0 .. 10.0).
     Registra no pontuacao_historico usando DD/MM/AAAA (sem horas).
+    Para novo aluno, cria registro de pontuação inicial 8.0 no início do bimestre ou na data da matrícula.
     """
     if not aluno_id:
         return
 
     from datetime import datetime
     ano, bimestre = _get_bimestre_for_date(db, data_tratamento_str)
-    from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
+    from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico, Aluno
 
-    # Formata a data para DD/MM/AAAA
+    # Busca aluno para regras de matrícula
+    aluno = db.query(Aluno).filter_by(id=aluno_id).first()
+
+    # Define data de lançamento (DD/MM/AAAA)
     criado_em = None
     if data_despacho:
         # Se vier YYYY-MM-DD, converte para DD/MM/AAAA
@@ -490,8 +494,52 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
         criado_em = datetime.now().strftime('%d/%m/%Y')
 
     try:
-        print(f"DEBUG _apply_delta_pontuacao: aluno_id={aluno_id}, delta={delta}, criado_em={criado_em}")
+        # Identifica se já existe registro bimestral
         row = db.query(PontuacaoBimestral).filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre).first()
+
+        # Pontuação inicial para novo aluno
+        if not row and tipo_evento == "INICIO_ANO":
+            # Caso matrícula antes do início do bimestre, inicio = primeiro dia do bimestre
+            # Caso matrícula durante o bimestre, inicio = data da matrícula
+            from sqlalchemy import text
+            data_bimestre = db.execute(
+                text("SELECT inicio FROM bimestres WHERE ano = :ano AND numero = :bimestre"),
+                {"ano": ano, "bimestre": bimestre}
+            ).fetchone()
+            if aluno and aluno.data_matricula:
+                data_matricula = aluno.data_matricula[:10]
+                if data_matricula < str(data_bimestre[0]):
+                    criado_em = datetime.strptime(str(data_bimestre[0]), "%Y-%m-%d").strftime("%d/%m/%Y")
+                else:
+                    criado_em = datetime.strptime(str(data_matricula), "%Y-%m-%d").strftime("%d/%m/%Y")
+            else:
+                criado_em = datetime.strptime(str(data_bimestre[0]), "%Y-%m-%d").strftime("%d/%m/%Y")
+
+            inicial = 8.0
+            row = PontuacaoBimestral(
+                aluno_id=aluno_id,
+                ano=ano,
+                bimestre=bimestre,
+                pontuacao_inicial=inicial,
+                pontuacao_atual=inicial,
+                atualizado_em=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            )
+            db.add(row)
+            hist = PontuacaoHistorico(
+                aluno_id=aluno_id,
+                ano=ano,
+                bimestre=bimestre,
+                ocorrencia_id=ocorrencia_id,
+                tipo_evento=tipo_evento,
+                valor_delta=inicial,
+                criado_em=criado_em
+            )
+            db.add(hist)
+            db.commit()
+            print(f"DEBUG pontuação inicial lançada para novo aluno {aluno_id} em {criado_em}")
+            return
+
+        print(f"DEBUG _apply_delta_pontuacao: aluno_id={aluno_id}, delta={delta}, criado_em={criado_em}")
         if row:
             atual = float(row.pontuacao_atual)
             novo = max(0.0, min(10.0, atual + float(delta)))

@@ -165,6 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Carrega pontuação do aluno para o bimestre selecionado
     function carregarPontuacao(aluno_id) {
+    window.carregarPontuacao = carregarPontuacao;
     const b = bimestreSelect.value;
     if (!aluno_id || !b) return;
     const [ano, numero] = b.split('|');

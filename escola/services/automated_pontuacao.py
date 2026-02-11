@@ -8,8 +8,10 @@ from models_sqlalchemy import (
     Aluno
 )
 from database import get_db
+from sqlalchemy import text
 
 def calcular_pontuacao_aluno(aluno_id, data_final=None):
+    print("DEBUG - aluno_id:", aluno_id, "data_final:", data_final)
     db = get_db()
     if data_final is None:
         data_final = datetime.now().date()
@@ -66,13 +68,14 @@ def calcular_pontuacao_aluno(aluno_id, data_final=None):
     if not ultimo_evento_negativo:
         # Considera data de matrícula
         matricula = db.execute(
-            "SELECT data_matricula FROM alunos WHERE id = :aluno_id",
+            text("SELECT data_matricula FROM alunos WHERE id = :aluno_id"),
             {"aluno_id": aluno_id}
         ).fetchone()
         if matricula:
             ultimo_evento_negativo = matricula[0]
             if isinstance(ultimo_evento_negativo, str):
                 ultimo_evento_negativo = datetime.strptime(ultimo_evento_negativo[:10], '%Y-%m-%d').date()
+            print("DEBUG - Data de referência para bônus (ultimo_evento_negativo):", ultimo_evento_negativo)
 
     if ultimo_evento_negativo:
         dias_sem_perda = (data_final - ultimo_evento_negativo).days

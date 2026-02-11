@@ -16,57 +16,47 @@ from datetime import datetime, date, timedelta
 
 from app import app
 from database import get_db
-from blueprints import disciplinar
+from blueprints import alunos, disciplinar
 
 # IMPORT MODELS ORM
 from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico
 
 from sqlalchemy import text
 
-def get_media_bimestral(db, aluno_id, ano, bimestre):
-    """
-    Busca a média bimestral real do aluno na tabela medias_bimestrais.
-    """
-    query = text(
-        "SELECT media FROM medias_bimestrais WHERE aluno_id = :aluno_id AND ano = :ano AND bimestre = :bimestre"
-    )
-    row = db.execute(query, {"aluno_id": aluno_id, "ano": ano, "bimestre": bimestre}).fetchone()
-    return float(row[0]) if row and row[0] is not None else None
-
 def apply_bimestral_bonus(ano: int, bimestre: int, force=False):
     """Aplica +0.5 para cada aluno com média_bimestral >= 8.0."""
     with app.app_context():
         db = get_db()
-        alunos = (
-            db.query(PontuacaoBimestral.aluno_id)
-              .distinct()
-              .all()
-        )
-        alunos_ids = [x[0] for x in alunos]
+        alunos = db.execute(text("SELECT id FROM alunos")).fetchall()
+        alunos_ids = [row[0] for row in alunos]
         applied = 0
+
+        # Obtém a data do fim do bimestre para lançamento correto
+        fim_bimestre = db.execute(
+            text("SELECT fim FROM bimestres WHERE ano = :ano AND numero = :bimestre"),
+            {"ano": ano, "bimestre": bimestre}
+        ).fetchone()
+        data_bimestre_fim = fim_bimestre[0] if fim_bimestre and fim_bimestre[0] else f"{ano}-12-31"
+
         for aluno_id in alunos_ids:
-            media = get_media_bimestral(db, aluno_id, ano, bimestre)
-            if media is None:
-                continue
-            if media >= 8.0:
-                if not force:
-                    h = (
-                        db.query(PontuacaoHistorico)
-                        .filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre, tipo_evento='BIMESTRE_BONUS')
-                        .first()
-                    )
-                    if h:
-                        continue
-                try:
-                    disciplinar._apply_delta_pontuacao(
-                        db, aluno_id, f"{ano}-01-01", 0.5,
-                        ocorrencia_id=None, tipo_evento="BIMESTRE_BONUS"
-                    )
-                    applied += 1
-                except Exception:
-                    app.logger.exception("Erro ao aplicar bonus bimestral para aluno_id=%s", aluno_id)
+            if not force:
+                h = (
+                    db.query(PontuacaoHistorico)
+                    .filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre, tipo_evento='BIMESTRE_BONUS')
+                    .first()
+                )
+                if h:
+                    continue
+            try:
+                disciplinar._apply_delta_pontuacao(
+                    db, aluno_id, data_bimestre_fim, 0.5,
+                    ocorrencia_id=None, tipo_evento="BIMESTRE_BONUS"
+                )
+                applied += 1
+            except Exception:
+                app.logger.exception("Erro ao aplicar bonus bimestral para aluno_id=%s", aluno_id)
         db.commit()
-        print(f"Applied bimestral bonus to {applied} alunos for {ano} b{bimestre} (media>=8.0).")
+        print(f"Bônus bimestral de +0.5 aplicado automaticamente para {applied} alunos em {ano} b{bimestre}.")
 
 def aluno_sem_perda_periodo(db, aluno_id, data_inicio: date, data_fim: date) -> bool:
     """Retorna True se NÃO houver registro com valor_delta < 0 entre data_inicio e data_fim."""
@@ -90,12 +80,8 @@ def apply_no_loss_daily(check_date: date):
     with app.app_context():
         db = get_db()
         ano, bimestre = disciplinar._get_bimestre_for_date(db, check_date.strftime("%Y-%m-%d"))
-        alunos = (
-            db.query(PontuacaoBimestral.aluno_id)
-            .distinct()
-            .all()
-        )
-        alunos_ids = [x[0] for x in alunos]
+        alunos = db.execute(text("SELECT id FROM alunos")).fetchall()
+        alunos_ids = [row[0] for row in alunos]
         applied = 0
         inicio_period = check_date - timedelta(days=60)
         fim_period = check_date - timedelta(days=1)
