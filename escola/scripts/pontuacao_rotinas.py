@@ -1,11 +1,13 @@
 # scripts/pontuacao_rotinas.py
 """
 Rotinas para bonificações de pontuação:
-- apply_bimestral_bonus: aplica +0.5 para alunos com média bimestral >= 8.0
-- apply_no_loss_daily: aplica +0.2/dia para alunos sem perda nos últimos 60 dias, a partir do 61º dia, nunca antes da matrícula e nunca em duplicidade.
+- calcular_e_salvar_pontuacao_final_bimestre: calcula e salva a pontuação final do bimestre em medias_bimestrais
+- apply_bimestral_bonus: aplica +0.5 para alunos com pontuação final >= 8.0
+- apply_no_loss_daily: aplica +0.2/dia para alunos sem perda nos últimos 60 dias
 
-Uso manual:
-  py -m scripts.pontuacao_rotinas apply_bimestral_bonus 2025 1 [--force]
+Uso manual (ao fechar um bimestre):
+  py -m scripts.pontuacao_rotinas calcular_e_salvar_pontuacao_final_bimestre 2025 1
+  py -m scripts.pontuacao_rotinas apply_bimestral_bonus 2025 1
   py -m scripts.pontuacao_rotinas apply_no_loss_daily 2025-04-04 [--ate 2025-04-11]
 
 Uso automático: basta importar e chamar as funções diretamente.
@@ -33,14 +35,33 @@ def apply_bimestral_bonus(ano: int, bimestre: int, force=False):
             text("SELECT fim FROM bimestres WHERE ano = :ano AND numero = :bimestre"),
             {"ano": ano, "bimestre": bimestre}
         ).fetchone()
-        data_bimestre_fim = fim_bimestre[0] if fim_bimestre and fim_bimestre[0] else f"{ano}-12-31"
+        
+        if not fim_bimestre or not fim_bimestre[0]:
+            print(f"[ERRO] Bimestre {bimestre}/{ano} não encontrado")
+            return
+            
+        data_bimestre_fim = fim_bimestre[0]
+        
+        # Converte para date se necessário e adiciona 1 dia
+        if isinstance(data_bimestre_fim, str):
+            data_bimestre_fim = datetime.strptime(data_bimestre_fim[:10], "%Y-%m-%d").date()
+        
+        # Data do lançamento = 1 dia após o fim do bimestre
+        data_lancamento = data_bimestre_fim + timedelta(days=1)
 
         alunos_data = db.query(Aluno.id, Aluno.data_matricula).all()
         applied = 0
         for aluno_id, data_matricula in alunos_data:
             # Só alunos matriculados antes do fim do bimestre
-            if not data_matricula or data_matricula > data_bimestre_fim:
+            if not data_matricula:
                 continue
+                
+            if isinstance(data_matricula, str):
+                data_matricula = datetime.strptime(data_matricula[:10], "%Y-%m-%d").date()
+                
+            if data_matricula > data_bimestre_fim:
+                continue
+                
             # Evita duplicidade de lançamento
             if not force:
                 h = (
@@ -59,7 +80,7 @@ def apply_bimestral_bonus(ano: int, bimestre: int, force=False):
                 continue
             try:
                 disciplinar._apply_delta_pontuacao(
-                    db, aluno_id, str(data_bimestre_fim), 0.5,
+                    db, aluno_id, data_lancamento.strftime("%Y-%m-%d"), 0.5,
                     ocorrencia_id=None, tipo_evento="BIMESTRE_BONUS"
                 )
                 applied += 1
@@ -444,6 +465,95 @@ def criar_media_bimestral_inicial_para_todos():
         db.commit()
         print(f"[INFO] Médias corrigidas/garantidas para todos os alunos e bimestres")
 
+def calcular_e_salvar_pontuacao_final_bimestre(ano: int, bimestre: int, force=False):
+    """
+    Calcula e salva a pontuação final de cada aluno no bimestre na tabela medias_bimestrais.
+    Deve ser executada AO FECHAR o bimestre, ANTES de apply_bimestral_bonus.
+    
+    Uso:
+      py -m scripts.pontuacao_rotinas calcular_e_salvar_pontuacao_final_bimestre 2025 1
+    """
+    with app.app_context():
+        db = get_db()
+        
+        # Busca fim do bimestre
+        fim_bimestre = db.execute(
+            text("SELECT fim FROM bimestres WHERE ano = :ano AND numero = :bimestre"),
+            {"ano": ano, "bimestre": bimestre}
+        ).fetchone()
+        
+        if not fim_bimestre or not fim_bimestre[0]:
+            print(f"[ERRO] Bimestre {bimestre}/{ano} não encontrado")
+            return
+            
+        data_fim = fim_bimestre[0]
+        if isinstance(data_fim, str):
+            data_fim = datetime.strptime(data_fim[:10], "%Y-%m-%d").date()
+        
+        alunos_data = db.query(Aluno.id, Aluno.data_matricula).all()
+        total_salvos = 0
+        
+        for aluno_id, data_matricula in alunos_data:
+            if not data_matricula:
+                continue
+                
+            if isinstance(data_matricula, str):
+                data_matricula = datetime.strptime(data_matricula[:10], "%Y-%m-%d").date()
+                
+            # Só processa alunos matriculados antes do fim do bimestre
+            if data_matricula > data_fim:
+                continue
+            
+            # Verifica se já foi calculado
+            if not force:
+                existe = db.execute(
+                    text("SELECT 1 FROM medias_bimestrais WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                    {"a": aluno_id, "y": ano, "b": bimestre}
+                ).fetchone()
+                if existe:
+                    continue
+            
+            # CALCULA pontuação final do bimestre via histórico (SEM incluir BIMESTRE_BONUS)
+            historico = db.query(PontuacaoHistorico).filter(
+                PontuacaoHistorico.aluno_id == aluno_id,
+                PontuacaoHistorico.ano == ano,
+                PontuacaoHistorico.bimestre == bimestre,
+                PontuacaoHistorico.tipo_evento != 'BIMESTRE_BONUS'
+            ).all()
+            
+            pontuacao_final = 8.0  # Base inicial
+            for h in historico:
+                pontuacao_final += float(h.valor_delta or 0)
+            
+            # Aplica teto APENAS NO FINAL (não após cada delta individual)
+            pontuacao_final = min(10.0, max(0.0, pontuacao_final))
+            
+            # Salva ou atualiza em medias_bimestrais
+            try:
+                existe = db.execute(
+                    text("SELECT id FROM medias_bimestrais WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                    {"a": aluno_id, "y": ano, "b": bimestre}
+                ).fetchone()
+                
+                if existe:
+                    # Atualiza
+                    db.execute(
+                        text("UPDATE medias_bimestrais SET media = :m WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                        {"m": pontuacao_final, "a": aluno_id, "y": ano, "b": bimestre}
+                    )
+                else:
+                    # Insere
+                    db.execute(
+                        text("INSERT INTO medias_bimestrais (aluno_id, ano, bimestre, media) VALUES (:a, :y, :b, :m)"),
+                        {"a": aluno_id, "y": ano, "b": bimestre, "m": pontuacao_final}
+                    )
+                total_salvos += 1
+            except Exception as e:
+                print(f"[ERRO] Falha ao salvar pontuação final para aluno_id={aluno_id}: {e}")
+        
+        db.commit()
+        print(f"[INFO] Pontuação final calculada e salva para {total_salvos} alunos em {ano} b{bimestre}.")
+
 def main():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest='cmd')
@@ -458,6 +568,10 @@ def main():
     p4 = sub.add_parser('corrigir_bonificacoes_retroativas')
     p5 = sub.add_parser('corrigir_bonificacoes_bimestrais_retroativas')
     p6 = sub.add_parser('criar_media_bimestral_inicial_para_todos')
+    p8 = sub.add_parser('calcular_e_salvar_pontuacao_final_bimestre')
+    p8.add_argument('ano', type=int, help='Ano do bimestre')
+    p8.add_argument('bimestre', type=int, help='Número do bimestre (1-4)')
+    p8.add_argument('--force', action='store_true', help='Recalcula mesmo que já exista')
     args = parser.parse_args()
     if args.cmd == 'apply_bimestral_bonus':
         apply_bimestral_bonus(args.ano, args.bimestre, force=args.force)
@@ -473,10 +587,11 @@ def main():
         corrigir_bonificacoes_bimestrais_retroativas()
     elif args.cmd == 'criar_media_bimestral_inicial_para_todos':
         criar_media_bimestral_inicial_para_todos()
+    elif args.cmd == 'calcular_e_salvar_pontuacao_final_bimestre':
+        calcular_e_salvar_pontuacao_final_bimestre(args.ano, args.bimestre, force=args.force)
     else:
         parser.print_help()
 
 if __name__ == '__main__':
     main()
-
 

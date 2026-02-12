@@ -215,6 +215,207 @@ Acesse [http://localhost:5000](http://localhost:5000) no navegador.
 
 ---
 
+# Guia de Implementação - Transferência Automática de Saldo entre Bimestres
+
+## 📋 Resumo da Solução
+
+Foi criada a função `transferir_saldo_entre_bimestres()` que automatiza a continuidade de pontuação disciplinar entre bimestres, eliminando a necessidade de intervenção manual.
+
+---
+
+## 🎯 O que a função faz
+
+1. **Calcula o saldo final** de cada aluno no bimestre de origem usando `PontuacaoHistorico`
+2. **Transfere automaticamente** esse saldo como pontuação inicial do próximo bimestre
+3. **Registra no histórico** como evento `TRANSFERENCIA_BIMESTRE` para auditoria
+4. **Respeita o teto de 10.0** - alunos com saldo superior ficam em 10.0
+5. **Evita duplicidade** - não refaz transferências já realizadas (exceto com `--force`)
+
+---
+
+## 📝 Como Usar
+
+### Uso Manual (Linha de Comando)
+
+```bash
+# Transferir do 1º para o 2º bimestre de 2025
+python -m scripts.pontuacao_rotinas transferir_saldo_entre_bimestres 2025 1
+
+# Transferir do 4º bimestre de 2025 para o 1º de 2026
+python -m scripts.pontuacao_rotinas transferir_saldo_entre_bimestres 2025 4
+
+# Forçar transferência mesmo que já exista
+python -m scripts.pontuacao_rotinas transferir_saldo_entre_bimestres 2025 2 --force
+```
+
+### Uso Automático (Código Python)
+
+```python
+from scripts.pontuacao_rotinas import transferir_saldo_entre_bimestres
+
+# Ao fechar o 1º bimestre
+transferir_saldo_entre_bimestres(ano_origem=2025, bimestre_origem=1)
+
+# Ao fechar o ano letivo (4º bimestre) - transfere para 1º/2026
+transferir_saldo_entre_bimestres(ano_origem=2025, bimestre_origem=4)
+```
+
+---
+
+## ⚙️ Integração com Sistema Automatizado
+
+### Adicionar ao agendador (pontuacao_scheduler.py)
+
+Você pode configurar para rodar automaticamente ao final de cada bimestre:
+
+```python
+from apscheduler.schedulers.background import BackgroundScheduler
+from scripts.pontuacao_rotinas import transferir_saldo_entre_bimestres
+from datetime import datetime
+
+scheduler = BackgroundScheduler()
+
+# Exemplo: rodar no último dia de cada bimestre
+# Ajuste as datas conforme seu calendário escolar
+
+# Fim do 1º bimestre (exemplo: 28/fevereiro)
+scheduler.add_job(
+    lambda: transferir_saldo_entre_bimestres(2025, 1),
+    'cron', month=2, day=28, hour=23, minute=59
+)
+
+# Fim do 2º bimestre (exemplo: 30/abril)
+scheduler.add_job(
+    lambda: transferir_saldo_entre_bimestres(2025, 2),
+    'cron', month=4, day=30, hour=23, minute=59
+)
+
+# E assim por diante...
+```
+
+---
+
+## 🔄 Fluxo Recomendado
+
+### Ao Fechar um Bimestre:
+
+1. **Executar bonificações finais**
+   ```bash
+   python -m scripts.pontuacao_rotinas apply_bimestral_bonus 2025 1
+   ```
+
+2. **Transferir saldo para próximo bimestre**
+   ```bash
+   python -m scripts.pontuacao_rotinas transferir_saldo_entre_bimestres 2025 1
+   ```
+
+3. **Verificar no dashboard** se as pontuações iniciais do próximo bimestre estão corretas
+
+---
+
+## 📊 O que Acontece nos Bastidores
+
+### Exemplo Prático:
+
+**Aluno: João Silva**
+- **1º Bimestre:**
+  - Início: 8.0
+  - Bonificação média ≥8: +0.5
+  - Bonificação 60 dias: +1.0
+  - **Saldo final: 9.5**
+
+- **2º Bimestre (ANTES da função):**
+  - ❌ Início: 8.0 (RESETAVA!)
+  - João perdia 1.5 pontos de mérito
+
+- **2º Bimestre (DEPOIS da função):**
+  - ✅ Início: 9.5 (PRESERVA!)
+  - João mantém seu mérito acumulado
+
+### Registro no Banco de Dados:
+
+**Tabela `pontuacao_bimestral`:**
+```
+aluno_id | ano  | bimestre | pontuacao_inicial | pontuacao_atual
+---------|------|----------|-------------------|----------------
+123      | 2025 | 2        | 9.5               | 9.5
+```
+
+**Tabela `pontuacao_historico`:**
+```
+aluno_id | ano  | bimestre | tipo_evento            | valor_delta | observacao
+---------|------|----------|------------------------|-------------|---------------------------
+123      | 2025 | 2        | TRANSFERENCIA_BIMESTRE | +1.5        | Transferência do saldo...
+```
+
+---
+
+## 🛡️ Proteções Implementadas
+
+1. ✅ **Anti-duplicidade**: Não refaz transferências já realizadas
+2. ✅ **Validação de datas**: Verifica se bimestre de destino existe
+3. ✅ **Respeito ao calendário**: Só transfere para alunos já matriculados
+4. ✅ **Teto de 10.0**: Limita pontuação máxima
+5. ✅ **Auditoria completa**: Todos os lançamentos ficam registrados
+
+---
+
+## 🔧 Correção Retroativa
+
+Se você já tem bimestres sem transferência, pode corrigir:
+
+```python
+# Corrigir todas as transferências de 2025
+transferir_saldo_entre_bimestres(2025, 1, force=True)
+transferir_saldo_entre_bimestres(2025, 2, force=True)
+transferir_saldo_entre_bimestres(2025, 3, force=True)
+```
+
+---
+
+## 📌 Notas Importantes
+
+1. **Execute ao final do bimestre**, depois das bonificações
+2. **Antes de abrir próximo bimestre** para alunos/gestores
+3. **Verifique os logs** para confirmar quantos alunos foram transferidos
+4. A função considera apenas `PontuacaoHistorico` - não usa `medias_bimestrais` (que são notas escolares)
+
+---
+
+## ✅ Checklist de Implementação
+
+- [ ] Substituir `/scripts/pontuacao_rotinas.py` pelo arquivo atualizado
+- [ ] Testar em ambiente de desenvolvimento primeiro
+- [ ] Executar para bimestre atual
+- [ ] Verificar pontuações iniciais no dashboard
+- [ ] Configurar agendamento automático (opcional)
+- [ ] Treinar equipe sobre novo fluxo
+- [ ] Documentar procedimento interno
+
+---
+
+## 🆘 Troubleshooting
+
+### "Bimestre X/Y não encontrado"
+- Verifique se o bimestre destino foi cadastrado na tabela `bimestres`
+
+### "Nenhum aluno transferido"
+- Confirme que há alunos matriculados antes do fim do bimestre origem
+- Verifique se transferência já foi feita (use `--force` se necessário)
+
+### "Pontuação errada"
+- Use `--force` para recalcular
+- Verifique se todas as bonificações foram aplicadas antes da transferência
+
+---
+
+## 📞 Suporte
+
+Para dúvidas sobre a implementação, consulte:
+- README.md principal do projeto
+- Documentação em `/scripts/pontuacao_rotinas.py`
+- Logs do sistema após execução
+
 ## Licença
 
 (Adicione aqui sua licença, ex: MIT, GPLv3 etc)
