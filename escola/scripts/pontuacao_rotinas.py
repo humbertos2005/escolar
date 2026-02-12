@@ -87,9 +87,12 @@ def aluno_sem_perda_periodo(db, aluno_id, data_inicio: date, data_fim: date) -> 
 def apply_no_loss_daily(data_inicio: date, data_fim: date = None):
     """
     Aplica +0.2 ao bimestre atual para cada aluno, a cada dia do intervalo [data_inicio, data_fim]
-    desde que os 60 dias anteriores sejam sem perda E o aluno já esteja matriculado há 60 dias completos.
+    desde que os 60 dias anteriores sejam sem perda,
+    e o aluno já esteja apto (após 60 dias completos do referencial correto: maior entre matrícula e início do bimestre de cada dia).
     NUNCA lança duplicado para o mesmo dia/aluno!
     """
+    from datetime import datetime, timedelta
+
     with app.app_context():
         db = get_db()
         if data_fim is None:
@@ -102,36 +105,88 @@ def apply_no_loss_daily(data_inicio: date, data_fim: date = None):
         for i in range(dias):
             check_date = data_inicio + timedelta(days=i)
             ano, bimestre = disciplinar._get_bimestre_for_date(db, check_date.strftime("%Y-%m-%d"))
-            inicio_period = check_date - timedelta(days=60)
-            fim_period = check_date - timedelta(days=1)
+            # Busca início do bimestre em curso para esse dia
+            from sqlalchemy import text
+            bim = db.execute(
+                text("SELECT inicio FROM bimestres WHERE ano = :ano AND numero = :bim"),
+                {"ano": ano, "bim": bimestre}
+            ).fetchone()
+            if not bim or not bim[0]:
+                continue
+            try:
+                inicio_bimestre = datetime.strptime(str(bim[0])[:10], '%Y-%m-%d').date()
+            except Exception:
+                continue
+
             applied = 0
             for aluno_id, data_matricula in alunos_data:
                 if not data_matricula:
                     continue
-                # Só conta quem está matriculado há pelo menos 60 dias completos antes do check_date
-                if data_matricula > inicio_period:
+                # Garante tipo date
+                if isinstance(data_matricula, str):
+                    try:
+                        data_matricula_dt = datetime.strptime(data_matricula[:10], '%Y-%m-%d').date()
+                    except Exception:
+                        data_matricula_dt = datetime.strptime(data_matricula[:10], '%d/%m/%Y').date()
+                else:
+                    data_matricula_dt = data_matricula
+
+                # Regra: referência = maior entre matrícula e início do bimestre
+                data_referencia = max(inicio_bimestre, data_matricula_dt)
+                # Só apto após 60 dias dessa referência
+                if check_date < data_referencia + timedelta(days=60):
                     continue
+
+                # Se houve PERDA pós-referência e antes de check_date, reinicia ciclo após perda
+                evento_neg = db.query(PontuacaoHistorico)\
+                    .filter(
+                        PontuacaoHistorico.aluno_id == aluno_id,
+                        PontuacaoHistorico.valor_delta < 0,
+                        PontuacaoHistorico.criado_em < check_date.strftime('%Y-%m-%d')
+                    )\
+                    .order_by(PontuacaoHistorico.criado_em.desc())\
+                    .first()
+                if evento_neg:
+                    evt_data_str = evento_neg.criado_em
+                    try:
+                        if '-' in evt_data_str:
+                            evt_date = datetime.strptime(evt_data_str[:10], '%Y-%m-%d').date()
+                        else:
+                            evt_date = datetime.strptime(evt_data_str[:10], '%d/%m/%Y').date()
+                    except Exception:
+                        evt_date = None
+                    if evt_date and evt_date >= data_referencia:
+                        data_referencia = evt_date
+                        if check_date < data_referencia + timedelta(days=60):
+                            continue
+
                 # Evita duplicidade de lançamento para o mesmo dia
+                criado_em_str = check_date.strftime('%d/%m/%Y')
                 existe = (
                     db.query(PontuacaoHistorico)
                     .filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre, tipo_evento="NO_LOSS_DAILY")
-                    .filter(PontuacaoHistorico.criado_em == check_date.strftime("%Y-%m-%d"))
+                    .filter(PontuacaoHistorico.criado_em == criado_em_str)
                     .first()
                 )
                 if existe:
                     continue
-                try:
-                    if aluno_sem_perda_periodo(db, aluno_id, inicio_period, fim_period):
+
+                # Só lança se os 60 dias anteriores forem limpos de perda
+                inicio_period = check_date - timedelta(days=60)
+                fim_period = check_date - timedelta(days=1)
+                if aluno_sem_perda_periodo(db, aluno_id, inicio_period, fim_period):
+                    try:
                         disciplinar._apply_delta_pontuacao(
                             db, aluno_id, check_date.strftime("%Y-%m-%d"), 0.2,
-                            ocorrencia_id=None, tipo_evento="NO_LOSS_DAILY"
+                            ocorrencia_id=None, tipo_evento="NO_LOSS_DAILY",
+                            data_despacho=check_date.strftime("%Y-%m-%d")
                         )
                         applied += 1
                         total_aplicados += 1
-                except Exception:
-                    app.logger.exception(f"Erro no no-loss daily para aluno_id={aluno_id} ({check_date})")
+                    except Exception:
+                        app.logger.exception(f"Erro no no-loss daily para aluno_id={aluno_id} ({check_date})")
             db.commit()
-            print(f"[INFO] {check_date}: bônus diário +0.2 aplicado para {applied} alunos (período {inicio_period.isoformat()}..{fim_period.isoformat()})")
+            print(f"[INFO] {check_date}: bônus diário +0.2 aplicado para {applied} alunos.")
         print(f"[INFO] Total no-loss daily bônus lançados: {total_aplicados}")
 
 # --- Rotinas para integração automática ou manual ---
@@ -163,11 +218,12 @@ def executar_rotinas_automaticas():
 def corrigir_bonificacoes_retroativas():
     """
     Para TODOS os alunos matriculados,
-    verifica desde o 61º dia de matrícula até ontem (ou hoje, se preferir),
+    verifica desde o 61º dia útil de referência (maior entre matrícula e início do bimestre de cada dia)
+    até ontem (ou hoje, se preferir),
     e lança automaticamente TODO bônus diário (+0,2) devido e não lançado na tabela pontuacao_historico,
     sem duplicidade, respeitando as regras já existentes.
     """
-    from datetime import date
+    from datetime import date, datetime
 
     with app.app_context():
         db = get_db()
@@ -180,46 +236,90 @@ def corrigir_bonificacoes_retroativas():
             if not data_matricula:
                 continue
 
-            # Busca a data do primeiro evento negativo OU data de matrícula
-            evento_neg = db.query(PontuacaoHistorico)\
-                .filter(
-                    PontuacaoHistorico.aluno_id == aluno_id,
-                    PontuacaoHistorico.valor_delta < 0
-                )\
-                .order_by(PontuacaoHistorico.criado_em.asc())\
-                .first()
-            data_referencia = data_matricula
-            if evento_neg:
-                data_referencia = evento_neg.criado_em if evento_neg.criado_em > data_matricula else data_matricula
-            if isinstance(data_referencia, str):
-                from datetime import datetime
-                data_referencia = datetime.strptime(data_referencia[:10], '%Y-%m-%d').date()
+            # Garante datetime.date
+            if isinstance(data_matricula, str):
+                try:
+                    data_matricula_dt = datetime.strptime(data_matricula[:10], '%Y-%m-%d').date()
+                except Exception:
+                    data_matricula_dt = datetime.strptime(data_matricula[:10], '%d/%m/%Y').date()
+            else:
+                data_matricula_dt = data_matricula
 
-            # O aluno só pode ganhar após completar 60 dias sem perda
-            inicio_checagem = data_referencia + timedelta(days=60)
-            fim_checagem = hoje - timedelta(days=1)  # Até ontem
-
-            dia = inicio_checagem
-            while dia <= fim_checagem:
+            # Checa até ontem
+            dia = data_matricula_dt
+            while dia <= hoje - timedelta(days=1):
+                # Busca início de bimestre do dia em questão
                 ano, bimestre = disciplinar._get_bimestre_for_date(db, dia.strftime("%Y-%m-%d"))
-                # Não lançar se já existe o bônus nesse dia
+                # Busca início do bimestre
+                from sqlalchemy import text
+                bim = db.execute(
+                    text("SELECT inicio FROM bimestres WHERE ano = :ano AND numero = :bim"),
+                    {"ano": ano, "bim": bimestre}
+                ).fetchone()
+                if not bim or not bim[0]:
+                    dia += timedelta(days=1)
+                    continue
+                try:
+                    inicio_bimestre = datetime.strptime(str(bim[0])[:10], '%Y-%m-%d').date()
+                except Exception:
+                    dia += timedelta(days=1)
+                    continue
+
+                # Regra: referência = maior entre matrícula e início do bimestre
+                data_referencia = max(inicio_bimestre, data_matricula_dt)
+
+                # Só processar dias após 60 dias completos da referência
+                if dia < data_referencia + timedelta(days=60):
+                    dia += timedelta(days=1)
+                    continue
+
+                # Se houver PERDA mais recente que essa referência, redenominamos o ciclo!
+                evento_neg = db.query(PontuacaoHistorico)\
+                    .filter(
+                        PontuacaoHistorico.aluno_id == aluno_id,
+                        PontuacaoHistorico.valor_delta < 0,
+                        PontuacaoHistorico.criado_em < dia.strftime('%Y-%m-%d')
+                    )\
+                    .order_by(PontuacaoHistorico.criado_em.desc())\
+                    .first()
+                if evento_neg:
+                    evt_data_str = evento_neg.criado_em
+                    try:
+                        if '-' in evt_data_str:
+                            evt_date = datetime.strptime(evt_data_str[:10], '%Y-%m-%d').date()
+                        else:
+                            evt_date = datetime.strptime(evt_data_str[:10], '%d/%m/%Y').date()
+                    except Exception:
+                        evt_date = None
+                    if evt_date and evt_date >= data_referencia:
+                        # só reinicia ciclo se a perda foi depois da data_referencia
+                        data_referencia = evt_date
+                        # só processa dias depois de 60 dias dessa perda
+                        if dia < data_referencia + timedelta(days=60):
+                            dia += timedelta(days=1)
+                            continue
+
+                # Controle de duplicidade
+                criado_em_str = dia.strftime('%d/%m/%Y')
                 existe = (
                     db.query(PontuacaoHistorico)
                     .filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre, tipo_evento="NO_LOSS_DAILY")
-                    .filter(PontuacaoHistorico.criado_em == dia.strftime("%Y-%m-%d"))
+                    .filter(PontuacaoHistorico.criado_em == criado_em_str)
                     .first()
                 )
                 if existe:
                     dia += timedelta(days=1)
                     continue
-                # Checa se houve alguma perda nos 60 dias anteriores
+
+                # Por último, só lança se os 60 dias anteriores forem limpos de perda
                 inicio_period = dia - timedelta(days=60)
                 fim_period = dia - timedelta(days=1)
                 if aluno_sem_perda_periodo(db, aluno_id, inicio_period, fim_period):
                     try:
                         disciplinar._apply_delta_pontuacao(
                             db, aluno_id, dia.strftime("%Y-%m-%d"), 0.2,
-                            ocorrencia_id=None, tipo_evento="NO_LOSS_DAILY"
+                            ocorrencia_id=None, tipo_evento="NO_LOSS_DAILY",
+                            data_despacho=dia.strftime("%Y-%m-%d")
                         )
                         total_bonificacoes += 1
                     except Exception:
@@ -286,6 +386,64 @@ def corrigir_bonificacoes_bimestrais_retroativas():
             db.commit()
         print(f"[INFO] Correção retroativa bimestral concluída. Bonificações lançadas: {total_bonificacoes}")
 
+def criar_media_bimestral_inicial_para_todos():
+    """
+    Para cada aluno em cada bimestre:
+    - 1º bimestre: média inicial é 8.0.
+    - Demais bimestres: média inicial = média final do bimestre anterior, nunca maior que 10.0.
+    Atualiza registros se já existirem.
+    """
+    with app.app_context():
+        db = get_db()
+        alunos_data = db.query(Aluno.id, Aluno.data_matricula).all()
+        bimestres = db.execute(text("SELECT ano, numero, fim FROM bimestres ORDER BY ano, numero")).fetchall()
+        total_novos = 0
+        for aluno_id, data_matricula in alunos_data:
+            if not data_matricula:
+                continue
+            if isinstance(data_matricula, str):
+                from datetime import datetime
+                data_matricula = datetime.strptime(data_matricula[:10], "%Y-%m-%d").date()
+            media_anterior = 8.0  # para o 1º bimestre
+            for idx, bimestre in enumerate(bimestres):
+                ano, num, fim = bimestre
+                if isinstance(fim, str):
+                    from datetime import datetime
+                    fim = datetime.strptime(fim[:10], "%Y-%m-%d").date()
+                if data_matricula > fim:
+                    continue
+                # Atualiza a média inicial usando a média do bimestre anterior (teto 10)
+                if num == 1:
+                    media = 8.0
+                else:
+                    # Busca a média do bimestre anterior
+                    mb_anter = db.execute(
+                        text("SELECT media FROM medias_bimestrais WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                        {"a": aluno_id, "y": ano, "b": num - 1}
+                    ).fetchone()
+                    media = float(mb_anter[0]) if mb_anter else 8.0
+                    if media > 10.0:
+                        media = 10.0
+                # Verifica se já existe média para este aluno/ano/bimestre
+                mb = db.execute(
+                    text("SELECT 1 FROM medias_bimestrais WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                    {"a": aluno_id, "y": ano, "b": num}
+                ).fetchone()
+                if mb:
+                    # Atualiza média se diferente
+                    db.execute(
+                        text("UPDATE medias_bimestrais SET media = :m WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                        {"m": media, "a": aluno_id, "y": ano, "b": num}
+                    )
+                else:
+                    db.execute(
+                        text("INSERT INTO medias_bimestrais (aluno_id, ano, bimestre, media) VALUES (:a, :y, :b, :m)"),
+                        {"a": aluno_id, "y": ano, "b": num, "m": media}
+                    )
+                    total_novos += 1
+        db.commit()
+        print(f"[INFO] Médias corrigidas/garantidas para todos os alunos e bimestres")
+
 def main():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest='cmd')
@@ -299,6 +457,7 @@ def main():
     p3 = sub.add_parser('executar_rotinas_automaticas')
     p4 = sub.add_parser('corrigir_bonificacoes_retroativas')
     p5 = sub.add_parser('corrigir_bonificacoes_bimestrais_retroativas')
+    p6 = sub.add_parser('criar_media_bimestral_inicial_para_todos')
     args = parser.parse_args()
     if args.cmd == 'apply_bimestral_bonus':
         apply_bimestral_bonus(args.ano, args.bimestre, force=args.force)
@@ -312,6 +471,8 @@ def main():
         corrigir_bonificacoes_retroativas()
     elif args.cmd == 'corrigir_bonificacoes_bimestrais_retroativas':
         corrigir_bonificacoes_bimestrais_retroativas()
+    elif args.cmd == 'criar_media_bimestral_inicial_para_todos':
+        criar_media_bimestral_inicial_para_todos()
     else:
         parser.print_help()
 

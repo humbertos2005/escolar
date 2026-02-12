@@ -477,21 +477,39 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
     ano, bimestre = _get_bimestre_for_date(db, data_tratamento_str)
     from models_sqlalchemy import PontuacaoBimestral, PontuacaoHistorico, Aluno
 
-    # Busca aluno para regras de matrícula
     aluno = db.query(Aluno).filter_by(id=aluno_id).first()
 
-    # Define data de lançamento (DD/MM/AAAA)
+    # ----- ROBUSTO: Determinação da data de lançamento -----
     criado_em = None
+    # Preferência à data_despacho explícita (pode ser chamada retroativa)
     if data_despacho:
-        # Se vier YYYY-MM-DD, converte para DD/MM/AAAA
-        if '-' in data_despacho and len(data_despacho) >= 10:
-            criado_em = datetime.strptime(data_despacho[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
-        elif '/' in data_despacho and len(data_despacho) >= 10:
-            criado_em = data_despacho[:10]
-        else:
+        # Se vier em qualquer formato ISO ou BR
+        try:
+            if '-' in data_despacho and len(data_despacho) >= 10:
+                # Suporta 'YYYY-MM-DD' ou 'YYYY/MM/DD'
+                dt = datetime.strptime(data_despacho[:10].replace('/', '-'), "%Y-%m-%d")
+                criado_em = dt.strftime('%d/%m/%Y')
+            elif '/' in data_despacho and len(data_despacho) >= 10:
+                dt = datetime.strptime(data_despacho[:10], '%d/%m/%Y')
+                criado_em = dt.strftime('%d/%m/%Y')
+            else:
+                # fallback para hoje, se não reconhecido
+                criado_em = datetime.now().strftime('%d/%m/%Y')
+        except Exception:
             criado_em = datetime.now().strftime('%d/%m/%Y')
     else:
-        criado_em = datetime.now().strftime('%d/%m/%Y')
+        # Se não passar, usa data_tratamento_str se possível, senão data do processamento
+        try:
+            if '-' in data_tratamento_str and len(data_tratamento_str) >= 10:
+                dt = datetime.strptime(data_tratamento_str[:10].replace('/', '-'), "%Y-%m-%d")
+                criado_em = dt.strftime('%d/%m/%Y')
+            elif '/' in data_tratamento_str and len(data_tratamento_str) >= 10:
+                dt = datetime.strptime(data_tratamento_str[:10], '%d/%m/%Y')
+                criado_em = dt.strftime('%d/%m/%Y')
+            else:
+                criado_em = datetime.now().strftime('%d/%m/%Y')
+        except Exception:
+            criado_em = datetime.now().strftime('%d/%m/%Y')
 
     try:
         # Identifica se já existe registro bimestral
@@ -499,8 +517,6 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
 
         # Pontuação inicial para novo aluno
         if not row and tipo_evento == "INICIO_ANO":
-            # Caso matrícula antes do início do bimestre, inicio = primeiro dia do bimestre
-            # Caso matrícula durante o bimestre, inicio = data da matrícula
             from sqlalchemy import text
             data_bimestre = db.execute(
                 text("SELECT inicio FROM bimestres WHERE ano = :ano AND numero = :bimestre"),
@@ -571,6 +587,7 @@ def _apply_delta_pontuacao(db, aluno_id, data_tratamento_str, delta, ocorrencia_
         db.commit()
     except Exception:
         print("EXCEPTION _apply_delta_pontuacao:", aluno_id, delta, criado_em)
+        from flask import current_app
         current_app.logger.exception('Erro ao aplicar delta pontuacao (possível tabela ausente).')
         db.rollback()
 
