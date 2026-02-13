@@ -2,11 +2,7 @@
 
 {% block content %}
 <div class="main-content-inner">
-  <h2>Bimestres</h2>
-
-  <div style="margin-bottom:20px;">
-    <a class="btn btn-primary" href="{{ url_for('bimestres_bp.gerenciar_bimestres', iframe=1) }}">Criar/Configurar Bimestres (novo ano)</a>
-  </div>
+  <h2>Bimestres</h2>  
 
   {% if anos %}
     <table class="table">

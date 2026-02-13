@@ -29,6 +29,14 @@
     </div>
 
     <div id="panel-bimestres" style="display:none;">
+      <div class="mb-3" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="{{ url_for('bimestres_bp.listar_bimestres') }}" class="btn btn-primary">
+          <i class="fas fa-plus"></i> Criar/Configurar Bimestres (novo ano)
+        </a>
+        <a href="{{ url_for('bimestres_bp.gestao_bimestres') }}" class="btn btn-outline-primary">
+          <i class="fas fa-calendar-check"></i> Gestão dos Bimestres
+        </a>
+      </div>
       <iframe id="iframe-bimestres" data-src="{{ url_for('bimestres_bp.listar_bimestres') }}?iframe=1"
               style="width:100%;border:0;min-height:700px" loading="lazy"></iframe>
     </div>

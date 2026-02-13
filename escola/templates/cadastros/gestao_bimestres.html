@@ -4,9 +4,14 @@
 <div class="main-content-inner">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-calendar-check"></i> Gestão de Bimestres</h2>
-    <a href="{{ url_for('bimestres_bp.listar_bimestres') }}" class="btn btn-secondary">
-      <i class="fas fa-edit"></i> Editar Bimestres
-    </a>
+    <div>
+      <a href="{{ url_for('bimestres_bp.listar_bimestres') }}" class="btn btn-secondary">
+        <i class="fas fa-edit"></i> Editar Bimestres
+      </a>
+      <a href="{{ url_for('cadastros_bp.dados_disciplinares') }}" class="btn btn-outline-secondary ml-2">
+        <i class="fas fa-arrow-left"></i> Voltar
+      </a>
+    </div>
   </div>
 
   {% if anos %}
@@ -66,7 +71,7 @@
               <td>
                 {% if not bim.fechado %}
                   <button type="button" class="btn btn-sm btn-primary" 
-                          onclick="confirmarFechamento({{ ano_selecionado }}, {{ bim.numero }}, {{ bim.total_alunos }})">
+                          onclick="confirmarFechamento('{{ ano_selecionado }}', '{{ bim.numero }}', '{{ bim.total_alunos }}')">
                     <i class="fas fa-lock"></i> Fechar Bimestre
                   </button>
                 {% else %}
@@ -175,9 +180,14 @@
 
 <script>
 function confirmarFechamento(ano, bimestre, totalAlunos) {
-  document.getElementById('tituloModal').textContent = `Fechar ${bimestre}º Bimestre de ${ano}`;
-  document.getElementById('totalAlunos').textContent = totalAlunos;
-  document.getElementById('formFechar').action = `{{ url_for('bimestres_bp.fechar_bimestre', ano=0, bimestre=0) }}`.replace('/0/0', `/${ano}/${bimestre}`);
+  // Converte os argumentos para número se necessário (evita erro do VSCode)
+  var bimNumero = Number(bimestre);
+  var anoLetivo = Number(ano);
+  var totalAlunosNum = Number(totalAlunos);
+
+  document.getElementById('tituloModal').textContent = 'Fechar ' + bimNumero + 'º Bimestre de ' + anoLetivo;
+  document.getElementById('totalAlunos').textContent = totalAlunosNum;
+  document.getElementById('formFechar').action = "{{ url_for('bimestres_bp.fechar_bimestre', ano=0, bimestre=0) }}".replace('/0/0', '/' + anoLetivo + '/' + bimNumero);
   $('#modalConfirmacao').modal('show');
 }
 </script>
