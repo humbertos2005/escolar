@@ -26,8 +26,12 @@ from sqlalchemy import text
 
 def apply_bimestral_bonus(ano: int, bimestre: int, force=False):
     """
-    Aplica +0.5 para cada aluno com matrícula até o fim do bimestre,
-    apenas se o aluno tiver média >= 8.0 no bimestre e não tiver recebido antes (a não ser que force).
+    Aplica +0.5 para cada aluno com pontuação >= 8.0 no bimestre que fechou.
+    O bônus é lançado NO PRÓXIMO BIMESTRE, 1 dia após o fim do bimestre avaliado.
+    
+    Exemplo: apply_bimestral_bonus(2025, 1)
+    - Avalia alunos do 1º bimestre (03/02 a 11/04/2025)
+    - Lança bônus no 2º bimestre em 12/04/2025
     """
     with app.app_context():
         db = get_db()
@@ -42,12 +46,30 @@ def apply_bimestral_bonus(ano: int, bimestre: int, force=False):
             
         data_bimestre_fim = fim_bimestre[0]
         
-        # Converte para date se necessário e adiciona 1 dia
+        # Converte para date se necessário
         if isinstance(data_bimestre_fim, str):
             data_bimestre_fim = datetime.strptime(data_bimestre_fim[:10], "%Y-%m-%d").date()
         
         # Data do lançamento = 1 dia após o fim do bimestre
         data_lancamento = data_bimestre_fim + timedelta(days=1)
+        
+        # Determina ano e bimestre do PRÓXIMO bimestre (onde será lançado o bônus)
+        if bimestre == 4:
+            ano_lancamento = ano + 1
+            bimestre_lancamento = 1
+        else:
+            ano_lancamento = ano
+            bimestre_lancamento = bimestre + 1
+        
+        # Verifica se próximo bimestre existe
+        proximo_bim = db.execute(
+            text("SELECT inicio FROM bimestres WHERE ano = :ano AND numero = :bim"),
+            {"ano": ano_lancamento, "bim": bimestre_lancamento}
+        ).fetchone()
+        
+        if not proximo_bim:
+            print(f"[AVISO] Bimestre {bimestre_lancamento}/{ano_lancamento} não encontrado. Bônus não será aplicado.")
+            return
 
         alunos_data = db.query(Aluno.id, Aluno.data_matricula).all()
         applied = 0
@@ -62,16 +84,17 @@ def apply_bimestral_bonus(ano: int, bimestre: int, force=False):
             if data_matricula > data_bimestre_fim:
                 continue
                 
-            # Evita duplicidade de lançamento
+            # Evita duplicidade de lançamento (verifica no PRÓXIMO bimestre)
             if not force:
                 h = (
                     db.query(PontuacaoHistorico)
-                    .filter_by(aluno_id=aluno_id, ano=ano, bimestre=bimestre, tipo_evento='BIMESTRE_BONUS')
+                    .filter_by(aluno_id=aluno_id, ano=ano_lancamento, bimestre=bimestre_lancamento, tipo_evento='BIMESTRE_BONUS')
                     .first()
                 )
                 if h:
                     continue
-            # Confirma média >= 8.0 do aluno para o bimestre
+            
+            # Confirma pontuação >= 8.0 do aluno no bimestre QUE FECHOU
             mb_row = db.execute(
                 text("SELECT media FROM medias_bimestrais WHERE aluno_id = :aluno_id AND ano = :ano AND bimestre = :bimestre"),
                 {"aluno_id": aluno_id, "ano": ano, "bimestre": bimestre}
@@ -79,15 +102,17 @@ def apply_bimestral_bonus(ano: int, bimestre: int, force=False):
             if not mb_row or mb_row[0] < 8.0:
                 continue
             try:
+                # Lança no PRÓXIMO bimestre (a data determina automaticamente o bimestre)
                 disciplinar._apply_delta_pontuacao(
                     db, aluno_id, data_lancamento.strftime("%Y-%m-%d"), 0.5,
-                    ocorrencia_id=None, tipo_evento="BIMESTRE_BONUS"
+                    ocorrencia_id=None, tipo_evento="BIMESTRE_BONUS",
+                    data_despacho=data_lancamento.strftime("%Y-%m-%d")  # ← Passa a data aqui!
                 )
                 applied += 1
             except Exception:
                 app.logger.exception(f"Erro ao aplicar bonus bimestral para aluno_id={aluno_id}")
         db.commit()
-        print(f"[INFO] Bônus bimestral de +0.5 aplicado para {applied} alunos em {ano} b{bimestre}.")
+        print(f"[INFO] Bônus de +0.5 do bimestre {bimestre}/{ano} aplicado para {applied} alunos no bimestre {bimestre_lancamento}/{ano_lancamento}.")
 
 def aluno_sem_perda_periodo(db, aluno_id, data_inicio: date, data_fim: date) -> bool:
     """
@@ -521,7 +546,7 @@ def calcular_e_salvar_pontuacao_final_bimestre(ano: int, bimestre: int, force=Fa
                 PontuacaoHistorico.tipo_evento != 'BIMESTRE_BONUS'
             ).all()
             
-            pontuacao_final = 8.0  # Base inicial
+            pontuacao_final = 0.0  # Começa em zero pois o INICIO_ANO já está no histórico
             for h in historico:
                 pontuacao_final += float(h.valor_delta or 0)
             

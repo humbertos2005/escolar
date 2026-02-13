@@ -1,11 +1,15 @@
 import locale
 from flask import g
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base  # ADICIONADO declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base
 import os
+from dotenv import load_dotenv  # ← ADICIONAR
+
+# ← CARREGAR .ENV ANTES DE TUDO
+load_dotenv()
 
 # Definição do Base para uso com SQLAlchemy
-Base = declarative_base()  # <<--- LINHA CRUCIAL
+Base = declarative_base()
 
 # Tentar configurar localização brasileira
 try:
@@ -19,8 +23,13 @@ except:
         except:
             print("   [AVISO] Não foi possível configurar localização PT-BR")
 
-# Lê de .env ou variável de ambiente, ou usa SQLite padrão
-DATABASE_URL = os.environ.get("SQLALCHEMY_DATABASE_URI", f"sqlite:///{os.environ.get('DATABASE_FILE', 'escola.db')}")
+# Lê de .env (agora vai funcionar!)
+DATABASE_URL = os.environ.get("SQLALCHEMY_DATABASE_URI")
+
+# Se não encontrou, usa SQLite como fallback (mas avisa!)
+if not DATABASE_URL:
+    DATABASE_URL = f"sqlite:///{os.environ.get('DATABASE_FILE', 'escola.db')}"
+    print(f"   [AVISO] SQLALCHEMY_DATABASE_URI não encontrado no .env. Usando SQLite: {DATABASE_URL}")
 
 # Cria engine e sessionmaker
 engine = create_engine(DATABASE_URL, echo=False, future=True)
@@ -47,5 +56,5 @@ def init_db():
     """
     Inicializa o banco, criando todas as tabelas definidas em models_sqlalchemy.py.
     """
-    from models_sqlalchemy import Base  # Importa apenas aqui para evitar ciclos
+    from models_sqlalchemy import Base
     Base.metadata.create_all(bind=engine)
