@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="main-content-inner">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-calendar-check"></i> Gestão de Bimestres</h2>
+    <a href="{{ url_for('bimestres_bp.listar_bimestres') }}" class="btn btn-secondary">
+      <i class="fas fa-edit"></i> Editar Bimestres
+    </a>
+  </div>
+
+  {% if anos %}
+    <!-- Seletor de Ano -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <form method="get" class="form-inline">
+          <label class="mr-2"><strong>Ano Letivo:</strong></label>
+          <select name="ano" class="form-control mr-2" onchange="this.form.submit()">
+            {% for ano in anos %}
+            <option value="{{ ano }}" {% if ano == ano_selecionado %}selected{% endif %}>{{ ano }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+    </div>
+
+    {% if bimestres %}
+    <!-- Tabela de Bimestres -->
+    <div class="card">
+      <div class="card-header">
+        <h5>Bimestres de {{ ano_selecionado }}</h5>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th width="15%">Bimestre</th>
+              <th width="30%">Período</th>
+              <th width="20%">Alunos</th>
+              <th width="15%">Status</th>
+              <th width="20%">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for bim in bimestres %}
+            <tr>
+              <td><strong>{{ bim.numero }}º Bimestre</strong></td>
+              <td>
+                <i class="fas fa-calendar-alt text-muted"></i>
+                {{ bim.inicio|datetimeformat }} a {{ bim.fim|datetimeformat }}
+              </td>
+              <td>
+                <span class="text-muted">{{ bim.alunos_processados }} / {{ bim.total_alunos }}</span>
+              </td>
+              <td>
+                {% if bim.fechado %}
+                  <span class="badge badge-success">
+                    <i class="fas fa-check-circle"></i> Fechado
+                  </span>
+                {% else %}
+                  <span class="badge badge-warning">
+                    <i class="fas fa-unlock"></i> Aberto
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                {% if not bim.fechado %}
+                  <button type="button" class="btn btn-sm btn-primary" 
+                          onclick="confirmarFechamento({{ ano_selecionado }}, {{ bim.numero }}, {{ bim.total_alunos }})">
+                    <i class="fas fa-lock"></i> Fechar Bimestre
+                  </button>
+                {% else %}
+                  <span class="text-muted">
+                    <i class="fas fa-check"></i> Processado
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Informações -->
+    <div class="alert alert-info mt-4">
+      <h5><i class="fas fa-info-circle"></i> Como funciona o fechamento:</h5>
+      <ul class="mb-0">
+        <li><strong>Calcular pontuação final:</strong> O sistema soma todos os eventos do bimestre e salva em <code>medias_bimestrais</code></li>
+        <li><strong>Aplicar bônus bimestral:</strong> Alunos com pontuação ≥ 8.0 ganham +0.5 pontos no <strong>próximo bimestre</strong></li>
+        <li><strong>Ação irreversível:</strong> Após o fechamento, os dados ficam registrados no histórico</li>
+        <li><strong>Fechamento em sequência:</strong> Recomenda-se fechar os bimestres na ordem (1º, 2º, 3º, 4º)</li>
+      </ul>
+    </div>
+
+    <!-- Fechar Ano Letivo -->
+    {% set todos_fechados = (bimestres | selectattr('fechado') | list | length) == 4 %}
+    <div class="card mt-4 {% if not todos_fechados %}border-secondary{% else %}border-success{% endif %}">
+      <div class="card-body">
+        <h5>
+          <i class="fas fa-graduation-cap"></i> Fechar Ano Letivo {{ ano_selecionado }}
+        </h5>
+        <p class="text-muted mb-3">
+          Transfere o saldo final de todos os alunos para o ano {{ ano_selecionado + 1 }}.
+        </p>
+        {% if todos_fechados %}
+          <form method="post" action="{{ url_for('bimestres_bp.fechar_ano', ano=ano_selecionado) }}" 
+                onsubmit="return confirm('Confirma o fechamento do ano letivo {{ ano_selecionado }}?\n\nEsta ação transferirá o saldo de todos os alunos para {{ ano_selecionado + 1 }}.');">
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-check-double"></i> Fechar Ano Letivo {{ ano_selecionado }}
+            </button>
+          </form>
+        {% else %}
+          <button type="button" class="btn btn-secondary" disabled>
+            <i class="fas fa-lock"></i> Feche todos os 4 bimestres primeiro
+          </button>
+        {% endif %}
+      </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-warning">
+      <i class="fas fa-exclamation-triangle"></i>
+      Nenhum bimestre configurado para o ano {{ ano_selecionado }}.
+      <a href="{{ url_for('bimestres_bp.gerenciar_bimestres', ano=ano_selecionado) }}">Clique aqui para configurar</a>.
+    </div>
+    {% endif %}
+
+  {% else %}
+    <div class="alert alert-warning">
+      <i class="fas fa-exclamation-triangle"></i>
+      Nenhum ano configurado. 
+      <a href="{{ url_for('bimestres_bp.gerenciar_bimestres') }}">Clique aqui para criar bimestres</a>.
+    </div>
+  {% endif %}
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="modalConfirmacao" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">
+          <i class="fas fa-exclamation-triangle"></i> Confirmar Fechamento
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <h5 id="tituloModal"></h5>
+        <p class="text-muted">Esta ação irá:</p>
+        <ul>
+          <li>Calcular a pontuação final de <strong id="totalAlunos"></strong> alunos</li>
+          <li>Aplicar bônus de +0.5 para alunos com pontuação ≥ 8.0</li>
+          <li>Registrar os lançamentos no próximo bimestre</li>
+        </ul>
+        <div class="alert alert-warning">
+          <strong>Atenção:</strong> Esta ação não pode ser desfeita facilmente.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fas fa-times"></i> Cancelar
+        </button>
+        <form id="formFechar" method="post" style="display: inline;">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-check"></i> Confirmar Fechamento
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function confirmarFechamento(ano, bimestre, totalAlunos) {
+  document.getElementById('tituloModal').textContent = `Fechar ${bimestre}º Bimestre de ${ano}`;
+  document.getElementById('totalAlunos').textContent = totalAlunos;
+  document.getElementById('formFechar').action = `{{ url_for('bimestres_bp.fechar_bimestre', ano=0, bimestre=0) }}`.replace('/0/0', `/${ano}/${bimestre}`);
+  $('#modalConfirmacao').modal('show');
+}
+</script>
+
+<style>
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.badge {
+  font-size: 0.9em;
+  padding: 0.4em 0.8em;
+}
+.table td {
+  vertical-align: middle;
+}
+</style>
+{% endblock %}

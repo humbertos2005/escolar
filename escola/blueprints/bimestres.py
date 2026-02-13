@@ -153,3 +153,103 @@ def fechar_ano(ano):
 
     # Atualiza a página (mantém visualgação no modo iframe se necessário)
     return redirect(url_for('bimestres_bp.listar_bimestres'))
+
+@bimestres_bp.route('/gestao')
+@admin_required
+def gestao_bimestres():
+    """Página de gestão e fechamento de bimestres"""
+    db = get_db()
+    from sqlalchemy import text
+    
+    # Buscar todos os anos com bimestres
+    anos = [
+        row[0] for row in db.query(Bimestre.ano).distinct().order_by(Bimestre.ano.desc())
+    ]
+    
+    # Ano selecionado (padrão: mais recente)
+    ano_selecionado = request.args.get('ano', type=int)
+    if not ano_selecionado and anos:
+        ano_selecionado = anos[0]
+    
+    bimestres_info = []
+    if ano_selecionado:
+        # Buscar bimestres do ano
+        bimestres = db.query(Bimestre).filter_by(ano=ano_selecionado).order_by(Bimestre.numero).all()
+        
+        for bim in bimestres:
+            # Verificar se já foi fechado (se existe bônus no próximo bimestre)
+            if bim.numero == 4:
+                # 4º bimestre: verifica se tem bônus no 1º bim do próximo ano
+                ano_prox = ano_selecionado + 1
+                bim_prox = 1
+            else:
+                ano_prox = ano_selecionado
+                bim_prox = bim.numero + 1
+            
+            bonus_aplicado = db.execute(
+                text("""
+                    SELECT COUNT(*) 
+                    FROM pontuacao_historico 
+                    WHERE ano = :ano AND bimestre = :bim AND tipo_evento = 'BIMESTRE_BONUS'
+                """),
+                {"ano": ano_prox, "bim": bim_prox}
+            ).scalar()
+            
+            # Contar alunos processados
+            alunos_processados = db.execute(
+                text("""
+                    SELECT COUNT(*) 
+                    FROM medias_bimestrais 
+                    WHERE ano = :ano AND bimestre = :bim
+                """),
+                {"ano": ano_selecionado, "bim": bim.numero}
+            ).scalar()
+            
+            # Total de alunos elegíveis
+            total_alunos = db.execute(
+                text("""
+                    SELECT COUNT(DISTINCT id) 
+                    FROM alunos 
+                    WHERE data_matricula IS NOT NULL 
+                      AND data_matricula <= :data_fim
+                """),
+                {"data_fim": bim.fim}
+            ).scalar()
+            
+            bimestres_info.append({
+                'numero': bim.numero,
+                'inicio': bim.inicio,
+                'fim': bim.fim,
+                'fechado': bonus_aplicado > 0,
+                'alunos_processados': alunos_processados,
+                'total_alunos': total_alunos
+            })
+    
+    return render_template('cadastros/gestao_bimestres.html', 
+                          anos=anos, 
+                          ano_selecionado=ano_selecionado,
+                          bimestres=bimestres_info)
+
+@bimestres_bp.route('/fechar_bimestre/<int:ano>/<int:bimestre>', methods=['POST'])
+@admin_required
+def fechar_bimestre(ano, bimestre):
+    """Fecha um bimestre específico"""
+    try:
+        from scripts.pontuacao_rotinas import (
+            calcular_e_salvar_pontuacao_final_bimestre,
+            apply_bimestral_bonus
+        )
+        
+        # 1. Calcular pontuação final
+        calcular_e_salvar_pontuacao_final_bimestre(ano, bimestre, force=True)
+        
+        # 2. Aplicar bônus bimestral
+        apply_bimestral_bonus(ano, bimestre)
+        
+        flash(f'{bimestre}º Bimestre de {ano} fechado com sucesso!', 'success')
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao fechar bimestre: {e}', 'danger')
+    
+    return redirect(url_for('bimestres_bp.gestao_bimestres', ano=ano))
