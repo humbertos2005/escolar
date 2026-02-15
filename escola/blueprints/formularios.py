@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, current_app
 from database import get_db
 from .utils import login_required, admin_secundario_required
 from datetime import datetime, date
+from sqlalchemy import text
 from models_sqlalchemy import (
     FaltaDisciplinar, Ocorrencia, Aluno, FichaMedidaDisciplinar,
     Usuario, TipoOcorrencia, Bimestre, TabelaDisciplinarConfig,
@@ -224,17 +225,7 @@ def api_aluno_pontuacao():
 
     try:
         # ========================================
-        # NOVA LÓGICA: CALCULA PONTUAÇÃO DINÂMICA
-        # ========================================
-        from services.automated_pontuacao import calcular_pontuacao_aluno
-        
-        # Calcula a pontuação com TODOS os bônus aplicados
-        resultado = calcular_pontuacao_aluno(int(aluno_id))
-        pontuacao_calculada = resultado['pontuacao']
-        comportamento = resultado['comportamento']
-        
-        # ========================================
-        # DETERMINA ANO/BIMESTRE ATUAL
+        # CORREÇÃO: DETERMINA ANO/BIMESTRE PRIMEIRO
         # ========================================
         if not ano or not bimestre:
             hoje = datetime.now().strftime('%Y-%m-%d')
@@ -248,22 +239,57 @@ def api_aluno_pontuacao():
                 m = date.today().month
                 bimestre = ((m - 1) // 2) + 1
                 ano = date.today().year
+        
+        # Converter para int DEPOIS de garantir que têm valores
+        ano = int(ano)
+        bimestre = int(bimestre)
+
+        # ========================================
+        # AGORA SIM: CALCULA PONTUAÇÃO DINÂMICA
+        # ========================================
+        from services.automated_pontuacao import calcular_pontuacao_aluno
+        
+        resultado = calcular_pontuacao_aluno(
+            int(aluno_id), 
+            ano=ano, 
+            bimestre=bimestre
+        )
+        pontuacao_calculada = resultado['pontuacao']
+        comportamento = resultado['comportamento']
 
         # ========================================
         # BUSCA PONTUAÇÃO INICIAL DO BIMESTRE
         # ========================================
-        pb = db.query(PontuacaoBimestral).filter_by(
-            aluno_id=int(aluno_id), ano=int(ano), bimestre=int(bimestre)
-        ).first()
-        
-        pontuacao_inicial = float(pb.pontuacao_inicial) if pb else 8.0
+        # Para o 1º bimestre do aluno: pontuação inicial = 8.0
+        # Para demais bimestres: média final do bimestre anterior
+        if bimestre == 1:
+            pontuacao_inicial = 8.0
+        else:
+            # BUSCA MEDIA FINAL DO BIMESTRE ANTERIOR
+            media_ant = db.execute(
+                text("SELECT media FROM medias_bimestrais WHERE aluno_id = :aluno_id AND ano = :ano AND bimestre = :bimestre"),
+                {"aluno_id": int(aluno_id), "ano": int(ano), "bimestre": int(bimestre)-1}
+            ).fetchone()
+            if media_ant and media_ant[0] is not None:
+                pontuacao_inicial = float(media_ant[0])
+            else:
+                pontuacao_inicial = 8.0
         
         # ========================================
         # MONTA INFORMAÇÃO DE ACRÉSCIMO/BÔNUS
         # ========================================
         acrescimo_info = None
         
-        # Verifica última falta (evento negativo)
+        # Busca data fim do bimestre selecionado
+        bim_obj = db.query(Bimestre).filter_by(ano=ano, numero=bimestre).first()
+        data_referencia = datetime.now()
+        if bim_obj:
+            try:
+                data_referencia = datetime.strptime(bim_obj.fim[:10], '%Y-%m-%d')
+            except:
+                pass
+        
+        # Verifica última falta até o fim do bimestre
         last_negative = (
             db.query(PontuacaoHistorico)
             .filter(
@@ -275,10 +301,9 @@ def api_aluno_pontuacao():
         )
         
         if last_negative:
-            # Tem falta registrada - calcula dias desde a última
             try:
                 last_date = datetime.strptime(last_negative.criado_em[:19], '%Y-%m-%d %H:%M:%S')
-                diff_days = (datetime.now() - last_date).days
+                diff_days = (data_referencia - last_date).days
                 
                 if diff_days > 60:
                     dias_bonus = diff_days - 60
@@ -287,7 +312,6 @@ def api_aluno_pontuacao():
             except Exception:
                 pass
         else:
-            # Sem faltas - verifica data de matrícula
             aluno = db.query(Aluno).filter_by(id=int(aluno_id)).first()
             if aluno and aluno.data_matricula:
                 try:
@@ -297,7 +321,7 @@ def api_aluno_pontuacao():
                     else:
                         data_matricula = data_matricula_str
                     
-                    diff_days = (datetime.now() - data_matricula).days
+                    diff_days = (data_referencia - data_matricula).days
                     
                     if diff_days > 60:
                         dias_bonus = diff_days - 60
@@ -307,7 +331,7 @@ def api_aluno_pontuacao():
                     pass
         
         # ========================================
-        # RETORNA RESULTADO COM PONTUAÇÃO CALCULADA
+        # RETORNA RESULTADO
         # ========================================
         return jsonify({
             'pontuacao_inicial': round(pontuacao_inicial, 2),

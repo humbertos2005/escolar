@@ -458,33 +458,49 @@ def criar_media_bimestral_inicial_para_todos():
                     fim = datetime.strptime(fim[:10], "%Y-%m-%d").date()
                 if data_matricula > fim:
                     continue
-                # Atualiza a média inicial usando a média do bimestre anterior (teto 10)
                 if num == 1:
-                    media = 8.0
+                    media_inicial = 8.0
                 else:
-                    # Busca a média do bimestre anterior
-                    mb_anter = db.execute(
+                    # Busca a média FINAL do bimestre anterior para ser a inicial deste
+                    mb_ant = db.execute(
                         text("SELECT media FROM medias_bimestrais WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
                         {"a": aluno_id, "y": ano, "b": num - 1}
                     ).fetchone()
-                    media = float(mb_anter[0]) if mb_anter else 8.0
-                    if media > 10.0:
-                        media = 10.0
+                    if mb_ant and mb_ant[0] is not None:
+                        media_inicial = float(mb_ant[0])
+                        if media_inicial > 10.0:  # Garante teto
+                            media_inicial = 10.0
+                    else:
+                        media_inicial = 8.0
+
+                # ATUALIZA/INSERE A MÉDIA INICIAL PARA O BIMESTRE ATUAL
                 # Verifica se já existe média para este aluno/ano/bimestre
                 mb = db.execute(
                     text("SELECT 1 FROM medias_bimestrais WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
                     {"a": aluno_id, "y": ano, "b": num}
                 ).fetchone()
+
                 if mb:
-                    # Atualiza média se diferente
+                    # Atualiza média inicial se diferente
                     db.execute(
                         text("UPDATE medias_bimestrais SET media = :m WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
-                        {"m": media, "a": aluno_id, "y": ano, "b": num}
+                        {"m": media_inicial, "a": aluno_id, "y": ano, "b": num}
                     )
                 else:
                     db.execute(
                         text("INSERT INTO medias_bimestrais (aluno_id, ano, bimestre, media) VALUES (:a, :y, :b, :m)"),
-                        {"a": aluno_id, "y": ano, "b": num, "m": media}
+                        {"a": aluno_id, "y": ano, "b": num, "m": media_inicial}
+                    )
+                if mb:
+                    # Atualiza média se diferente
+                    db.execute(
+                        text("UPDATE medias_bimestrais SET media = :m WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                        {"m": media_inicial, "a": aluno_id, "y": ano, "b": num}
+                    )
+                else:
+                    db.execute(
+                        text("INSERT INTO medias_bimestrais (aluno_id, ano, bimestre, media) VALUES (:a, :y, :b, :m)"),
+                        {"a": aluno_id, "y": ano, "b": num, "m": media_inicial}
                     )
                     total_novos += 1
         db.commit()
