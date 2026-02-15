@@ -554,19 +554,51 @@ def calcular_e_salvar_pontuacao_final_bimestre(ano: int, bimestre: int, force=Fa
                 if existe:
                     continue
             
-            # CALCULA pontuação final do bimestre via histórico (SEM incluir BIMESTRE_BONUS)
+            # ========================================
+            # CORREÇÃO: PONTUAÇÃO INICIAL DO BIMESTRE
+            # ========================================
+            if bimestre == 1:
+                # 1º bimestre sempre começa com 8.0
+                pontuacao_final = 8.0
+            else:
+                # Bimestres seguintes: busca pontuação final do anterior
+                anterior = db.execute(
+                    text("SELECT media FROM medias_bimestrais WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                    {"a": aluno_id, "y": ano, "b": bimestre-1}
+                ).fetchone()
+                
+                if anterior and anterior[0] is not None:
+                    pontuacao_final = float(anterior[0])
+                else:
+                    # Fallback: se não há registro anterior, usa 8.0
+                    pontuacao_final = 8.0
+            
+            # ========================================
+            # SOMA OS EVENTOS DO BIMESTRE (exceto BIMESTRE_BONUS e TRANSFERENCIA_BIMESTRE)
+            # ========================================
             historico = db.query(PontuacaoHistorico).filter(
                 PontuacaoHistorico.aluno_id == aluno_id,
                 PontuacaoHistorico.ano == ano,
                 PontuacaoHistorico.bimestre == bimestre,
-                PontuacaoHistorico.tipo_evento != 'BIMESTRE_BONUS'
+                PontuacaoHistorico.tipo_evento.notin_(['BIMESTRE_BONUS', 'TRANSFERENCIA_BIMESTRE'])
             ).all()
             
-            pontuacao_final = 0.0  # Começa em zero pois o INICIO_ANO já está no histórico
             for h in historico:
                 pontuacao_final += float(h.valor_delta or 0)
             
-            # Aplica teto APENAS NO FINAL (não após cada delta individual)
+            # ========================================
+            # ADICIONA BÔNUS BIMESTRAL DO BIMESTRE ANTERIOR
+            # ========================================
+            if bimestre > 1:
+                media_anterior = db.execute(
+                    text("SELECT media FROM medias_bimestrais WHERE aluno_id = :a AND ano = :y AND bimestre = :b"),
+                    {"a": aluno_id, "y": ano, "b": bimestre-1}
+                ).fetchone()
+                
+                if media_anterior and float(media_anterior[0]) >= 8.0:
+                    pontuacao_final += 0.5
+            
+            # Aplica teto APENAS NO FINAL
             pontuacao_final = min(10.0, max(0.0, pontuacao_final))
             
             # Salva ou atualiza em medias_bimestrais

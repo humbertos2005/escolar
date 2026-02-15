@@ -12,12 +12,12 @@ from sqlalchemy import text
 
 def calcular_pontuacao_aluno(aluno_id, data_final=None, ano=None, bimestre=None):
     """
-    Calcula a pontuação do aluno considerando:
-    - Eventos disciplinares até a data_final
-    - Bonificações bimestrais
-    - Bônus de 60 dias sem perder pontos (ACUMULATIVO entre bimestres)
+    Calcula a pontuação do aluno com TODAS as regras corretas:
     
-    CORREÇÃO FINAL: Bônus acumula continuamente entre bimestres
+    1. Pontuação inicial = pontuação final do bimestre anterior (ou 8.0 se for o 1º)
+    2. Bônus de 60 dias ACUMULATIVO desde o início do ANO LETIVO (não desde matrícula)
+    3. Bonificação bimestral APENAS do bimestre imediatamente anterior
+    4. Data de referência = início do 1º bimestre (ou matrícula se posterior)
     """
     print(f"DEBUG - aluno_id: {aluno_id}, data_final: {data_final}, ano: {ano}, bimestre: {bimestre}")
     db = get_db()
@@ -43,7 +43,26 @@ def calcular_pontuacao_aluno(aluno_id, data_final=None, ano=None, bimestre=None)
         elif isinstance(data_final, str):
             data_final = datetime.strptime(data_final, '%Y-%m-%d').date()
 
-    pontuacao = 8.0
+    # ========================================
+    # DETERMINAR PONTUAÇÃO INICIAL DO BIMESTRE
+    # ========================================
+    if bimestre == 1:
+        # Primeiro bimestre sempre começa com 8.0
+        pontuacao = 8.0
+        print(f"DEBUG - Pontuação inicial (1º bimestre): 8.0")
+    else:
+        # Bimestres seguintes: pega média final do bimestre anterior
+        media_ant = db.execute(
+            text("SELECT media FROM medias_bimestrais WHERE aluno_id = :aluno_id AND ano = :ano AND bimestre = :bimestre"),
+            {"aluno_id": aluno_id, "ano": int(ano), "bimestre": int(bimestre)-1}
+        ).fetchone()
+        
+        if media_ant and media_ant[0] is not None:
+            pontuacao = float(media_ant[0])
+            print(f"DEBUG - Pontuação inicial (do bim anterior {int(bimestre)-1}): {pontuacao:.2f}")
+        else:
+            pontuacao = 8.0
+            print(f"DEBUG - Pontuação inicial (sem registro anterior): 8.0")
 
     # ========================================
     # 1. EVENTOS DISCIPLINARES (PENALIDADES/ELOGIOS)
@@ -68,36 +87,69 @@ def calcular_pontuacao_aluno(aluno_id, data_final=None, ano=None, bimestre=None)
         eventos_aplicados.append(evt)
         
         # Ignorar TRANSFERENCIA_BIMESTRE na soma direta
-        if evt.tipo_evento not in ["TRANSFERENCIA_BIMESTRE"]:
+        if evt.tipo_evento not in ["TRANSFERENCIA_BIMESTRE", "BIMESTRE_BONUS"]:
             pontuacao += float(evt.valor_delta)
             pontuacao = min(10.0, max(0.0, pontuacao))
-            print(f"DEBUG - Evento aplicado: {evt.tipo_evento}, delta: {evt.valor_delta}, pontuação: {pontuacao}")
+            print(f"DEBUG - Evento aplicado: {evt.tipo_evento}, delta: {evt.valor_delta}, pontuação: {pontuacao:.2f}")
         else:
-            print(f"DEBUG - Evento ignorado na soma direta: {evt.tipo_evento} em {evt_date}")
+            print(f"DEBUG - Evento ignorado na soma: {evt.tipo_evento} em {evt_date}")
 
     # ========================================
     # 2. BONIFICAÇÃO BIMESTRAL (média >= 8.0)
-    # CORREÇÃO: Aplicar apenas para bimestres ANTERIORES ao atual
+    # REGRA: Apenas do bimestre IMEDIATAMENTE ANTERIOR
     # ========================================
-    if ano and bimestre:
-        # Para o bimestre N, aplicar bônus dos bimestres 1 até N-1
-        for n in range(1, int(bimestre)):
-            mb = db.execute(
-                text("SELECT media FROM medias_bimestrais WHERE aluno_id = :aluno_id AND ano = :ano AND bimestre = :bimestre"),
-                {"aluno_id": aluno_id, "ano": int(ano), "bimestre": n}
-            ).fetchone()
-            
-            if mb and mb[0] >= 8.0:
-                pontuacao += 0.5
-                pontuacao = min(10.0, max(0.0, pontuacao))
-                print(f"DEBUG - Bônus bimestral aplicado: {ano}/{n}, média: {mb[0]:.2f}")
+    if bimestre > 1:
+        # Pega média do bimestre anterior
+        mb = db.execute(
+            text("SELECT media FROM medias_bimestrais WHERE aluno_id = :aluno_id AND ano = :ano AND bimestre = :bimestre"),
+            {"aluno_id": aluno_id, "ano": int(ano), "bimestre": int(bimestre)-1}
+        ).fetchone()
+        
+        if mb and mb[0] >= 8.0:
+            pontuacao += 0.5
+            pontuacao = min(10.0, max(0.0, pontuacao))
+            print(f"DEBUG - Bônus bimestral aplicado (bim {int(bimestre)-1}): +0.5, média: {mb[0]:.2f}")
 
     # ========================================
     # 3. BONIFICAÇÃO DOS 60 DIAS SEM PERDER PONTO
-    # CORREÇÃO CRÍTICA: Cálculo ACUMULATIVO contínuo
+    # REGRA CRÍTICA: Acumulativo desde INÍCIO DO 1º BIMESTRE do ano
     # ========================================
     
-    # Encontra a data de referência (último evento negativo ou matrícula)
+    # Busca o 1º bimestre do ano
+    bim_1 = db.query(Bimestre).filter_by(ano=int(ano), numero=1).first()
+    if not bim_1:
+        print("DEBUG - ERRO: 1º bimestre não encontrado!")
+        data_inicio_ano = data_final
+    else:
+        data_inicio_ano = bim_1.inicio
+        if isinstance(data_inicio_ano, str):
+            data_inicio_ano = datetime.strptime(data_inicio_ano[:10], '%Y-%m-%d').date()
+    
+    # Busca data de matrícula
+    matricula_row = db.execute(
+        text("SELECT data_matricula FROM alunos WHERE id = :aluno_id"),
+        {"aluno_id": aluno_id}
+    ).fetchone()
+    
+    data_matricula = None
+    if matricula_row and matricula_row[0]:
+        data_matricula = matricula_row[0]
+        if isinstance(data_matricula, str):
+            data_matricula = datetime.strptime(data_matricula[:10], '%Y-%m-%d').date()
+    
+    # REGRA: Se matriculado ANTES do 1º bim, referência = início do 1º bim
+    #        Se matriculado DEPOIS, referência = data de matrícula
+    if data_matricula and data_matricula < data_inicio_ano:
+        data_referencia_inicial = data_inicio_ano
+        tipo_referencia = f"início do 1º bimestre (matrícula anterior: {data_matricula})"
+    elif data_matricula:
+        data_referencia_inicial = data_matricula
+        tipo_referencia = "matrícula (posterior ao início do ano)"
+    else:
+        data_referencia_inicial = data_inicio_ano
+        tipo_referencia = "início do 1º bimestre (sem data de matrícula)"
+    
+    # Verifica se houve alguma falta que reseta a contagem
     eventos_negativos = [
         (evt.criado_em if not isinstance(evt.criado_em, str) 
          else datetime.strptime(evt.criado_em[:10], '%Y-%m-%d').date())
@@ -106,37 +158,64 @@ def calcular_pontuacao_aluno(aluno_id, data_final=None, ano=None, bimestre=None)
     ]
 
     if eventos_negativos:
-        # Último evento negativo
+        # Última falta reseta a contagem
         data_referencia = max(eventos_negativos)
-        tipo_referencia = "última falta"
+        tipo_referencia = f"última falta em {data_referencia}"
     else:
-        # Sem faltas: usar data de matrícula
-        matricula_row = db.execute(
-            text("SELECT data_matricula FROM alunos WHERE id = :aluno_id"),
-            {"aluno_id": aluno_id}
-        ).fetchone()
-        
-        if matricula_row and matricula_row[0]:
-            data_matricula = matricula_row[0]
-            if isinstance(data_matricula, str):
-                data_matricula = datetime.strptime(data_matricula[:10], '%Y-%m-%d').date()
-            data_referencia = data_matricula
-            tipo_referencia = "matrícula"
-        else:
-            # Fallback: início do bimestre atual
-            bim_obj = db.query(Bimestre).filter_by(ano=int(ano), numero=int(bimestre)).first()
-            if bim_obj:
-                data_referencia = bim_obj.inicio
-                if isinstance(data_referencia, str):
-                    data_referencia = datetime.strptime(data_referencia[:10], '%Y-%m-%d').date()
-            else:
-                data_referencia = data_final
-            tipo_referencia = "início do bimestre"
+        # Sem faltas: usa referência inicial
+        data_referencia = data_referencia_inicial
 
-    # Calcula TOTAL de dias sem perder ponto (acumulativo)
-    dias_sem_perda = (data_final - data_referencia).days + 1
-    print(f"DEBUG - Referência para bônus: {tipo_referencia} em {data_referencia}")
-    print(f"DEBUG - Dias sem perda de pontos (ACUMULATIVO): {dias_sem_perda}")
+    # ========================================
+    # CORREÇÃO: SOMA DIAS DE CADA BIMESTRE
+    # ========================================
+    
+    # Busca todos os bimestres do ano até o bimestre atual
+    bimestres_ano = db.query(Bimestre).filter_by(ano=int(ano)).filter(
+        Bimestre.numero <= int(bimestre)
+    ).order_by(Bimestre.numero).all()
+    
+    total_dias = 0
+    detalhes_dias = []
+    
+    for bim in bimestres_ano:
+        bim_inicio = bim.inicio
+        bim_fim = bim.fim
+        
+        # Converte para date se necessário
+        if isinstance(bim_inicio, str):
+            bim_inicio = datetime.strptime(bim_inicio[:10], '%Y-%m-%d').date()
+        if isinstance(bim_fim, str):
+            bim_fim = datetime.strptime(bim_fim[:10], '%Y-%m-%d').date()
+        
+        # Ajusta as datas conforme a referência e o bimestre atual
+        if bim.numero == 1:
+            # 1º bimestre: usar a data de referência como início
+            inicio_calculo = max(data_referencia, bim_inicio)
+        else:
+            # Demais bimestres: usar início do bimestre
+            inicio_calculo = bim_inicio
+        
+        # Se for o bimestre atual, usar data_final
+        if bim.numero == int(bimestre):
+            fim_calculo = data_final
+        else:
+            fim_calculo = bim_fim
+        
+        # Calcula dias deste bimestre
+        dias_bimestre = (fim_calculo - inicio_calculo).days + 1
+        
+        # Só conta se for positivo
+        if dias_bimestre > 0:
+            total_dias += dias_bimestre
+            detalhes_dias.append(f"{bim.numero}º:{dias_bimestre}d")
+    
+    # Atualiza variável para manter compatibilidade
+    dias_sem_perda = total_dias
+    
+    print(f"DEBUG - Início do 1º bimestre: {data_inicio_ano}")
+    print(f"DEBUG - Data de matrícula: {data_matricula}")
+    print(f"DEBUG - Referência para bônus: {tipo_referencia}")
+    print(f"DEBUG - Bimestres: {' + '.join(detalhes_dias)} = {dias_sem_perda} dias")
 
     if dias_sem_perda > 60:
         dias_bonus = dias_sem_perda - 60
@@ -153,6 +232,8 @@ def calcular_pontuacao_aluno(aluno_id, data_final=None, ano=None, bimestre=None)
         print(f"DEBUG - Bônus bruto calculado: {bonus_bruto:.2f} pontos")
         print(f"DEBUG - Espaço disponível até 10.0: {espaco_disponivel:.2f}")
         print(f"DEBUG - Bônus aplicado (limitado): {bonus_aplicado:.2f} pontos")
+    else:
+        print(f"DEBUG - Menos de 60 dias, sem bônus aplicado")
 
     # ========================================
     # 4. CLASSIFICAÇÃO
